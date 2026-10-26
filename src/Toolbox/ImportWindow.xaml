@@ -1,0 +1,64 @@
+<Window x:Class="Toolbox.ImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nhập gói" Width="700" Height="500" MinHeight="320"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="20,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
+                <Button Content="Nhập" IsDefault="True" Click="OnImport" MinWidth="90" Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Border>
+
+        <DockPanel Margin="20,16,20,12">
+            <TextBlock x:Name="HeaderText" DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold" />
+            <Border x:Name="WarningBox" DockPanel.Dock="Top" Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource WarnLine}"
+                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" Foreground="{StaticResource WarnInk}"
+                               Margin="0,0,10,0" />
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" VerticalAlignment="Center"
+                               Text="Gói có file chạy được (exe/script). Chỉ nhập gói từ người bạn tin cậy." />
+                </DockPanel>
+            </Border>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                <TextBlock Text="Giải nén vào" Style="{StaticResource FieldLabel}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Chọn…" Click="OnBrowse" Margin="8,0,0,0" />
+                    <TextBox x:Name="DestinationBox" />
+                </DockPanel>
+            </StackPanel>
+
+            <ListBox x:Name="RowList" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Tool.Name}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Info}" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"
+                                        Visibility="{Binding ConflictVisibility}">
+                                <TextBlock Text="Đã có id này:" Foreground="{StaticResource WarnInk}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox SelectedIndex="{Binding ResolutionIndex}" Width="130">
+                                    <ComboBoxItem Content="Giữ cả hai" />
+                                    <ComboBoxItem Content="Thay thế" />
+                                    <ComboBoxItem Content="Bỏ qua" />
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+    </DockPanel>
+</Window>

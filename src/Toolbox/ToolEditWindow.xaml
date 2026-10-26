@@ -1,0 +1,69 @@
+<Window x:Class="Toolbox.ToolEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Thêm tool" Width="600" SizeToContent="Height" ResizeMode="NoResize"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="20,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
+                <Button Content="Lưu" IsDefault="True" Click="OnSave" MinWidth="90" Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Margin="20,18,20,8">
+            <TextBlock Text="Đường dẫn *" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,14">
+                <Button DockPanel.Dock="Right" Content="Thư mục…" Click="OnBrowseFolder" Margin="6,0,0,0" />
+                <Button DockPanel.Dock="Right" Content="File…" Click="OnBrowseFile" Margin="8,0,0,0" />
+                <TextBox x:Name="PathBox" LostFocus="OnPathChanged" />
+            </DockPanel>
+
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Tên *" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="NameBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Tham số" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="ArgsBox" ToolTip="Tham số dòng lệnh mặc định khi chạy" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="Mô tả" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="DescriptionBox" Height="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
+                     VerticalScrollBarVisibility="Auto" />
+            <TextBlock Text="Viết rõ tool làm gì — agent đọc mô tả này để biết khi nào dùng." Style="{StaticResource Hint}"
+                       Margin="0,4,0,14" />
+
+            <TextBlock Text="Tag" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="TagsBox" />
+            <TextBlock Text="Cách nhau bởi dấu phẩy, vd: modbus, plc" Style="{StaticResource Hint}" Margin="0,4,0,14" />
+
+            <TextBlock Text="Khi đóng gói" Style="{StaticResource FieldLabel}" />
+            <ComboBox x:Name="PackCombo" Margin="0,0,0,8" SelectionChanged="OnPackChanged">
+                <!-- Thứ tự khớp enum PackMode: Folder, File, None, Setup -->
+                <ComboBoxItem Content="Lấy cả thư mục chứa tool" />
+                <ComboBoxItem Content="Chỉ lấy file này" />
+                <ComboBoxItem Content="Chỉ gửi thông tin (người nhận tự cài app)" />
+                <ComboBoxItem Content="Kèm bộ cài (app phải cài đặt, vd: VSPE)" />
+            </ComboBox>
+
+            <StackPanel x:Name="SetupPanel" Visibility="Collapsed" Margin="0,6,0,8">
+                <TextBlock Text="File bộ cài *" Style="{StaticResource FieldLabel}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Chọn…" Click="OnBrowseSetup" Margin="8,0,0,0" />
+                    <TextBox x:Name="SetupBox" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="File setup (.exe/.msi) gửi kèm trong gói. Máy nhận chưa có app thì card hiện nút Cài đặt; cài xong là chạy được." />
+            </StackPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>
