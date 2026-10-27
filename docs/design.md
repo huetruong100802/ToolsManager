@@ -95,6 +95,7 @@ Trước khi lưu, Toolbox hiện tổng dung lượng và danh sách thư mục
 - **Toàn bộ máy** (scope `user`) hoặc từng **workspace Claude Code** (scope `local`, riêng cho người dùng, không ghi `.mcp.json` vào repo). Danh sách workspace lấy từ `projects` trong `~/.claude.json` (gộp các cách viết `C:/a`, `c:/a`, bỏ thư mục không còn); thư mục chưa có trong danh sách thì bấm **Thư mục khác…**.
 - Mỗi dòng có trạng thái *Chưa kết nối / Đã kết nối / Trỏ tới exe khác* và nút **Kết nối**, **Kết nối lại**, **Huỷ kết nối**. Toolbox chỉ đọc `~/.claude.json`; ghi thì gọi `claude mcp add/remove` (Claude Code tự quản file này). Máy không có CLI `claude` thì báo lỗi kèm lệnh để tự chạy.
 - Đang chạy bản tải về (chưa cài) thì hỏi cài vào máy trước, để agent không mất kết nối khi file bị xoá hoặc di chuyển.
+- **desk-mcp…** (nút riêng ngoài cửa sổ chính): khai báo [desk-mcp](https://github.com/DigitalDog1/desk-mcp) (điều khiển giao diện Windows) vào Claude Code theo cùng cách: toàn máy hoặc từng workspace, và **Gỡ cài**. Lệnh khởi chạy là `cmd /c npx -y desk-mcp`, cần Node.js 20+ trên PATH; Toolbox không cài gói trước, npx tải khi agent khởi động server. Không có scope ghi vào repo.
 - Claude Desktop/Cursor và VS Code/Copilot vẫn khai báo tay: mỗi client một khối JSON với nút Copy riêng.
 
 | MCP tool | Làm gì |

@@ -11,30 +11,43 @@ namespace Toolbox.Core
     {
         NotConnected,
         Connected,
-        /// <summary>Có khai báo "toolbox" nhưng trỏ tới exe khác hoặc file không còn.</summary>
+        /// <summary>Có khai báo nhưng trỏ tới exe khác hoặc file không còn.</summary>
         Stale,
     }
 
-    /// <summary>Một chỗ Claude Code dùng được Toolbox: toàn máy (scope user) hoặc một workspace (scope local).</summary>
+    /// <summary>Một khai báo MCP server trong ~/.claude.json (toàn máy hoặc một workspace).</summary>
+    public sealed class McpEntry
+    {
+        /// <summary>Lệnh của server; null nếu khai báo không có command (vd kiểu url).</summary>
+        public string Command { get; set; }
+
+        /// <summary>
+        /// Các cách viết của workspace trong ~/.claude.json đang có server này
+        /// (Claude Code lưu theo thư mục lúc chạy nên "C:/a" và "c:/a" là hai key khác nhau).
+        /// </summary>
+        public List<string> ConfiguredKeys { get; } = new List<string>();
+    }
+
+    /// <summary>Một chỗ Claude Code dùng được MCP: toàn máy (scope user) hoặc một workspace (scope local).</summary>
     public sealed class ClaudeTarget
     {
         /// <summary>null = toàn máy.</summary>
         public string Workspace { get; set; }
 
-        /// <summary>Lệnh của MCP server "toolbox" đang khai báo; null nếu chưa có.</summary>
-        public string Command { get; set; }
+        /// <summary>Khai báo theo tên server (toolbox, desk-mcp…).</summary>
+        public Dictionary<string, McpEntry> Servers { get; } = new Dictionary<string, McpEntry>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>
-        /// Các cách viết của workspace trong ~/.claude.json đang có server "toolbox"
-        /// (Claude Code lưu theo thư mục lúc chạy nên "C:/a" và "c:/a" là hai key khác nhau).
-        /// </summary>
-        public List<string> ConfiguredKeys { get; } = new List<string>();
+        public McpEntry Entry(string server) => Servers.TryGetValue(server, out var entry) ? entry : null;
 
-        public AgentLink LinkTo(params string[] toolboxExes)
+        /// <param name="exes">Các exe được coi là đúng. Rỗng = không kiểm tra exe, có khai báo là đã kết nối.</param>
+        public AgentLink LinkTo(string server, params string[] exes)
         {
-            if (Command == null)
+            var entry = Entry(server);
+            if (entry == null)
                 return AgentLink.NotConnected;
-            return File.Exists(Command) && toolboxExes.Any(e => string.Equals(e, Command, StringComparison.OrdinalIgnoreCase))
+            if (exes.Length == 0)
+                return AgentLink.Connected;
+            return entry.Command != null && File.Exists(entry.Command) && exes.Any(e => string.Equals(e, entry.Command, StringComparison.OrdinalIgnoreCase))
                 ? AgentLink.Connected
                 : AgentLink.Stale;
         }
@@ -47,12 +60,12 @@ namespace Toolbox.Core
     }
 
     /// <summary>
-    /// Kết nối Toolbox vào Claude Code. Trạng thái đọc từ ~/.claude.json; ghi thì qua CLI `claude mcp add/remove`,
+    /// Kết nối MCP server vào Claude Code. Trạng thái đọc từ ~/.claude.json; ghi thì qua CLI `claude mcp add/remove`,
     /// vì Claude Code tự quản file đó và các phiên đang mở cũng ghi vào.
     /// </summary>
     public static class ClaudeCode
     {
-        public const string ServerName = "toolbox";
+        public const string ToolboxServer = "toolbox";
 
         private static readonly TimeSpan CliTimeout = TimeSpan.FromSeconds(60);
 
@@ -60,7 +73,7 @@ namespace Toolbox.Core
 
         public static string DefaultConfigPath => Path.Combine(UserProfile, ".claude.json");
 
-        /// <summary>Đọc khai báo "toolbox" toàn máy và theo từng workspace Claude Code đã mở (chỉ giữ thư mục còn tồn tại).</summary>
+        /// <summary>Đọc mọi khai báo MCP toàn máy và theo từng workspace Claude Code đã mở (chỉ giữ thư mục còn tồn tại).</summary>
         public static ClaudeConfig ReadConfig(string path)
         {
             var config = new ClaudeConfig();
@@ -79,7 +92,9 @@ namespace Toolbox.Core
             if (root == null)
                 return config;
 
-            config.User.Command = CommandOf(root);
+            foreach (var server in ServersOf(root))
+                config.User.Servers[server.Key] = server.Value;
+
             if (root.TryGetValue("projects", out var value) && value is Dictionary<string, object> projects)
             {
                 foreach (var group in projects.GroupBy(p => DisplayPath(p.Key), StringComparer.OrdinalIgnoreCase))
@@ -89,11 +104,13 @@ namespace Toolbox.Core
                     var target = new ClaudeTarget { Workspace = group.Key };
                     foreach (var project in group)
                     {
-                        var command = CommandOf(project.Value as Dictionary<string, object>);
-                        if (command == null)
-                            continue;
-                        target.Command = target.Command ?? command;
-                        target.ConfiguredKeys.Add(project.Key.Replace('/', '\\'));
+                        foreach (var server in ServersOf(project.Value as Dictionary<string, object>))
+                        {
+                            if (!target.Servers.TryGetValue(server.Key, out var entry))
+                                target.Servers[server.Key] = entry = new McpEntry { Command = server.Value.Command };
+                            entry.Command = entry.Command ?? server.Value.Command;
+                            entry.ConfiguredKeys.Add(project.Key.Replace('/', '\\'));
+                        }
                     }
                     config.Workspaces.Add(target);
                 }
@@ -104,38 +121,46 @@ namespace Toolbox.Core
         /// <summary>Tìm `claude` trên PATH (bản cài native là .exe, bản npm là .cmd), rồi tới chỗ cài mặc định.</summary>
         public static string FindCli()
         {
+            var found = FindOnPath("claude.exe", "claude.cmd");
+            if (found != null)
+                return found;
+            return FindIn(Path.Combine(UserProfile, ".local", "bin"), "claude.exe", "claude.cmd")
+                ?? FindIn(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm"), "claude.exe", "claude.cmd");
+        }
+
+        /// <summary>Tìm một file thực thi trên PATH; null nếu không có.</summary>
+        public static string FindOnPath(params string[] names)
+        {
             var dirs = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';')
                 .Select(d => d.Trim().Trim('"'))
-                .Where(d => d.Length > 0)
-                .Concat(new[]
-                {
-                    Path.Combine(UserProfile, ".local", "bin"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm"),
-                });
-            foreach (var dir in dirs)
+                .Where(d => d.Length > 0);
+            return dirs.Select(d => FindIn(d, names)).FirstOrDefault(f => f != null);
+        }
+
+        private static string FindIn(string dir, params string[] names)
+        {
+            foreach (var name in names)
             {
-                foreach (var name in new[] { "claude.exe", "claude.cmd" })
+                try
                 {
-                    try
-                    {
-                        var candidate = Path.Combine(dir, name);
-                        if (File.Exists(candidate))
-                            return candidate;
-                    }
-                    catch (ArgumentException)
-                    {
-                        // PATH có mục chứa ký tự không hợp lệ: bỏ qua.
-                    }
+                    var candidate = Path.Combine(dir, name);
+                    if (File.Exists(candidate))
+                        return candidate;
+                }
+                catch (ArgumentException)
+                {
+                    // Mục PATH chứa ký tự không hợp lệ: bỏ qua.
                 }
             }
             return null;
         }
 
-        public static string AddArguments(string workspace, string exe) =>
-            $"mcp add --scope {Scope(workspace)} {ServerName} -- \"{exe}\" --mcp";
+        /// <param name="commandArgs">Phần sau "--": lệnh khởi chạy server và tham số của nó.</param>
+        public static string AddArguments(string server, string workspace, string commandArgs) =>
+            $"mcp add --scope {Scope(workspace)} {server} -- {commandArgs}";
 
-        public static string RemoveArguments(string workspace) =>
-            $"mcp remove --scope {Scope(workspace)} {ServerName}";
+        public static string RemoveArguments(string server, string workspace) =>
+            $"mcp remove --scope {Scope(workspace)} {server}";
 
         /// <summary>Scope local lấy workspace theo thư mục làm việc của lệnh claude.</summary>
         public static ProcessStartInfo CreateCliStartInfo(string cli, string arguments, string workspace)
@@ -152,26 +177,26 @@ namespace Toolbox.Core
             return info;
         }
 
-        /// <summary>Khai báo Toolbox cho <paramref name="target"/>; khai báo cũ (trỏ exe khác) bị gỡ trước.</summary>
-        public static void Connect(string cli, ClaudeTarget target, string exe)
+        /// <summary>Khai báo server cho <paramref name="target"/>; khai báo cũ của cùng server bị gỡ trước.</summary>
+        public static void Connect(string cli, ClaudeTarget target, string server, string commandArgs)
         {
-            if (target.Command != null)
-                Disconnect(cli, target);
-            RunCli(cli, AddArguments(target.Workspace, exe), target.Workspace);
+            if (target.Entry(server) != null)
+                Disconnect(cli, target, server);
+            RunCli(cli, AddArguments(server, target.Workspace, commandArgs), target.Workspace);
         }
 
-        public static void Disconnect(string cli, ClaudeTarget target)
+        public static void Disconnect(string cli, ClaudeTarget target, string server)
         {
             if (target.Workspace == null)
             {
-                RunCli(cli, RemoveArguments(null), null);
+                RunCli(cli, RemoveArguments(server, null), null);
                 return;
             }
-            foreach (var key in target.ConfiguredKeys)
-                RunCli(cli, RemoveArguments(key), key);
+            foreach (var key in target.Entry(server)?.ConfiguredKeys ?? new List<string>())
+                RunCli(cli, RemoveArguments(server, key), key);
         }
 
-        private static void RunCli(string cli, string arguments, string workspace)
+        public static void RunCli(string cli, string arguments, string workspace)
         {
             var result = Runner.Capture(CreateCliStartInfo(cli, arguments, workspace), CliTimeout);
             if (result.TimedOut)
@@ -193,12 +218,20 @@ namespace Toolbox.Core
             return path;
         }
 
-        private static string CommandOf(Dictionary<string, object> scope) =>
-            scope != null
-            && scope.TryGetValue("mcpServers", out var servers) && servers is Dictionary<string, object> byName
-            && byName.TryGetValue(ServerName, out var server) && server is Dictionary<string, object> entry
-            && entry.TryGetValue("command", out var command)
-                ? command as string
-                : null;
+        /// <summary>Mọi server trong mục mcpServers của một scope (toàn máy hoặc một project).</summary>
+        private static Dictionary<string, McpEntry> ServersOf(Dictionary<string, object> scope)
+        {
+            var result = new Dictionary<string, McpEntry>(StringComparer.OrdinalIgnoreCase);
+            if (scope == null || !scope.TryGetValue("mcpServers", out var servers) || !(servers is Dictionary<string, object> byName))
+                return result;
+            foreach (var server in byName)
+            {
+                if (!(server.Value is Dictionary<string, object> entry))
+                    continue;
+                var command = entry.TryGetValue("command", out var c) ? c as string : null;
+                result[server.Key] = new McpEntry { Command = command };
+            }
+            return result;
+        }
     }
 }

@@ -7,6 +7,8 @@ namespace Toolbox.Tests
 {
     public class ClaudeCodeTests
     {
+        private const string ToolboxServer = "toolbox";
+
         private static string Json(string path) => path.Replace("\\", "\\\\");
 
         [Fact]
@@ -30,14 +32,14 @@ namespace Toolbox.Tests
 
                 var result = ClaudeCode.ReadConfig(config);
 
-                Assert.Equal(exe, result.User.Command);
-                Assert.Equal(AgentLink.Connected, result.User.LinkTo(exe));
+                Assert.Equal(exe, result.User.Entry(ToolboxServer).Command);
+                Assert.Equal(AgentLink.Connected, result.User.LinkTo(ToolboxServer, exe));
                 var workspace = Assert.Single(result.Workspaces); // thư mục đã xoá bị bỏ
                 Assert.Equal(repo, workspace.Workspace);
-                Assert.Equal(@"C:\old\Toolbox.exe", workspace.Command);
-                Assert.Equal(AgentLink.Stale, workspace.LinkTo(exe));
+                Assert.Equal(@"C:\old\Toolbox.exe", workspace.Entry(ToolboxServer).Command);
+                Assert.Equal(AgentLink.Stale, workspace.LinkTo(ToolboxServer, exe));
                 // Gỡ phải chạy ở đúng cách viết đang có khai báo.
-                Assert.Equal(new[] { lowerRepo.Replace('/', '\\') + "\\" }, workspace.ConfiguredKeys);
+                Assert.Equal(new[] { lowerRepo.Replace('/', '\\') + "\\" }, workspace.Entry(ToolboxServer).ConfiguredKeys);
             }
         }
 
@@ -48,7 +50,7 @@ namespace Toolbox.Tests
             {
                 var result = ClaudeCode.ReadConfig(dir.Combine(".claude.json"));
 
-                Assert.Null(result.User.Command);
+                Assert.Null(result.User.Entry(ToolboxServer));
                 Assert.Empty(result.Workspaces);
             }
         }
@@ -65,23 +67,43 @@ namespace Toolbox.Tests
         }
 
         [Fact]
+        public void ReadConfig_NhieuServer_TachRiengTungTen()
+        {
+            using (var dir = new TempDir())
+            {
+                var config = dir.WriteFile(".claude.json", @"{
+  ""mcpServers"": {
+    ""toolbox"": { ""command"": ""C:\\a\\Toolbox.exe"" },
+    ""desk-mcp"": { ""command"": ""cmd"", ""args"": [""/c"", ""npx"", ""-y"", ""desk-mcp""] }
+  }
+}");
+
+                var result = ClaudeCode.ReadConfig(config);
+
+                Assert.Equal("C:\\a\\Toolbox.exe", result.User.Entry(ToolboxServer).Command);
+                Assert.Equal("cmd", result.User.Entry(DeskMcp.ServerName).Command);
+            }
+        }
+
+        [Fact]
         public void LinkTo_ExeKhongConTonTai_LaStale()
         {
-            var target = new ClaudeTarget { Command = @"C:\khong-co\Toolbox.exe" };
+            var target = new ClaudeTarget();
+            target.Servers[ToolboxServer] = new McpEntry { Command = @"C:\khong-co\Toolbox.exe" };
 
-            Assert.Equal(AgentLink.Stale, target.LinkTo(@"C:\khong-co\Toolbox.exe"));
-            Assert.Equal(AgentLink.NotConnected, new ClaudeTarget().LinkTo(@"C:\khong-co\Toolbox.exe"));
+            Assert.Equal(AgentLink.Stale, target.LinkTo(ToolboxServer, @"C:\khong-co\Toolbox.exe"));
+            Assert.Equal(AgentLink.NotConnected, new ClaudeTarget().LinkTo(ToolboxServer, @"C:\khong-co\Toolbox.exe"));
         }
 
         [Fact]
         public void Cli_ToanMayDungScopeUser_WorkspaceDungScopeLocalTaiThuMucDo()
         {
-            var add = ClaudeCode.CreateCliStartInfo(@"C:\bin\claude.exe", ClaudeCode.AddArguments(null, @"C:\a b\Toolbox.exe"), null);
+            var add = ClaudeCode.CreateCliStartInfo(@"C:\bin\claude.exe", ClaudeCode.AddArguments(ToolboxServer, null, "\"C:\\a b\\Toolbox.exe\" --mcp"), null);
             Assert.Equal(@"C:\bin\claude.exe", add.FileName);
             Assert.Equal("mcp add --scope user toolbox -- \"C:\\a b\\Toolbox.exe\" --mcp", add.Arguments);
             Assert.True(add.RedirectStandardInput); // không để claude đọc stdin của Toolbox
 
-            var remove = ClaudeCode.CreateCliStartInfo(@"C:\bin\claude.exe", ClaudeCode.RemoveArguments(@"C:\repo"), @"C:\repo");
+            var remove = ClaudeCode.CreateCliStartInfo(@"C:\bin\claude.exe", ClaudeCode.RemoveArguments(ToolboxServer, @"C:\repo"), @"C:\repo");
             Assert.Equal("mcp remove --scope local toolbox", remove.Arguments);
             Assert.Equal(@"C:\repo", remove.WorkingDirectory);
         }
@@ -89,7 +111,7 @@ namespace Toolbox.Tests
         [Fact]
         public void Cli_BanNpmLaCmd_ChayQuaCmdExe()
         {
-            var info = ClaudeCode.CreateCliStartInfo(@"C:\npm\claude.cmd", ClaudeCode.RemoveArguments(null), null);
+            var info = ClaudeCode.CreateCliStartInfo(@"C:\npm\claude.cmd", ClaudeCode.RemoveArguments(ToolboxServer, null), null);
 
             Assert.Equal("cmd.exe", info.FileName);
             Assert.Equal("/d /s /c \"\"C:\\npm\\claude.cmd\" mcp remove --scope user toolbox\"", info.Arguments);

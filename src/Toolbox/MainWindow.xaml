@@ -17,6 +17,8 @@
                             <TextBlock Text="Kết nối agent…" />
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource GhostButton}" Click="OnDeskMcp" Margin="0,0,6,0"
+                            AutomationProperties.Name="desk-mcp…" Content="desk-mcp…" />
                     <Button Click="OnImport" Margin="0,0,8,0" AutomationProperties.Name="Nhập gói…">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" Margin="0,0,7,0" />

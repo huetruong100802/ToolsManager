@@ -62,12 +62,12 @@ $@"{{
 
             // Bản đang chạy hoặc bản đã cài đều tính là "đúng exe".
             var exes = new[] { _currentExe, _installer.InstalledExe };
-            var user = new TargetRow(config.User, "Toàn bộ máy", "Mọi workspace Claude Code đều dùng được (scope user)", exes);
+            var user = new TargetRow(config.User, ClaudeCode.ToolboxServer, "Toàn bộ máy", "Mọi workspace Claude Code đều dùng được (scope user)", exes);
             UserRow.Content = user;
             UserHint.Visibility = user.Link == AgentLink.Connected ? Visibility.Visible : Visibility.Collapsed;
 
             _workspaces = config.Workspaces
-                .Select(w => new TargetRow(w, Path.GetFileName(w.Workspace), w.Workspace, exes))
+                .Select(w => new TargetRow(w, ClaudeCode.ToolboxServer, Path.GetFileName(w.Workspace), w.Workspace, exes))
                 .OrderBy(r => r.Link == AgentLink.NotConnected)
                 .ThenBy(r => r.Target.Workspace, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -88,7 +88,7 @@ $@"{{
         private async void OnDisconnect(object sender, RoutedEventArgs e)
         {
             var target = RowOf(sender).Target;
-            await RunCli(cli => ClaudeCode.Disconnect(cli, target), null);
+            await RunCli(cli => ClaudeCode.Disconnect(cli, target, ClaudeCode.ToolboxServer), null);
         }
 
         private async void OnPickWorkspace(object sender, RoutedEventArgs e)
@@ -109,7 +109,11 @@ $@"{{
         {
             var exe = ChooseExe();
             if (exe != null)
-                await RunCli(cli => ClaudeCode.Connect(cli, target, exe), "claude " + ClaudeCode.AddArguments(target.Workspace, exe));
+            {
+                var commandArgs = $"\"{exe}\" --mcp";
+                await RunCli(cli => ClaudeCode.Connect(cli, target, ClaudeCode.ToolboxServer, commandArgs),
+                    "claude " + ClaudeCode.AddArguments(ClaudeCode.ToolboxServer, target.Workspace, commandArgs));
+            }
         }
 
         /// <summary>
@@ -177,22 +181,5 @@ $@"{{
         private void OnCopy(object sender, RoutedEventArgs e) => Clipboard.SetText(((TextBox)((Button)sender).Tag).Text);
 
         private static TargetRow RowOf(object sender) => (TargetRow)((FrameworkElement)sender).DataContext;
-
-        public sealed class TargetRow
-        {
-            public TargetRow(ClaudeTarget target, string title, string detail, string[] toolboxExes)
-            {
-                Target = target;
-                Title = title;
-                Detail = detail;
-                Link = target.LinkTo(toolboxExes);
-            }
-
-            public ClaudeTarget Target { get; }
-            public string Title { get; }
-            public string Detail { get; }
-            public AgentLink Link { get; }
-            public string ToolTip => Target.Command == null ? null : "Khai báo hiện tại: " + Target.Command;
-        }
     }
 }

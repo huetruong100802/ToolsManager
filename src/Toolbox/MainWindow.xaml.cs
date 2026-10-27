@@ -446,6 +446,8 @@ namespace Toolbox
                 InstallBanner.Visibility = Visibility.Collapsed;
         }
 
+        private void OnDeskMcp(object sender, RoutedEventArgs e) => new DeskMcpWindow { Owner = this }.ShowDialog();
+
         // ---------- Tiện ích ----------
 
         private async Task<T> RunBusy<T>(Func<T> work)
