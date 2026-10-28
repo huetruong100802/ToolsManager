@@ -216,13 +216,55 @@ namespace Toolbox
         private void OnRemove(object sender, RoutedEventArgs e)
         {
             var items = CheckedItems();
-            var names = string.Join("\n", items.Select(i => "• " + i.Tool.Name));
-            if (!Dialogs.Confirm(this, $"Xoá {items.Count} tool khỏi danh sách?\n\n{names}\n\nFile của tool không bị xoá."))
+            var tools = items.Select(i => i.Tool).ToList();
+            var names = string.Join("\n", tools.Select(t => "• " + t.Name));
+            var message = $"Xoá {tools.Count} tool khỏi danh sách?\n\n{names}\n\nFile gốc của tool không bị xoá.";
+
+            // Chỉ hỏi về bản chép khi có bản chép thật trong thư viện; không thì giữ xác nhận đơn giản như trước.
+            var withCopies = tools.Count(t => Library.HasCopy(_store, t.Id));
+            var deleteCopies = false;
+            if (withCopies > 0)
+            {
+                var answer = Dialogs.Choose(this, message + $"\n\n{withCopies} tool có bản chép trong thư viện Toolbox."
+                    + "\n\nYes: xoá luôn bản chép trong thư viện."
+                    + "\nNo: chỉ bỏ khỏi danh sách, giữ bản chép để khôi phục sau."
+                    + "\nCancel: không làm gì.");
+                if (answer == null)
+                    return;
+                deleteCopies = answer.Value;
+            }
+            else if (!Dialogs.Confirm(this, message))
+            {
                 return;
-            foreach (var item in items)
-                _store.Remove(item.Tool.Id);
-            if (Save())
-                Reload();
+            }
+
+            foreach (var tool in tools)
+                _store.Remove(tool.Id);
+            // Lưu danh sách trước: nếu lưu lỗi thì không xoá bản chép của tool vẫn còn trong tools.json.
+            if (!Save())
+                return;
+            if (deleteCopies)
+                DeleteCopies(tools);
+            Reload();
+        }
+
+        /// <summary>Xoá bản chép sau khi danh sách đã lưu. Lỗi của một tool không chặn các tool còn lại.</summary>
+        private void DeleteCopies(List<ToolEntry> tools)
+        {
+            var failed = new List<string>();
+            foreach (var tool in tools)
+            {
+                try
+                {
+                    Library.DeleteCopy(_store, tool.Id);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    failed.Add($"• {tool.Name}: {ex.Message}");
+                }
+            }
+            if (failed.Count > 0)
+                Dialogs.Error(this, "Đã bỏ khỏi danh sách nhưng không xoá được một số bản chép (có thể đang được chạy):\n\n" + string.Join("\n", failed));
         }
 
         private void OnRun(object sender, RoutedEventArgs e) => Run(ItemOf(sender));

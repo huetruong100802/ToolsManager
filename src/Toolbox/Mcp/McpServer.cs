@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -10,8 +11,8 @@ using Toolbox.Core;
 namespace Toolbox.Mcp
 {
     /// <summary>
-    /// MCP server tối giản qua stdio (JSON-RPC, mỗi message một dòng), cho agent tra cứu và chạy tool trong danh sách.
-    /// Chỉ hỗ trợ capability "tools": list_tools, run_tool.
+    /// MCP server tối giản qua stdio (JSON-RPC, mỗi message một dòng), cho agent tra cứu, chạy, đăng ký và sửa tool trong danh sách.
+    /// Chỉ hỗ trợ capability "tools": list_tools, run_tool, register_tool, update_tool, unregister_tool.
     /// </summary>
     public sealed class McpServer
     {
@@ -139,6 +140,50 @@ namespace Toolbox.Mcp
                     ["timeoutSeconds"] = Property("integer", $"Chỉ khi wait=true. Mặc định {DefaultTimeoutSeconds}, tối đa {MaxTimeoutSeconds}."),
                 }, "id"),
             },
+            new Dictionary<string, object>
+            {
+                ["name"] = "register_tool",
+                ["description"] = "Đăng ký một tool trên máy để dùng lại sau. Trùng path hoặc cùng nội dung file với tool đã có thì cập nhật tool đó. "
+                    + "File/thư mục nhỏ (≤50MB) được chép vào thư viện Toolbox để không mất khi file gốc bị di chuyển; lớn hơn thì giữ đường dẫn gốc. "
+                    + "App đã cài trong Program Files không được chép: truyền setupPath là file bộ cài (.exe/.msi) để Toolbox chép bộ cài, người khác có thể cài từ đó. "
+                    + "Đọc warnings trong kết quả.",
+                ["inputSchema"] = Schema(new Dictionary<string, object>
+                {
+                    ["name"] = Property("string", "Tên hiển thị."),
+                    ["path"] = Property("string", "Đường dẫn tuyệt đối tới file chạy hoặc thư mục. Cho phép %ENV%."),
+                    ["id"] = Property("string", "Tuỳ chọn. Id kebab-case; bỏ trống thì sinh từ name. Trùng id của tool khác thì báo lỗi."),
+                    ["args"] = Property("string", "Tham số dòng lệnh mặc định."),
+                    ["description"] = Property("string", "Mô tả ngắn để tìm kiếm và để agent khác hiểu."),
+                    ["tags"] = ArrayProperty("Tag để lọc, vd: [\"modbus\", \"plc\"]."),
+                    ["notes"] = Property("string", "Ghi chú: cách dùng, lưu ý, lý do đăng ký."),
+                    ["setupPath"] = Property("string", "Đường dẫn tuyệt đối tới bộ cài .exe/.msi của app, nếu app cần cài trên máy khác."),
+                }, "name", "path"),
+            },
+            new Dictionary<string, object>
+            {
+                ["name"] = "update_tool",
+                ["description"] = "Sửa thông tin của một tool đã đăng ký. Chỉ các trường được truyền mới đổi. "
+                    + "Đổi path không chép lại file và đưa tool về store=link; muốn chép lại thì unregister_tool rồi register_tool.",
+                ["inputSchema"] = Schema(new Dictionary<string, object>
+                {
+                    ["id"] = Property("string", "Id của tool (lấy từ list_tools)."),
+                    ["name"] = Property("string", "Tên hiển thị mới."),
+                    ["path"] = Property("string", "Đường dẫn tuyệt đối mới. Cho phép %ENV%."),
+                    ["args"] = Property("string", "Tham số dòng lệnh mặc định mới."),
+                    ["description"] = Property("string", "Mô tả mới."),
+                    ["tags"] = ArrayProperty("Danh sách tag mới (thay toàn bộ)."),
+                    ["notes"] = Property("string", "Ghi chú mới."),
+                }, "id"),
+            },
+            new Dictionary<string, object>
+            {
+                ["name"] = "unregister_tool",
+                ["description"] = "Bỏ một tool khỏi danh sách. Không xoá file gốc và không xoá bản chép trong thư viện, nên có thể khôi phục từ sao lưu.",
+                ["inputSchema"] = Schema(new Dictionary<string, object>
+                {
+                    ["id"] = Property("string", "Id của tool (lấy từ list_tools)."),
+                }, "id"),
+            },
         };
 
         private object CallTool(Dictionary<string, object> parameters)
@@ -148,25 +193,91 @@ namespace Toolbox.Mcp
                 ? d
                 : new Dictionary<string, object>();
 
-            ToolStore store;
             try
             {
-                store = _loadStore();
+                switch (name)
+                {
+                    case "list_tools":
+                        return ListTools(_loadStore(), arguments);
+                    case "run_tool":
+                        return RunTool(_loadStore(), arguments);
+                    case "register_tool":
+                    case "update_tool":
+                    case "unregister_tool":
+                        return WriteTool(name, arguments);
+                    default:
+                        throw new InvalidParamsException("Unknown tool: " + name);
+                }
             }
-            catch (InvalidDataException ex)
+            // Lỗi đầu vào hoặc lỗi file là kết quả tool (isError), không phải lỗi JSON-RPC để agent thử lại theo cách khác.
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is KeyNotFoundException)
             {
                 return ToolResult(ex.Message, isError: true);
             }
+        }
 
-            switch (name)
+        /// <summary>
+        /// register_tool, update_tool, unregister_tool. Đọc-sửa-ghi trong một khoá để không ghi đè thay đổi của GUI.
+        /// Lỗi đầu vào ném trước khi Save, nên danh sách trên đĩa không đổi.
+        /// </summary>
+        private object WriteTool(string name, Dictionary<string, object> arguments)
+        {
+            using (ToolStore.Lock())
             {
-                case "list_tools":
-                    return ListTools(store, arguments);
-                case "run_tool":
-                    return RunTool(store, arguments);
-                default:
-                    throw new InvalidParamsException("Unknown tool: " + name);
+                var store = _loadStore();
+                store.Actor = "mcp";
+
+                switch (name)
+                {
+                    case "register_tool":
+                        var registered = AgentTools.Register(store, ToRequest(arguments));
+                        store.Save();
+                        return ToolResult(Describe(registered), isError: false);
+                    case "update_tool":
+                        var updated = AgentTools.Update(store, GetString(arguments, "id"), ToRequest(arguments));
+                        store.Save();
+                        return ToolResult(Describe(updated), isError: false);
+                    default:
+                        var id = GetString(arguments, "id");
+                        if (string.IsNullOrWhiteSpace(id))
+                            return ToolResult("Thiếu id. Dùng list_tools để xem id.", isError: true);
+                        if (!store.Remove(id))
+                            return ToolResult($"Không có tool \"{id}\". Dùng list_tools để xem id.", isError: true);
+                        store.Save();
+                        return ToolResult($"Đã bỏ \"{id}\" khỏi danh sách. File gốc và bản chép trong thư viện vẫn còn.", isError: false);
+                }
             }
+        }
+
+        private static AgentTools.Request ToRequest(Dictionary<string, object> arguments) => new AgentTools.Request
+        {
+            Name = GetString(arguments, "name"),
+            Path = GetString(arguments, "path"),
+            Id = GetString(arguments, "id"),
+            Args = GetString(arguments, "args"),
+            Description = GetString(arguments, "description"),
+            Tags = GetStrings(arguments, "tags"),
+            Notes = GetString(arguments, "notes"),
+            SetupPath = GetString(arguments, "setupPath"),
+        };
+
+        private string Describe(AgentTools.Outcome outcome)
+        {
+            var tool = outcome.Tool;
+            var view = new Dictionary<string, object>
+            {
+                ["created"] = outcome.Created,
+                ["id"] = tool.Id,
+                ["name"] = tool.Name,
+                ["path"] = tool.ResolvedPath,
+                ["store"] = tool.Store.ToString().ToLowerInvariant(),
+                ["pack"] = tool.Pack.ToString().ToLowerInvariant(),
+                ["exists"] = tool.PathExists,
+                ["warnings"] = outcome.Warnings.ToArray(),
+            };
+            if (tool.Fingerprint != null)
+                view["fingerprint"] = tool.Fingerprint;
+            return _json.Serialize(view);
         }
 
         private object ListTools(ToolStore store, Dictionary<string, object> arguments)
@@ -189,7 +300,7 @@ namespace Toolbox.Mcp
                 : ToolResult(_json.Serialize(tools), isError: false);
         }
 
-        private static object RunTool(ToolStore store, Dictionary<string, object> arguments)
+        private object RunTool(ToolStore store, Dictionary<string, object> arguments)
         {
             var id = GetString(arguments, "id");
             if (string.IsNullOrWhiteSpace(id))
@@ -213,10 +324,12 @@ namespace Toolbox.Mcp
                 if (!wait)
                 {
                     var pid = Runner.Start(tool, args);
+                    RecordUse(tool.Id);
                     return ToolResult($"Đã mở \"{tool.Name}\"" + (pid.HasValue ? $" (PID {pid})." : "."), isError: false);
                 }
 
                 var result = Runner.RunAndCapture(tool, args, TimeSpan.FromSeconds(timeout));
+                RecordUse(tool.Id);
                 var header = result.TimedOut
                     ? $"Quá {timeout}s, đã dừng tiến trình."
                     : $"exitCode: {result.ExitCode}";
@@ -247,8 +360,37 @@ namespace Toolbox.Mcp
         private static Dictionary<string, object> Property(string type, string description) =>
             new Dictionary<string, object> { ["type"] = type, ["description"] = description };
 
+        private static Dictionary<string, object> ArrayProperty(string description) => new Dictionary<string, object>
+        {
+            ["type"] = "array",
+            ["items"] = new Dictionary<string, object> { ["type"] = "string" },
+            ["description"] = description,
+        };
+
         private static string GetString(Dictionary<string, object> arguments, string key) =>
             arguments.TryGetValue(key, out var value) ? value as string : null;
+
+        private static List<string> GetStrings(Dictionary<string, object> arguments, string key) =>
+            arguments.TryGetValue(key, out var value) && value is IEnumerable items && !(value is string)
+                ? items.Cast<object>().OfType<string>().ToList()
+                : null;
+
+        /// <summary>Ghi nhận lần chạy qua MCP. Best-effort: lỗi ghi file không làm mất việc đã chạy.</summary>
+        private void RecordUse(string id)
+        {
+            try
+            {
+                using (ToolStore.Lock())
+                {
+                    var store = _loadStore();
+                    store.MarkUsed(id);
+                    store.Save();
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException)
+            {
+            }
+        }
 
         private string Error(object id, int code, string message) =>
             _json.Serialize(new Dictionary<string, object>

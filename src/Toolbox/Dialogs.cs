@@ -10,6 +10,15 @@ namespace Toolbox
         public static bool Confirm(Window owner, string message, bool warning = false) =>
             MessageBox.Show(owner, message, "Toolbox", MessageBoxButton.YesNo,
                 warning ? MessageBoxImage.Warning : MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        /// <summary>Có/Không/Huỷ. Trả về true (Yes), false (No) hoặc null (Cancel).</summary>
+        public static bool? Choose(Window owner, string message)
+        {
+            var answer = MessageBox.Show(owner, message, "Toolbox", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+            if (answer == MessageBoxResult.Yes)
+                return true;
+            return answer == MessageBoxResult.No ? (bool?)false : null;
+        }
     }
 
     internal static class Format
