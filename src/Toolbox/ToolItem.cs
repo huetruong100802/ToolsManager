@@ -1,9 +1,22 @@
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using Toolbox.Core;
 
 namespace Toolbox
 {
+    /// <summary>Trạng thái của tool, hiện bằng chấm màu trên dòng.</summary>
+    public enum ToolStatus
+    {
+        /// <summary>File có sẵn, chạy được.</summary>
+        Ready,
+        /// <summary>App chưa cài trên máy này nhưng có bộ cài đi kèm.</summary>
+        NotInstalled,
+        /// <summary>Không tìm thấy file.</summary>
+        Missing,
+    }
+
     /// <summary>Một dòng trong danh sách: tool + trạng thái chọn để đóng gói/xoá.</summary>
     public sealed class ToolItem : INotifyPropertyChanged
     {
@@ -14,6 +27,7 @@ namespace Toolbox
         {
             Tool = tool;
             _state = Probe();
+            Icon = LoadIcon();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -35,6 +49,32 @@ namespace Toolbox
         /// <summary>Chữ cái đầu tên tool, hiện trong ô icon của card.</summary>
         public string Initial => string.IsNullOrWhiteSpace(Tool.Name) ? "?" : Tool.Name.Trim().Substring(0, 1).ToUpperInvariant();
 
+        /// <summary>Icon của file; null thì hiện chữ cái đầu.</summary>
+        public ImageSource Icon { get; private set; }
+
+        public Visibility IconVisibility => Icon == null ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility InitialVisibility => Icon == null ? Visibility.Visible : Visibility.Collapsed;
+
+        public ToolStatus Status => Tool.PathExists ? ToolStatus.Ready
+            : Tool.CanInstall ? ToolStatus.NotInstalled
+            : ToolStatus.Missing;
+
+        /// <summary>Xanh: chạy được. Vàng: chưa cài. Đỏ: không tìm thấy.</summary>
+        public Brush StatusBrush => Status switch
+        {
+            ToolStatus.Ready => Resource("Ok"),
+            ToolStatus.NotInstalled => Resource("WarnInk"),
+            _ => Resource("Danger"),
+        };
+
+        public string StatusTip => Status switch
+        {
+            ToolStatus.Ready => "Sẵn sàng",
+            ToolStatus.NotInstalled => "Chưa cài trên máy này",
+            _ => "Không tìm thấy file",
+        };
+
         public string Warning => Tool.PathExists ? null
             : Tool.CanInstall ? "Chưa cài trên máy này — bấm Cài đặt để chạy bộ cài kèm theo"
             : "Không tìm thấy: " + Tool.ResolvedPath;
@@ -51,6 +91,7 @@ namespace Toolbox
         {
             Tool = tool;
             _state = Probe();
+            Icon = LoadIcon();
             OnPropertyChanged(null); // tất cả thuộc tính
         }
 
@@ -61,11 +102,16 @@ namespace Toolbox
             if (state == _state)
                 return false;
             _state = state;
+            Icon = LoadIcon(); // file vừa cài xong thì có icon thật
             OnPropertyChanged(null);
             return true;
         }
 
         private (bool, bool) Probe() => (Tool.PathExists, Tool.CanInstall);
+
+        private ImageSource LoadIcon() => Tool.PathExists && File.Exists(Tool.ResolvedPath) ? ShellIcon.Load(Tool.ResolvedPath) : null;
+
+        private static Brush Resource(string key) => (Brush)Application.Current.FindResource(key);
 
         private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }

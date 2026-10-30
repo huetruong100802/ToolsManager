@@ -18,6 +18,7 @@
         <SolidColorBrush x:Key="AccentPressed" Color="#1E40AF" />
         <SolidColorBrush x:Key="AccentSoft" Color="#EAF1FE" />
         <SolidColorBrush x:Key="AccentSoftLine" Color="#BFD3FB" />
+        <SolidColorBrush x:Key="Ok" Color="#2E7D32" />
         <SolidColorBrush x:Key="Danger" Color="#C62828" />
         <SolidColorBrush x:Key="DangerSoft" Color="#FDECEC" />
         <SolidColorBrush x:Key="WarnSoft" Color="#FFF7E6" />

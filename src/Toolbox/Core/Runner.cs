@@ -28,6 +28,10 @@ namespace Toolbox.Core
             var path = RequireExisting(tool);
             args = args ?? tool.Args ?? "";
 
+            // Lệnh chạy trong cửa sổ console ở thư mục đã đăng ký; /k giữ cửa sổ sau khi lệnh xong.
+            if (tool.IsCommand)
+                return new ProcessStartInfo("cmd.exe", $"/k \"{CommandLine(tool, args)}\"") { UseShellExecute = true, WorkingDirectory = path };
+
             if (Directory.Exists(path))
                 return new ProcessStartInfo("explorer.exe", Quote(path)) { UseShellExecute = true };
 
@@ -57,9 +61,11 @@ namespace Toolbox.Core
         public static ProcessStartInfo CreateCaptureStartInfo(ToolEntry tool, string args = null)
         {
             var path = RequireExisting(tool);
+            args = args ?? tool.Args ?? "";
+            if (tool.IsCommand)
+                return Captured("cmd.exe", $"/c \"{CommandLine(tool, args)}\"", path);
             if (Directory.Exists(path))
                 throw new InvalidOperationException($"\"{tool.Name}\" là thư mục, không chạy được.");
-            args = args ?? tool.Args ?? "";
 
             string file, arguments;
             var extension = Path.GetExtension(path).ToLowerInvariant();
@@ -87,7 +93,11 @@ namespace Toolbox.Core
                     throw new NotSupportedException($"Không chạy lấy output được file {extension}; chỉ hỗ trợ .exe, .com, .bat, .cmd, .ps1, .py.");
             }
 
-            return new ProcessStartInfo(file, arguments.TrimEnd())
+            return Captured(file, arguments, Path.GetDirectoryName(path));
+        }
+
+        private static ProcessStartInfo Captured(string file, string arguments, string workingDirectory) =>
+            new ProcessStartInfo(file, arguments.TrimEnd())
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -95,9 +105,8 @@ namespace Toolbox.Core
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(path),
+                WorkingDirectory = workingDirectory,
             };
-        }
 
         public static int? Start(ToolEntry tool, string args = null)
         {
@@ -177,5 +186,7 @@ namespace Toolbox.Core
         }
 
         private static string Quote(string path) => "\"" + path + "\"";
+
+        private static string CommandLine(ToolEntry tool, string args) => $"{tool.Command} {args}".Trim();
     }
 }

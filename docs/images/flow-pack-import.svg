@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 170" width="980" height="170" font-family="'Segoe UI', system-ui, -apple-system, Arial, sans-serif">
+  <title>Luồng đóng gói và nhập gói tool</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="980" height="170" fill="#ffffff"/>
+
+  <!-- Bước 1 -->
+  <rect x="10" y="40" width="170" height="92" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="30" cy="58" r="12" fill="#2563eb"/>
+  <text x="30" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">1</text>
+  <text x="95" y="63" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Chọn tool</text>
+  <text x="95" y="90" text-anchor="middle" font-size="12" fill="#334155">Tick nhiều tool</text>
+  <text x="95" y="108" text-anchor="middle" font-size="12" fill="#334155">trong danh sách</text>
+
+  <!-- Bước 2 -->
+  <rect x="207.5" y="40" width="170" height="92" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="227.5" cy="58" r="12" fill="#2563eb"/>
+  <text x="227.5" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">2</text>
+  <text x="292.5" y="63" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Đóng gói</text>
+  <text x="292.5" y="90" text-anchor="middle" font-size="12" fill="#334155">Xem trước dung lượng</text>
+  <text x="292.5" y="108" text-anchor="middle" font-size="12" fill="#334155">ra file .toolbox (zip)</text>
+
+  <!-- Bước 3 -->
+  <rect x="405" y="40" width="170" height="92" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="425" cy="58" r="12" fill="#2563eb"/>
+  <text x="425" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">3</text>
+  <text x="490" y="63" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Gửi đi</text>
+  <text x="490" y="90" text-anchor="middle" font-size="12" fill="#334155">Qua chat, email,</text>
+  <text x="490" y="108" text-anchor="middle" font-size="12" fill="#334155">hoặc USB</text>
+
+  <!-- Bước 4 -->
+  <rect x="602.5" y="40" width="170" height="92" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="622.5" cy="58" r="12" fill="#2563eb"/>
+  <text x="622.5" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">4</text>
+  <text x="687.5" y="63" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Nhập gói</text>
+  <text x="687.5" y="90" text-anchor="middle" font-size="12" fill="#334155">Kéo thả hoặc</text>
+  <text x="687.5" y="108" text-anchor="middle" font-size="12" fill="#334155">double-click file</text>
+
+  <!-- Bước 5 -->
+  <rect x="800" y="40" width="170" height="92" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="820" cy="58" r="12" fill="#2563eb"/>
+  <text x="820" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">5</text>
+  <text x="885" y="63" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Cài và chạy</text>
+  <text x="885" y="90" text-anchor="middle" font-size="12" fill="#334155">pack=setup: bấm Cài đặt</text>
+  <text x="885" y="108" text-anchor="middle" font-size="12" fill="#334155">rồi Chạy như thường</text>
+
+  <!-- Mũi tên giữa các bước -->
+  <path d="M184,86 L203,86" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M381.5,86 L401,86" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M579,86 L598.5,86" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M776.5,86 L796,86" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="490" y="22" text-anchor="middle" font-size="12" fill="#64748b">Người nhận chỉ cần Toolbox.exe (một file, không phải cài): mở file .toolbox hoặc kéo thả vào cửa sổ</text>
+  <text x="490" y="158" text-anchor="middle" font-size="12" fill="#64748b">Toolbox không cài ngầm: bộ cài luôn hiện UAC và người dùng tự bấm qua các bước</text>
+</svg>
