@@ -40,7 +40,7 @@
                     </Button>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="34" Height="34" CornerRadius="8" Background="{StaticResource Accent}" Margin="0,0,12,0">
+                    <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource BrandGradient}" Margin="0,0,12,0">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" FontSize="17" Foreground="White"
                                    HorizontalAlignment="Center" />
                     </Border>
@@ -117,7 +117,7 @@
                                 </Grid.ColumnDefinitions>
                                 <CheckBox IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,12,0" />
                                 <Grid Grid.Column="1" Width="38" Height="38" VerticalAlignment="Center" Margin="0,0,12,0">
-                                    <Border CornerRadius="8" Background="{StaticResource AccentSoft}">
+                                    <Border CornerRadius="10" Background="{StaticResource AccentSoft}">
                                         <Grid>
                                             <TextBlock Text="{Binding Initial}" Visibility="{Binding InitialVisibility}" FontSize="16" FontWeight="SemiBold"
                                                        Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -130,22 +130,34 @@
                                              ToolTip="{Binding StatusTip}" />
                                 </Grid>
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
+                                    <!-- Tên co lại khi hẹp; tag nằm cột riêng bên phải, tối đa MaxVisibleTags chip. -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding Tool.Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <ItemsControl ItemsSource="{Binding Tool.Tags}" ItemTemplate="{StaticResource TagChip}" VerticalAlignment="Center">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                    </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding AllTagsTip}">
+                                            <ItemsControl ItemsSource="{Binding VisibleTags}" ItemTemplate="{StaticResource TagChip}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                            </ItemsControl>
+                                            <Border Background="{StaticResource TagBg}" CornerRadius="10" Padding="7,1" Margin="0,0,4,0"
+                                                    VerticalAlignment="Center" Visibility="{Binding MoreTagsVisibility}">
+                                                <TextBlock Text="{Binding MoreTags}" FontSize="11" Foreground="{StaticResource TagInk}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
                                     <TextBlock Text="{Binding Tool.Description}" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"
                                                Margin="0,2,0,0" />
-                                    <StackPanel Orientation="Horizontal" Visibility="{Binding WarningVisibility}" Margin="0,3,0,0">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
+                                    <!-- DockPanel (không phải StackPanel ngang) để cảnh báo dài bị cắt bằng dấu …, không tràn sang nút. -->
+                                    <DockPanel Visibility="{Binding WarningVisibility}" Margin="0,3,0,0">
+                                        <DockPanel.Style>
+                                            <Style TargetType="DockPanel">
                                                 <Setter Property="TextElement.Foreground" Value="{StaticResource Danger}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding CanInstall}" Value="True">
@@ -153,10 +165,10 @@
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12" Margin="0,0,6,0" />
+                                        </DockPanel.Style>
+                                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12" Margin="0,0,6,0" />
                                         <TextBlock Text="{Binding Warning}" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                    </DockPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                     <Button Style="{StaticResource GhostButton}" Click="OnOpenFolder" Tag="{Binding}" ToolTip="Mở thư mục"
@@ -167,14 +179,14 @@
                                             AutomationProperties.Name="Sửa" Width="34" Padding="0" Margin="2,0,8,0">
                                         <TextBlock Style="{StaticResource Icon}" Text="&#xE70F;" />
                                     </Button>
-                                    <Button Style="{StaticResource PrimaryButton}" Click="OnInstallSetup" Tag="{Binding}" Padding="12,4"
+                                    <Button Style="{StaticResource PrimaryButton}" Click="OnInstallSetup" Tag="{Binding}" Padding="14,4"
                                             Visibility="{Binding InstallVisibility}" AutomationProperties.Name="Cài đặt">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" FontSize="12" Margin="0,0,6,0" />
                                             <TextBlock Text="Cài đặt" />
                                         </StackPanel>
                                     </Button>
-                                    <Button Click="OnRun" Tag="{Binding}" AutomationProperties.Name="▶ Chạy" Padding="12,4"
+                                    <Button Style="{StaticResource SoftButton}" Click="OnRun" Tag="{Binding}" AutomationProperties.Name="▶ Chạy" Padding="14,4"
                                             Visibility="{Binding RunVisibility}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" FontSize="12" Foreground="{StaticResource Accent}"

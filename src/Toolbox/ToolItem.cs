@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using Toolbox.Core;
@@ -86,6 +88,20 @@ namespace Toolbox
         public Visibility InstallVisibility => Tool.CanInstall ? Visibility.Visible : Visibility.Collapsed;
 
         public Visibility RunVisibility => Tool.CanInstall ? Visibility.Collapsed : Visibility.Visible;
+
+        /// <summary>Số tag hiện trên dòng; phần còn lại gom thành chip "+n" để dòng không bị dài ra.</summary>
+        public const int MaxVisibleTags = 3;
+
+        private List<string> Tags => Tool.Tags ?? new List<string>();
+
+        public IEnumerable<string> VisibleTags => Tags.Take(MaxVisibleTags);
+
+        public Visibility MoreTagsVisibility => Tags.Count > MaxVisibleTags ? Visibility.Visible : Visibility.Collapsed;
+
+        public string MoreTags => Tags.Count > MaxVisibleTags ? "+" + (Tags.Count - MaxVisibleTags) : null;
+
+        /// <summary>Toàn bộ tag, hiện khi rê chuột vào vùng tag.</summary>
+        public string AllTagsTip => Tags.Count == 0 ? null : string.Join(", ", Tags);
 
         public void Replace(ToolEntry tool)
         {
