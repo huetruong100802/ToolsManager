@@ -7,9 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Toolbox.Core;
 
 namespace Toolbox
@@ -92,7 +90,7 @@ namespace Toolbox
                 Info = info;
                 IsAdded = isAdded;
                 Haystack = Text.Fold(info.Name + " " + info.TargetPath);
-                Icon = LoadIcon(info.TargetPath);
+                Icon = ShellIcon.Load(info.TargetPath);
             }
 
             public ShortcutInfo Info { get; }
@@ -101,26 +99,6 @@ namespace Toolbox
             public ImageSource Icon { get; }
 
             public Visibility AddedVisibility => IsAdded ? Visibility.Visible : Visibility.Collapsed;
-
-            // Chạy trên thread nền nên phải Freeze để UI thread dùng được.
-            private static ImageSource LoadIcon(string path)
-            {
-                try
-                {
-                    using (var icon = System.Drawing.Icon.ExtractAssociatedIcon(path))
-                    {
-                        if (icon == null)
-                            return null;
-                        var source = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-                        source.Freeze();
-                        return source;
-                    }
-                }
-                catch (Exception ex) when (ex is ArgumentException || ex is IOException || ex is COMException || ex is UnauthorizedAccessException)
-                {
-                    return null;
-                }
-            }
         }
     }
 }

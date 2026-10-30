@@ -19,6 +19,7 @@ namespace Toolbox.Core
             public string Path { get; set; }
             public string Id { get; set; }
             public string Args { get; set; }
+            public string Command { get; set; }
             public string Description { get; set; }
             public List<string> Tags { get; set; }
             public string Notes { get; set; }
@@ -48,12 +49,20 @@ namespace Toolbox.Core
             if (!Path.IsPathRooted(path))
                 throw new ArgumentException("path phải là đường dẫn tuyệt đối.");
 
+            var command = NullIfBlank(request.Command);
             var setupFile = ResolveSetup(request.SetupPath);
+            if (command != null)
+            {
+                if (setupFile != null)
+                    throw new ArgumentException("Lệnh không đi kèm setupPath.");
+                if (!Directory.Exists(path))
+                    throw new ArgumentException($"Với lệnh, path phải là thư mục chạy lệnh: {path}");
+            }
             if (setupFile == null && !Exists(path))
                 throw new ArgumentException($"Không tìm thấy path: {path}");
 
-            var fingerprint = Library.Fingerprint(path);
-            var existing = FindSame(store, path, fingerprint);
+            var fingerprint = command == null ? Library.Fingerprint(path) : null;
+            var existing = FindSame(store, path, fingerprint, command);
             return existing != null
                 ? Refresh(store, existing, request, path, fingerprint, setupFile)
                 : Create(store, request, path, fingerprint, setupFile);
@@ -73,9 +82,24 @@ namespace Toolbox.Core
             }
             if (request.Name != null && string.IsNullOrWhiteSpace(request.Name))
                 throw new ArgumentException("name không được để trống.");
+            if (request.Command != null && string.IsNullOrWhiteSpace(request.Command))
+                throw new ArgumentException("command không được để trống; muốn bỏ lệnh thì unregister_tool rồi register_tool lại.");
+
+            var command = request.Command == null ? entry.Command : request.Command.Trim();
+            var target = path ?? entry.ResolvedPath;
+            if (command != null && !Directory.Exists(target))
+                throw new ArgumentException($"Với lệnh, path phải là thư mục chạy lệnh: {target}");
 
             if (request.Name != null)
                 entry.Name = request.Name;
+            if (command != null)
+            {
+                // Lệnh không chép và không đóng gói; path là thư mục làm việc.
+                entry.Command = command;
+                entry.Store = StoreMode.Link;
+                entry.Pack = PackMode.None;
+                entry.Fingerprint = null;
+            }
             if (request.Args != null)
                 entry.Args = request.Args;
             if (request.Description != null)
@@ -100,25 +124,28 @@ namespace Toolbox.Core
             if (Text.IsValidId(request.Id) && store.Find(request.Id) != null)
                 throw new ArgumentException($"Đã có tool có id \"{request.Id}\". Dùng update_tool để sửa, hoặc bỏ trống id.");
 
+            var command = NullIfBlank(request.Command);
             var entry = new ToolEntry
             {
                 Id = NewId(store, Text.IsValidId(request.Id) ? request.Id : Text.ToId(request.Name)),
                 Name = request.Name,
                 Path = path,
                 Args = request.Args,
+                Command = command,
                 Description = request.Description,
                 Tags = request.Tags ?? new List<string>(),
                 Notes = request.Notes,
                 Fingerprint = fingerprint,
-                Pack = PackMode.Folder,
+                Pack = command == null ? PackMode.Folder : PackMode.None,
             };
             var outcome = new Outcome { Created = true };
 
             try
             {
-                if (setupFile != null)
+                // Lệnh không chép: path đã là thư mục làm việc.
+                if (command == null && setupFile != null)
                     AttachSetup(store, entry, path, setupFile, outcome);
-                else
+                else if (command == null)
                     Place(store, entry, path, outcome);
             }
             catch
@@ -205,10 +232,14 @@ namespace Toolbox.Core
             return file;
         }
 
-        /// <summary>Tool đã có cùng path, hoặc cùng nội dung file (fingerprint) dù đường dẫn khác.</summary>
-        private static ToolEntry FindSame(ToolStore store, string path, string fingerprint) =>
-            store.Tools.FirstOrDefault(t => SamePath(t.ResolvedPath, path))
-            ?? (fingerprint == null ? null : store.Tools.FirstOrDefault(t => t.Fingerprint == fingerprint));
+        /// <summary>
+        /// Tool đã có cùng path, hoặc cùng nội dung file (fingerprint) dù đường dẫn khác.
+        /// Lệnh chỉ khớp lệnh cùng chuỗi trong cùng thư mục, và tool thường không khớp lệnh.
+        /// </summary>
+        private static ToolEntry FindSame(ToolStore store, string path, string fingerprint, string command) =>
+            store.Tools.FirstOrDefault(t => t.IsCommand == (command != null) && SamePath(t.ResolvedPath, path)
+                && (command == null || string.Equals(t.Command, command, StringComparison.OrdinalIgnoreCase)))
+            ?? (fingerprint == null ? null : store.Tools.FirstOrDefault(t => !t.IsCommand && t.Fingerprint == fingerprint));
 
         private static bool SamePath(string a, string b) =>
             !string.IsNullOrEmpty(a) && string.Equals(a.TrimEnd('\\'), b.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
@@ -239,5 +270,7 @@ namespace Toolbox.Core
         private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
 
         private static string Mb(long bytes) => $"{bytes / (1024 * 1024)}MB";
+
+        private static string NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }

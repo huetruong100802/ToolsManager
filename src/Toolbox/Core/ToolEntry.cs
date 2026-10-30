@@ -44,6 +44,16 @@ namespace Toolbox.Core
         [DataMember(Name = "args", Order = 3, EmitDefaultValue = false)]
         public string Args { get; set; }
 
+        /// <summary>
+        /// Lệnh chạy tại thư mục <see cref="Path"/>, vd: <c>python -m ai_autopilot</c>. Có lệnh thì tool là lệnh:
+        /// Path là thư mục làm việc, không chép và không đóng gói (thư mục có thể chứa .env, DB).
+        /// </summary>
+        [DataMember(Name = "command", Order = 13, EmitDefaultValue = false)]
+        public string Command { get; set; }
+
+        [IgnoreDataMember]
+        public bool IsCommand => !string.IsNullOrWhiteSpace(Command);
+
         [DataMember(Name = "description", Order = 4, EmitDefaultValue = false)]
         public string Description { get; set; }
 

@@ -131,7 +131,7 @@ namespace Toolbox.Mcp
                 ["name"] = "run_tool",
                 ["description"] = "Chạy một tool đã đăng ký theo id. "
                     + "wait=false (mặc định): mở tool như người dùng bấm, trả về PID — dùng cho app có giao diện hoặc server giả lập. "
-                    + "wait=true: chạy ẩn, chờ xong rồi trả exitCode + stdout/stderr — chỉ cho tool console (.exe/.com/.bat/.cmd/.ps1/.py).",
+                    + "wait=true: chạy ẩn, chờ xong rồi trả exitCode + stdout/stderr — chỉ cho tool console (.exe/.com/.bat/.cmd/.ps1/.py) và lệnh.",
                 ["inputSchema"] = Schema(new Dictionary<string, object>
                 {
                     ["id"] = Property("string", "Id của tool (lấy từ list_tools)."),
@@ -146,13 +146,15 @@ namespace Toolbox.Mcp
                 ["description"] = "Đăng ký một tool trên máy để dùng lại sau. Trùng path hoặc cùng nội dung file với tool đã có thì cập nhật tool đó. "
                     + "File/thư mục nhỏ (≤50MB) được chép vào thư viện Toolbox để không mất khi file gốc bị di chuyển; lớn hơn thì giữ đường dẫn gốc. "
                     + "App đã cài trong Program Files không được chép: truyền setupPath là file bộ cài (.exe/.msi) để Toolbox chép bộ cài, người khác có thể cài từ đó. "
+                    + "Chạy một lệnh (vd: python -m ai_autopilot) thay vì file: truyền command, khi đó path là thư mục làm việc và không chép file. "
                     + "Đọc warnings trong kết quả.",
                 ["inputSchema"] = Schema(new Dictionary<string, object>
                 {
                     ["name"] = Property("string", "Tên hiển thị."),
-                    ["path"] = Property("string", "Đường dẫn tuyệt đối tới file chạy hoặc thư mục. Cho phép %ENV%."),
+                    ["path"] = Property("string", "Đường dẫn tuyệt đối tới file chạy hoặc thư mục. Cho phép %ENV%. Với command thì là thư mục làm việc."),
                     ["id"] = Property("string", "Tuỳ chọn. Id kebab-case; bỏ trống thì sinh từ name. Trùng id của tool khác thì báo lỗi."),
                     ["args"] = Property("string", "Tham số dòng lệnh mặc định."),
+                    ["command"] = Property("string", "Lệnh chạy tại thư mục path, vd: python -m ai_autopilot. Tool thành lệnh: không chép, không đóng gói, không dùng setupPath."),
                     ["description"] = Property("string", "Mô tả ngắn để tìm kiếm và để agent khác hiểu."),
                     ["tags"] = ArrayProperty("Tag để lọc, vd: [\"modbus\", \"plc\"]."),
                     ["notes"] = Property("string", "Ghi chú: cách dùng, lưu ý, lý do đăng ký."),
@@ -170,6 +172,7 @@ namespace Toolbox.Mcp
                     ["name"] = Property("string", "Tên hiển thị mới."),
                     ["path"] = Property("string", "Đường dẫn tuyệt đối mới. Cho phép %ENV%."),
                     ["args"] = Property("string", "Tham số dòng lệnh mặc định mới."),
+                    ["command"] = Property("string", "Lệnh mới chạy tại thư mục path (đổi tool thành lệnh). Xem register_tool."),
                     ["description"] = Property("string", "Mô tả mới."),
                     ["tags"] = ArrayProperty("Danh sách tag mới (thay toàn bộ)."),
                     ["notes"] = Property("string", "Ghi chú mới."),
@@ -255,6 +258,7 @@ namespace Toolbox.Mcp
             Path = GetString(arguments, "path"),
             Id = GetString(arguments, "id"),
             Args = GetString(arguments, "args"),
+            Command = GetString(arguments, "command"),
             Description = GetString(arguments, "description"),
             Tags = GetStrings(arguments, "tags"),
             Notes = GetString(arguments, "notes"),
@@ -277,6 +281,8 @@ namespace Toolbox.Mcp
             };
             if (tool.Fingerprint != null)
                 view["fingerprint"] = tool.Fingerprint;
+            if (tool.IsCommand)
+                view["command"] = tool.Command;
             return _json.Serialize(view);
         }
 
@@ -291,6 +297,7 @@ namespace Toolbox.Mcp
                     ["tags"] = t.Tags,
                     ["path"] = t.ResolvedPath,
                     ["args"] = t.Args ?? "",
+                    ["command"] = t.Command ?? "",
                     ["exists"] = t.PathExists,
                 })
                 .ToList();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -119,6 +120,91 @@ namespace Toolbox.Tests
             Assert.Equal(expectedCount, store.Tools.Count);
             Assert.Equal(expectedId, added?.Id);
             Assert.Equal(resolution == ConflictResolution.Replace ? "new" : "old", store.Find("sim").Path);
+        }
+
+        [Fact]
+        public void SaveCoThayDoi_SaoLuBanCuVaGhiNhatKy()
+        {
+            using (var dir = new TempDir())
+            {
+                var path = dir.WriteFile("tools.json", "{\"tools\":[]}");
+                var store = ToolStore.Load(path);
+                store.Actor = "mcp";
+                store.Add(new ToolEntry { Name = "Sim", Path = "a" });
+                store.Save();
+
+                var backup = Directory.GetFiles(dir.Combine("backup"), "tools-*.json").Single();
+                Assert.Equal("{\"tools\":[]}", File.ReadAllText(backup));
+
+                var line = Assert.Single(File.ReadAllLines(dir.Combine("changes.log")));
+                var fields = line.Split('\t');
+                Assert.Equal("mcp", fields[1]);
+                Assert.Equal("add", fields[2]);
+                Assert.Equal("sim", fields[3]);
+                Assert.Equal("Sim", fields[4]);
+            }
+        }
+
+        [Fact]
+        public void MarkUsed_KhongSaoLuVaKhongGhiNhatKy()
+        {
+            using (var dir = new TempDir())
+            {
+                var path = dir.WriteFile("tools.json", "{\"tools\":[{\"id\":\"a\",\"name\":\"A\",\"path\":\"C:\\\\a.exe\"}]}");
+                var store = ToolStore.Load(path);
+                store.MarkUsed("a");
+                store.MarkUsed("a");
+                store.MarkUsed("khong-co");
+                store.Save();
+
+                var tool = ToolStore.Load(path).Find("a");
+                Assert.Equal(2, tool.RunCount);
+                Assert.NotNull(tool.LastUsedAt);
+                Assert.False(Directory.Exists(dir.Combine("backup")));
+                Assert.False(File.Exists(dir.Combine("changes.log")));
+            }
+        }
+
+        [Fact]
+        public void SaveRoiLoad_GiuCacTruongMoi()
+        {
+            using (var dir = new TempDir())
+            {
+                var path = dir.Combine("tools.json");
+                var lastUsed = new DateTime(2026, 10, 28, 2, 30, 0, DateTimeKind.Utc);
+                var store = ToolStore.Load(path);
+                store.Add(new ToolEntry
+                {
+                    Name = "Sim",
+                    Path = "a",
+                    Store = StoreMode.Copy,
+                    Fingerprint = "sim.exe|10|ab",
+                    Notes = "Dùng cho test",
+                    RunCount = 3,
+                    LastUsedAt = lastUsed,
+                });
+                store.Save();
+
+                var loaded = ToolStore.Load(path).Tools.Single();
+                Assert.Equal(StoreMode.Copy, loaded.Store);
+                Assert.Equal("sim.exe|10|ab", loaded.Fingerprint);
+                Assert.Equal("Dùng cho test", loaded.Notes);
+                Assert.Equal(3, loaded.RunCount);
+                Assert.Equal(lastUsed, loaded.LastUsedAt);
+            }
+        }
+
+        [Fact]
+        public void Load_ThieuStore_LaLink_StoreSai_NemLoi()
+        {
+            using (var dir = new TempDir())
+            {
+                var path = dir.WriteFile("tools.json", "{\"tools\":[{\"id\":\"a\",\"name\":\"A\",\"path\":\"x\"}]}");
+                Assert.Equal(StoreMode.Link, ToolStore.Load(path).Tools.Single().Store);
+
+                var bad = dir.WriteFile("bad.json", "{\"tools\":[{\"id\":\"a\",\"name\":\"A\",\"path\":\"x\",\"store\":\"mirror\"}]}");
+                Assert.Throws<InvalidDataException>(() => ToolStore.Load(bad));
+            }
         }
     }
 }

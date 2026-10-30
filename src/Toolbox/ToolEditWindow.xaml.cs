@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 using Toolbox.Core;
 
@@ -21,6 +22,7 @@ namespace Toolbox
             Title = isNew ? "Thêm tool" : "Sửa tool";
 
             PathBox.Text = entry.Path ?? "";
+            CommandBox.Text = entry.Command ?? "";
             NameBox.Text = entry.Name ?? "";
             ArgsBox.Text = entry.Args ?? "";
             DescriptionBox.Text = entry.Description ?? "";
@@ -65,6 +67,17 @@ namespace Toolbox
         private void OnPackChanged(object sender, RoutedEventArgs e)
         {
             SetupPanel.Visibility = PackCombo.SelectedIndex == (int)PackMode.Setup ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Có lệnh thì tool không đóng gói nên khoá lựa chọn pack.</summary>
+        private void OnCommandChanged(object sender, TextChangedEventArgs e)
+        {
+            var isCommand = NullIfEmpty(CommandBox.Text) != null;
+            PackCombo.IsEnabled = !isCommand;
+            if (isCommand)
+                SetupPanel.Visibility = Visibility.Collapsed;
+            else
+                OnPackChanged(sender, e);
         }
 
         private void OnPathChanged(object sender, RoutedEventArgs e)
@@ -115,7 +128,14 @@ namespace Toolbox
                 && !Dialogs.Confirm(this, $"Không tìm thấy:\n{resolved}\n\nVẫn lưu?", warning: true))
                 return;
 
-            var pack = (PackMode)Math.Max(0, PackCombo.SelectedIndex);
+            var command = NullIfEmpty(CommandBox.Text);
+            if (command != null && !Directory.Exists(resolved))
+            {
+                Dialogs.Error(this, "Với lệnh, đường dẫn phải là thư mục chạy lệnh.");
+                return;
+            }
+
+            var pack = command == null ? (PackMode)Math.Max(0, PackCombo.SelectedIndex) : PackMode.None;
             var setup = SetupBox.Text.Trim().Trim('"');
             if (pack == PackMode.Setup)
             {
@@ -141,6 +161,9 @@ namespace Toolbox
                 .ToList();
             _entry.Pack = pack;
             _entry.Setup = setup.Length == 0 ? null : setup;
+            _entry.Command = command;
+            if (command != null)
+                _entry.Store = StoreMode.Link;
             DialogResult = true;
         }
 

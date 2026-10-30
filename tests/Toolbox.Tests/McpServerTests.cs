@@ -77,7 +77,7 @@ namespace Toolbox.Tests
             {
                 var tools = (ArrayList)Result(Call(ServerWith(dir), "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}"))["tools"];
                 var names = tools.Cast<Dictionary<string, object>>().Select(t => (string)t["name"]).ToArray();
-                Assert.Equal(new[] { "list_tools", "run_tool" }, names);
+                Assert.Equal(new[] { "list_tools", "run_tool", "register_tool", "update_tool", "unregister_tool" }, names);
             }
         }
 
@@ -148,6 +148,86 @@ namespace Toolbox.Tests
                 var lines = output.ToString().Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
                 Assert.Equal(2, lines.Length);
                 Assert.All(lines, l => Assert.Contains("\"result\":{}", l));
+            }
+        }
+
+        private static string ToolCall(string tool, string argumentsJson) =>
+            $"{{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{{\"name\":\"{tool}\",\"arguments\":{argumentsJson}}}}}";
+
+        [Fact]
+        public void RegisterTool_ThemVaListThay()
+        {
+            using (var dir = new TempDir())
+            {
+                var source = dir.WriteFile(@"src\sim.bat", "@echo off");
+                var server = ServerWith(dir);
+
+                var response = Call(server, ToolCall("register_tool", $"{{\"name\":\"Sim\",\"path\":{Json.Serialize(source)},\"tags\":[\"modbus\"]}}"));
+
+                Assert.Equal(false, Result(response)["isError"]);
+                var created = Json.Deserialize<Dictionary<string, object>>(Text(response));
+                Assert.Equal("sim", created["id"]);
+                Assert.Equal("copy", created["store"]);
+                Assert.Equal(true, created["created"]);
+
+                var listed = Json.Deserialize<List<Dictionary<string, object>>>(Text(Call(server, ToolCall("list_tools", "{}"))));
+                Assert.Equal("sim", listed.Single()["id"]);
+                Assert.Equal(true, listed.Single()["exists"]);
+            }
+        }
+
+        [Fact]
+        public void RegisterTool_PathKhongCo_LaLoiCuaToolVaKhongGhiFile()
+        {
+            using (var dir = new TempDir())
+            {
+                var response = Call(ServerWith(dir), ToolCall("register_tool", $"{{\"name\":\"X\",\"path\":{Json.Serialize(dir.Combine("khong-co.exe"))}}}"));
+
+                Assert.Equal(true, Result(response)["isError"]);
+                Assert.Contains("Không tìm thấy", Text(response));
+                Assert.Empty(ToolStore.Load(dir.Combine("tools.json")).Tools);
+            }
+        }
+
+        [Fact]
+        public void UpdateVaUnregister_SuaRoiBo_GhiNhatKyLaMcp()
+        {
+            using (var dir = new TempDir())
+            {
+                var bat = dir.WriteFile(@"t\echo.bat", "@echo off");
+                var server = ServerWith(dir, new ToolEntry { Name = "Echo", Path = bat });
+
+                var updated = Call(server, ToolCall("update_tool", "{\"id\":\"echo\",\"name\":\"Echo 2\"}"));
+                Assert.Equal(false, Result(updated)["isError"]);
+                Assert.Equal("Echo 2", ToolStore.Load(dir.Combine("tools.json")).Find("echo").Name);
+
+                var removed = Call(server, ToolCall("unregister_tool", "{\"id\":\"echo\"}"));
+                Assert.Equal(false, Result(removed)["isError"]);
+                Assert.Empty(ToolStore.Load(dir.Combine("tools.json")).Tools);
+                Assert.True(File.Exists(bat));
+
+                var log = File.ReadAllText(dir.Combine("changes.log"));
+                Assert.Contains("\tmcp\tupdate\techo\tEcho 2", log);
+                Assert.Contains("\tmcp\tremove\techo\tEcho 2", log);
+
+                var missing = Call(server, ToolCall("unregister_tool", "{\"id\":\"echo\"}"));
+                Assert.Equal(true, Result(missing)["isError"]);
+            }
+        }
+
+        [Fact]
+        public void RunTool_GhiNhanLanChay()
+        {
+            using (var dir = new TempDir())
+            {
+                var bat = dir.WriteFile(@"t\echo.bat", "@echo ok\r\n");
+                var server = ServerWith(dir, new ToolEntry { Name = "Echo", Path = bat });
+
+                Call(server, ToolCall("run_tool", "{\"id\":\"echo\",\"wait\":true}"));
+
+                var tool = ToolStore.Load(dir.Combine("tools.json")).Find("echo");
+                Assert.Equal(1, tool.RunCount);
+                Assert.NotNull(tool.LastUsedAt);
             }
         }
     }

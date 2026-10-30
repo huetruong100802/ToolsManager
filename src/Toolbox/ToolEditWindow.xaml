@@ -20,6 +20,11 @@
                 <TextBox x:Name="PathBox" LostFocus="OnPathChanged" />
             </DockPanel>
 
+            <TextBlock Text="Lệnh (tuỳ chọn)" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="CommandBox" TextChanged="OnCommandChanged" ToolTip="vd: python -m ai_autopilot" />
+            <TextBlock Text="Có lệnh thì đường dẫn ở trên là thư mục chạy lệnh. Tool không được chép hay đóng gói." Style="{StaticResource Hint}"
+                       Margin="0,4,0,14" />
+
             <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
