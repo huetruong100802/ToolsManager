@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 500" width="980" height="500" font-family="'Segoe UI', system-ui, -apple-system, Arial, sans-serif">
+  <title>Kiến trúc Toolbox: GUI, tools.json, MCP server và Agent</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- nền trắng để đọc rõ trên cả giao diện sáng và tối của GitHub -->
+  <rect x="0" y="0" width="980" height="500" fill="#ffffff"/>
+
+  <!-- GUI -->
+  <rect x="40" y="60" width="260" height="110" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="170" y="97" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">Toolbox.exe (giao diện)</text>
+  <text x="170" y="124" text-anchor="middle" font-size="13" fill="#334155">Danh sách · tìm · đóng gói · nhập gói</text>
+  <text x="170" y="146" text-anchor="middle" font-size="13" fill="#334155">Kết nối agent · desk-mcp · cài vào máy</text>
+
+  <!-- Tool của người dùng -->
+  <rect x="680" y="60" width="260" height="110" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <text x="810" y="97" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">Tool của bạn</text>
+  <text x="810" y="124" text-anchor="middle" font-size="13" fill="#334155">exe · bat · cmd · ps1 · py · thư mục</text>
+  <text x="810" y="146" text-anchor="middle" font-size="13" fill="#334155">Chạy bằng Process, file gốc không bị đụng</text>
+
+  <!-- Dữ liệu -->
+  <rect x="370" y="180" width="240" height="130" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="490" y="208" text-anchor="middle" font-size="15" font-weight="700" fill="#14532d">%APPDATA%\Toolbox\</text>
+  <text x="490" y="230" text-anchor="middle" font-size="12" fill="#334155">tools.json: danh sách tool</text>
+  <text x="490" y="250" text-anchor="middle" font-size="12" fill="#334155">library\: bản chép (store=copy)</text>
+  <text x="490" y="270" text-anchor="middle" font-size="12" fill="#334155">backup\ · changes.log: lịch sử ghi</text>
+  <text x="490" y="292" text-anchor="middle" font-size="12" fill="#334155">khoá Global\ToolboxStore</text>
+
+  <!-- MCP server -->
+  <rect x="680" y="330" width="260" height="110" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="810" y="367" text-anchor="middle" font-size="17" font-weight="700" fill="#4c1d95">Toolbox.exe --mcp</text>
+  <text x="810" y="394" text-anchor="middle" font-size="13" fill="#334155">MCP server qua stdio (JSON-RPC)</text>
+  <text x="810" y="416" text-anchor="middle" font-size="13" fill="#334155">5 tool MCP, không mở cửa sổ</text>
+
+  <!-- Agent -->
+  <rect x="40" y="330" width="260" height="110" rx="12" fill="#fff7ed" stroke="#d97706" stroke-width="2"/>
+  <text x="170" y="367" text-anchor="middle" font-size="17" font-weight="700" fill="#7c2d12">Agent</text>
+  <text x="170" y="394" text-anchor="middle" font-size="13" fill="#334155">Claude Code · Claude Desktop</text>
+  <text x="170" y="416" text-anchor="middle" font-size="13" fill="#334155">Cursor · VS Code (Copilot)</text>
+
+  <!-- GUI -> dữ liệu -->
+  <path d="M300,150 L370,215" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="326" y="170" text-anchor="middle" font-size="12" fill="#334155" stroke="#ffffff" stroke-width="5" paint-order="stroke">đọc · ghi</text>
+
+  <!-- GUI -> tool: chạy -->
+  <path d="M300,95 L680,95" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="490" y="88" text-anchor="middle" font-size="12" fill="#334155" stroke="#ffffff" stroke-width="5" paint-order="stroke">▶ Chạy</text>
+
+  <!-- Agent -> MCP -->
+  <path d="M300,385 L680,385" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="490" y="378" text-anchor="middle" font-size="12" fill="#334155" stroke="#ffffff" stroke-width="5" paint-order="stroke">stdio · JSON-RPC</text>
+
+  <!-- MCP -> dữ liệu (ghi có sao lưu) -->
+  <path d="M680,355 L610,300" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="652" y="318" text-anchor="middle" font-size="12" fill="#334155" stroke="#ffffff" stroke-width="5" paint-order="stroke">ghi có sao lưu</text>
+
+  <!-- MCP -> tool: run_tool -->
+  <path d="M810,330 L810,172" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="810" y="258" text-anchor="middle" font-size="12" fill="#334155" stroke="#ffffff" stroke-width="5" paint-order="stroke">run_tool</text>
+
+  <!-- chú thích -->
+  <text x="490" y="478" text-anchor="middle" font-size="12" fill="#64748b">Một file Toolbox.exe (~150 KB, WPF trên .NET Framework 4.8), không cần cài để chạy</text>
+</svg>
