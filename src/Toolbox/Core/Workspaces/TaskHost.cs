@@ -136,7 +136,7 @@ namespace Toolbox.Core.Workspaces
         }
 
         public static string DefaultRunsDir =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Toolbox", "runs");
+            Path.Combine(DataDir.Root, "runs");
 
         /// <summary>Trạng thái hoặc cổng của một tác vụ đổi, hoặc có tác vụ mới.</summary>
         public event Action Changed;

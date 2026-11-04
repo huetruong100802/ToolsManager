@@ -43,7 +43,7 @@ namespace Toolbox.Core
         }
 
         public static string DefaultPath =>
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Toolbox", "tools.json");
+            System.IO.Path.Combine(DataDir.Root, "tools.json");
 
         public string FilePath { get; }
 

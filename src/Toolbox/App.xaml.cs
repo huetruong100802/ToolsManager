@@ -22,7 +22,10 @@ namespace Toolbox
                 var input = new StreamReader(Console.OpenStandardInput(), encoding);
                 var output = new StreamWriter(Console.OpenStandardOutput(), encoding) { NewLine = "\n" };
                 var workspaceId = WorkspaceArgument(e.Args);
-                new McpServer(() => ToolStore.Load(ToolStore.DefaultPath), workspaceId, () => WorkspaceStore.Load(WorkspaceStore.DefaultPath))
+                var agentId = ValueOf(e.Args, "--agent");
+                // Trong workspace luôn có ngữ cảnh agent, để sửa tool dùng chung thành đề xuất dù chưa đăng ký agent.
+                var agent = workspaceId != null || agentId != null ? AgentContext.Default(agentId) : null;
+                new McpServer(() => ToolStore.Load(ToolStore.DefaultPath), workspaceId, () => WorkspaceStore.Load(WorkspaceStore.DefaultPath), agent: agent)
                     .Run(input, output);
                 Environment.Exit(0);
             }
@@ -34,6 +37,12 @@ namespace Toolbox
         /// --workspace &lt;id&gt;: giới hạn MCP server trong một workspace đã đăng ký. Không có thì là toàn máy.
         /// Có cờ mà thiếu id thì thoát ngay, để không vô tình chạy ở chế độ toàn máy.
         /// </summary>
+        private static string ValueOf(string[] args, string flag)
+        {
+            var index = Array.FindIndex(args, a => string.Equals(a, flag, StringComparison.OrdinalIgnoreCase));
+            return index >= 0 && index + 1 < args.Length && !args[index + 1].StartsWith("--", StringComparison.Ordinal) ? args[index + 1] : null;
+        }
+
         private static string WorkspaceArgument(string[] args)
         {
             var index = Array.FindIndex(args, a => string.Equals(a, "--workspace", StringComparison.OrdinalIgnoreCase));

@@ -29,7 +29,7 @@ namespace Toolbox.Core.Workspaces
         }
 
         public static string DefaultPath =>
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Toolbox", "workspaces.json");
+            System.IO.Path.Combine(DataDir.Root, "workspaces.json");
 
         public string FilePath { get; }
 
