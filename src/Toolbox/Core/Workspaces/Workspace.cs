@@ -200,6 +200,10 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "stacks", Order = 7)]
         public List<StackDef> Stacks { get; set; } = new List<StackDef>();
 
+        /// <summary>Ghim lên đầu danh sách workspace ở rail, để tìm nhanh khi có nhiều workspace.</summary>
+        [DataMember(Name = "pinned", Order = 10, EmitDefaultValue = false)]
+        public bool Pinned { get; set; }
+
         [DataMember(Name = "libraryBindings", Order = 8)]
         public List<LibraryBinding> LibraryBindings { get; set; } = new List<LibraryBinding>();
 

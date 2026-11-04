@@ -35,6 +35,117 @@
                 <TextBlock Text="{Binding RunningText}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
             </Border>
         </DataTemplate>
+        <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
+                            <DataTemplate x:Key="ProfileRowTemplate">
+                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Đổi tên" Click="OnRenameProfile" />
+                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteProfile" Margin="0,0,6,0" />
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
+                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
+                                                    Visibility="{Binding StopVisibility}" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
+                                                                Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{StaticResource WarnInk}"
+                                                       TextWrapping="Wrap" Visibility="{Binding ProblemVisibility}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+        <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
+                            <DataTemplate x:Key="StackRowTemplate">
+                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                        CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                                <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditStack"
+                                                        IsEnabled="{Binding CanEdit}" />
+                                                <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteStack" Margin="0,0,6,0"
+                                                        IsEnabled="{Binding CanEdit}" />
+                                                <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRunStack" MinWidth="72"
+                                                        IsEnabled="{Binding CanRun}" ToolTip="{Binding RunTip}" Visibility="{Binding RunVisibility}" />
+                                                <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStopStack" MinWidth="72"
+                                                        Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}" />
+                                            </StackPanel>
+                                        </DockPanel>
+
+                                        <ItemsControl ItemsSource="{Binding Steps}" Margin="0,8,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,2">
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Width="20" FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{StaticResource Faint}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Kind}" Value="Done">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Kind}" Value="Running">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Kind}" Value="Failed">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding WaitText}" FontSize="12"
+                                                                   Foreground="{StaticResource Faint}" Margin="12,0,0,0" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                                   Margin="12,0,0,0" MaxWidth="320" ToolTip="{Binding Note}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsBroken}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Text="{Binding Message}" Visibility="{Binding MessageVisibility}" TextWrapping="Wrap"
+                                                   Margin="0,8,0,0" FontSize="12">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding MessageKind}" Value="ok">
+                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding MessageKind}" Value="error">
+                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel>
@@ -145,36 +256,24 @@
                     <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,12,0,6" />
                     <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}"
                                Text="Chưa có profile. Chọn biến thể và tham số ở trên rồi bấm &quot;Lưu profile&quot; để chạy lại bằng một cú bấm." />
-                    <ItemsControl x:Name="ProfileList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Đổi tên" Click="OnRenameProfile" />
-                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteProfile" Margin="0,0,6,0" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
-                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
-                                                    Visibility="{Binding StopVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
-                                                                Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{StaticResource WarnInk}"
-                                                       TextWrapping="Wrap" Visibility="{Binding ProblemVisibility}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <ItemsControl x:Name="ProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
+                </StackPanel>
+
+                <!-- Trang Chạy: bộ chạy và profile của cả workspace, bấm là chạy. -->
+                <StackPanel x:Name="RunPage" Visibility="Collapsed">
+                    <TextBlock Text="BỘ CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,0,0,6" />
+                    <TextBlock x:Name="NoRunStacks" Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Chưa có bộ chạy. Mở tab &quot;Bộ chạy&quot; để gom nhiều bước thành một nút chạy." />
+                    <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />
+
+                    <DockPanel Margin="0,14,0,6">
+                        <TextBox x:Name="RunSearch" DockPanel.Dock="Right" Width="220" TextChanged="OnRunSearch"
+                                 AutomationProperties.Name="Tìm profile" ToolTip="Tìm profile theo tên" />
+                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
+                                   Margin="2,0,0,0" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock x:Name="NoRunProfiles" Style="{StaticResource Hint}" Margin="0,0,0,8" />
+                    <ItemsControl x:Name="RunProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
                 </StackPanel>
 
                 <!-- Trang một tool thư viện được gắn vào workspace. -->
@@ -260,93 +359,7 @@
                                    Text="Chuỗi lệnh chạy lần lượt bằng một cú bấm, vd: bật API, chờ cổng mở rồi bật web." />
                     </DockPanel>
                     <TextBlock x:Name="NoStacks" Style="{StaticResource Hint}" Text="Chưa có bộ chạy. Bấm &quot;Thêm bộ chạy&quot; để tạo." />
-                    <ItemsControl x:Name="StackList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
-                                    <StackPanel>
-                                        <DockPanel>
-                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                                                <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditStack"
-                                                        IsEnabled="{Binding CanEdit}" />
-                                                <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteStack" Margin="0,0,6,0"
-                                                        IsEnabled="{Binding CanEdit}" />
-                                                <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRunStack" MinWidth="72"
-                                                        IsEnabled="{Binding CanRun}" ToolTip="{Binding RunTip}" Visibility="{Binding RunVisibility}" />
-                                                <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStopStack" MinWidth="72"
-                                                        Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}" />
-                                            </StackPanel>
-                                        </DockPanel>
-
-                                        <ItemsControl ItemsSource="{Binding Steps}" Margin="0,8,0,0">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <DockPanel Margin="0,2">
-                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Width="20" FontWeight="SemiBold">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Faint}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Kind}" Value="Done">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Kind}" Value="Running">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Kind}" Value="Failed">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding WaitText}" FontSize="12"
-                                                                   Foreground="{StaticResource Faint}" Margin="12,0,0,0" />
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                                                   Margin="12,0,0,0" MaxWidth="320" ToolTip="{Binding Note}">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsBroken}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                                                    </DockPanel>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-
-                                        <TextBlock Text="{Binding Message}" Visibility="{Binding MessageVisibility}" TextWrapping="Wrap"
-                                                   Margin="0,8,0,0" FontSize="12">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding MessageKind}" Value="ok">
-                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding MessageKind}" Value="error">
-                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <ItemsControl x:Name="StackList" ItemTemplate="{StaticResource StackRowTemplate}" />
                 </StackPanel>
             </Grid>
         </ScrollViewer>

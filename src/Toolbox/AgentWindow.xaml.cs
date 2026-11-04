@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Toolbox.Core;
+using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox
@@ -127,16 +128,52 @@ $@"{{
                 return;
 
             var commandArgs = $"\"{exe}\" --mcp";
+            string workspaceId = null;
             if (!string.IsNullOrEmpty(target.Workspace))
             {
-                var workspaceId = EnsureRegistered(target.Workspace);
+                workspaceId = EnsureRegistered(target.Workspace);
                 if (workspaceId == null)
                     return;
                 commandArgs += " --workspace " + workspaceId;
             }
 
+            // Mỗi kết nối có một agent đăng ký trong Toolbox: để đổi quyền, xem nhật ký và duyệt đề xuất theo agent.
+            var agentId = EnsureAgent(workspaceId, target.Workspace);
+            if (agentId != null)
+                commandArgs += " --agent " + agentId;
+
             await RunCli(cli => ClaudeCode.Connect(cli, target, ClaudeCode.ToolboxServer, commandArgs),
                 "claude " + ClaudeCode.AddArguments(ClaudeCode.ToolboxServer, target.Workspace, commandArgs));
+        }
+
+        /// <summary>Agent đã đăng ký cho phạm vi này (workspace hoặc toàn máy); chưa có thì tạo. Null nếu không ghi được agents.json.</summary>
+        private string EnsureAgent(string workspaceId, string workspacePath)
+        {
+            try
+            {
+                string id = null;
+                var label = string.IsNullOrEmpty(workspaceId)
+                    ? "toàn máy"
+                    : WorkspaceStore.Load(WorkspaceStore.DefaultPath).Find(workspaceId)?.Name ?? Path.GetFileName((workspacePath ?? "").TrimEnd('\\', '/'));
+                AgentStore.Update(AgentStore.DefaultPath, store =>
+                {
+                    var existing = store.Agents.FirstOrDefault(a => a.Client == "claude"
+                        && string.Equals(a.WorkspaceId ?? "", workspaceId ?? "", StringComparison.OrdinalIgnoreCase));
+                    if (existing != null)
+                    {
+                        id = existing.Id;
+                        return false;
+                    }
+                    id = store.Add(new AgentRecord { Name = "Claude Code · " + label, Client = "claude", WorkspaceId = workspaceId, RunMode = RunModes.Auto }).Id;
+                    return true;
+                });
+                return id;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(this, "Không ghi được danh sách agent, kết nối sẽ không có quyền riêng: " + ex.Message);
+                return null;
+            }
         }
 
         private List<Workspace> LoadRegistered()

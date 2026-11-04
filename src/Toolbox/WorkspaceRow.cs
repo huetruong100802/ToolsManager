@@ -44,6 +44,21 @@ namespace Toolbox
             }
         }
 
+        /// <summary>Workspace được ghim: lên đầu rail.</summary>
+        public bool IsPinned => Workspace.Pinned;
+
+        public Visibility PinVisibility => Workspace.Pinned ? Visibility.Visible : Visibility.Collapsed;
+
+        public string PinMenuText => Workspace.Pinned ? "Bỏ ghim" : "Ghim lên đầu";
+
+        public void TogglePin()
+        {
+            Workspace.Pinned = !Workspace.Pinned;
+            Raise(nameof(IsPinned));
+            Raise(nameof(PinVisibility));
+            Raise(nameof(PinMenuText));
+        }
+
         public bool IsMissing => _isMissing;
 
         public int RunningCount => _running;

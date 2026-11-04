@@ -71,14 +71,42 @@
                                 </DockPanel>
                             </RadioButton>
 
+                            <RadioButton x:Name="AgentsNav" Style="{StaticResource RailItem}" Click="OnAgentsClick"
+                                         AutomationProperties.Name="Agent">
+                                <DockPanel>
+                                    <Border x:Name="AgentsBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{StaticResource WarnSoft}"
+                                            BorderBrush="{StaticResource WarnLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                            Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Đề xuất của agent đang chờ bạn duyệt">
+                                        <TextBlock x:Name="AgentsBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource WarnInk}" />
+                                    </Border>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE716;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                        <TextBlock Text="Agent" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </RadioButton>
+
                             <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
                                        Margin="10,18,0,6" />
+                            <Grid x:Name="WorkspaceSearchBox" Margin="2,0,2,6" Visibility="Collapsed">
+                                <TextBox x:Name="WorkspaceSearch" TextChanged="OnWorkspaceSearch" AutomationProperties.Name="Tìm workspace" />
+                                <TextBlock x:Name="WorkspaceSearchHint" Text="Tìm workspace" IsHitTestVisible="False" Foreground="{StaticResource Faint}"
+                                           Margin="11,0,0,0" VerticalAlignment="Center" />
+                            </Grid>
                             <ItemsControl x:Name="WorkspaceList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <RadioButton Style="{StaticResource RailItem}" Click="OnWorkspaceClick" IsChecked="{Binding IsSelected, Mode=OneWay}"
                                                      ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}">
+                                            <RadioButton.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{Binding PinMenuText}" Click="OnTogglePin" />
+                                                </ContextMenu>
+                                            </RadioButton.ContextMenu>
                                             <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE735;" FontSize="11"
+                                                           Foreground="{StaticResource Accent}" Visibility="{Binding PinVisibility}"
+                                                           Margin="6,0,0,0" ToolTip="Đã ghim" />
                                                 <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{StaticResource OkSoft}"
                                                         BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
                                                         Margin="6,0,0,0" VerticalAlignment="Center"
@@ -109,6 +137,7 @@
                 <views:LibraryView x:Name="Library" />
                 <views:OverviewView x:Name="OverviewPage" Visibility="Collapsed" />
                 <views:TasksView x:Name="TasksPage" Visibility="Collapsed" />
+                <views:AgentsView x:Name="AgentsPage" Visibility="Collapsed" />
 
                 <DockPanel x:Name="WorkspacePage" Visibility="Collapsed">
                     <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"

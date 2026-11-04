@@ -357,6 +357,7 @@ namespace Toolbox.Views
         /// <summary>Id của tab "Lệnh riêng" và "Bộ chạy" (không trùng kind nào của catalog).</summary>
         public const string CustomId = "";
         public const string StacksId = ":stacks";
+        public const string RunId = ":run";
 
         public TabRow(string title, ToolBinding binding, string id = null)
         {
@@ -366,6 +367,9 @@ namespace Toolbox.Views
         }
 
         public static TabRow Stacks() => new TabRow("Bộ chạy", null, StacksId);
+
+        /// <summary>Tab đầu tiên: bộ chạy và profile của cả workspace, để chạy ngay.</summary>
+        public static TabRow Run() => new TabRow("Chạy", null, RunId);
 
         /// <summary>Tiền tố Id của tab tool thư viện, để không trùng kind của catalog.</summary>
         public const string LibraryPrefix = "lib:";
@@ -394,6 +398,8 @@ namespace Toolbox.Views
         public bool IsCustom => Id == CustomId;
 
         public bool IsStacks => Id == StacksId;
+
+        public bool IsRun => Id == RunId;
 
         public bool IsSelected
         {

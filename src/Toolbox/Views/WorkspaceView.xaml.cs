@@ -103,6 +103,7 @@ namespace Toolbox.Views
         {
             var ws = _workspace;
             _tabs.Clear();
+            _tabs.Add(TabRow.Run());
             foreach (var binding in ws.Bindings)
                 _tabs.Add(new TabRow(ToolCatalog.Find(binding.Kind)?.Name ?? binding.Kind, binding));
             var library = LoadLibraryStore();
@@ -126,12 +127,15 @@ namespace Toolbox.Views
                 t.IsSelected = ReferenceEquals(t, tab);
             _selectedTab[_workspace.Id] = tab.Id;
 
-            ToolPage.Visibility = tab.IsCustom || tab.IsStacks || tab.IsLibrary ? Visibility.Collapsed : Visibility.Visible;
+            ToolPage.Visibility = tab.IsRun || tab.IsCustom || tab.IsStacks || tab.IsLibrary ? Visibility.Collapsed : Visibility.Visible;
+            RunPage.Visibility = tab.IsRun ? Visibility.Visible : Visibility.Collapsed;
             LibraryPage.Visibility = tab.IsLibrary ? Visibility.Visible : Visibility.Collapsed;
             CustomPage.Visibility = tab.IsCustom ? Visibility.Visible : Visibility.Collapsed;
             StackPage.Visibility = tab.IsStacks ? Visibility.Visible : Visibility.Collapsed;
             _stacks = new List<StackRow>();
-            if (tab.IsStacks)
+            if (tab.IsRun)
+                BuildRun();
+            else if (tab.IsStacks)
                 BuildStacks();
             else if (tab.IsCustom)
                 BuildCustoms();
@@ -177,8 +181,43 @@ namespace Toolbox.Views
             BuildProfiles(binding.Kind);
         }
 
+        /// <summary>Tab Chạy: mọi bộ chạy và profile của workspace (lọc theo ô tìm), dùng lại dòng của các tab khác.</summary>
+        private void BuildRun()
+        {
+            _actions = new List<ActionRow>();
+            _customs = new List<CustomRow>();
+            var query = Core.Text.Fold(RunSearch.Text ?? "");
+            _profiles = _workspace.Profiles
+                .Where(p => query.Length == 0 || Core.Text.Fold(p.Label ?? "").Contains(query))
+                .Select(p => new ProfileRow(_workspace, p))
+                .ToList();
+            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s)).ToList();
+
+            RunStackList.ItemsSource = null;
+            RunStackList.ItemsSource = _stacks;
+            RunProfileList.ItemsSource = null;
+            RunProfileList.ItemsSource = _profiles;
+            NoRunStacks.Visibility = _stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoRunProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoRunProfiles.Text = _workspace.Profiles.Count == 0
+                ? "Chưa có profile. Mở tab của một tool, chọn biến thể và tham số rồi bấm \"Lưu profile\"."
+                : $"Không có profile nào khớp \"{RunSearch.Text}\". Workspace có {_workspace.Profiles.Count} profile.";
+            Refresh();
+        }
+
+        private void OnRunSearch(object sender, TextChangedEventArgs e)
+        {
+            if (_workspace != null && _tab != null && _tab.IsRun)
+                BuildRun();
+        }
+
         private void BuildProfiles(string kind)
         {
+            if (_tab != null && _tab.IsRun)
+            {
+                BuildRun();
+                return;
+            }
             _profiles = _workspace.Profiles
                 .Where(p => string.Equals(p.Kind, kind, StringComparison.OrdinalIgnoreCase))
                 .Select(p => new ProfileRow(_workspace, p))
@@ -200,6 +239,11 @@ namespace Toolbox.Views
 
         private void BuildStacks()
         {
+            if (_tab != null && _tab.IsRun)
+            {
+                BuildRun();
+                return;
+            }
             _actions = new List<ActionRow>();
             _profiles = new List<ProfileRow>();
             _customs = new List<CustomRow>();

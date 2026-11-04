@@ -697,6 +697,9 @@ namespace Toolbox.Views
 
         // ---------- Agent ----------
 
+        /// <summary>Mở cửa sổ Kết nối agent từ trang Agent.</summary>
+        public void OpenAgentWindow() => OnConnectAgent(null, null);
+
         private void OnConnectAgent(object sender, RoutedEventArgs e)
         {
             var window = new AgentWindow(_installer) { Owner = Host };
