@@ -1,0 +1,32 @@
+<Window x:Class="Toolbox.AddToolWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Thêm tool vào workspace" Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="20,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
+                <Button x:Name="OkButton" Content="Thêm" IsDefault="True" Click="OnOk" MinWidth="90"
+                        Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Margin="20,18,20,8">
+            <TextBlock Text="Tool *" Style="{StaticResource FieldLabel}" />
+            <ComboBox x:Name="KindCombo" DisplayMemberPath="Name" SelectionChanged="OnKindChanged"
+                      AutomationProperties.Name="Tool" />
+            <TextBlock x:Name="KindHint" Style="{StaticResource Hint}" Margin="0,4,0,14" />
+
+            <TextBlock Text="Thư mục chạy" Style="{StaticResource FieldLabel}" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Chọn thư mục…" Click="OnBrowse" Margin="8,0,0,0" />
+                <TextBox x:Name="CwdBox" TextChanged="OnCwdChanged" AutomationProperties.Name="Thư mục chạy"
+                         ToolTip="Tương đối so với thư mục workspace; để trống là chính thư mục gốc" />
+            </DockPanel>
+            <TextBlock x:Name="CwdHint" Style="{StaticResource Hint}" Margin="0,4,0,14"
+                       Text="Tương đối so với thư mục workspace; để trống là thư mục gốc." />
+        </StackPanel>
+    </DockPanel>
+</Window>

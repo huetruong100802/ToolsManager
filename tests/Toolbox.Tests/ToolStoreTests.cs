@@ -101,9 +101,23 @@ namespace Toolbox.Tests
             store.Add(new ToolEntry { Name = "VSPE", Path = "b", Description = "cổng COM ảo", Tags = new List<string> { "serial" } });
 
             Assert.Equal("VSPE", store.Search("cong com").Single().Name);
-            Assert.Equal("Công cụ đo", store.Search("", "plc").Single().Name);
-            Assert.Empty(store.Search("vspe", "plc"));
+            Assert.Equal("Công cụ đo", store.Search("", new[] { "plc" }).Single().Name);
+            Assert.Empty(store.Search("vspe", new[] { "plc" }));
             Assert.Equal(new[] { "PLC", "serial" }, store.AllTags());
+        }
+
+        [Fact]
+        public void Search_NhieuTag_KhopBatKyTag()
+        {
+            var store = ToolStore.Load(Path.Combine(Path.GetTempPath(), "khong-ton-tai.json"));
+            store.Add(new ToolEntry { Name = "Đo", Path = "a", Tags = new List<string> { "plc" } });
+            store.Add(new ToolEntry { Name = "COM", Path = "b", Tags = new List<string> { "serial" } });
+            store.Add(new ToolEntry { Name = "Khác", Path = "c", Tags = new List<string> { "misc" } });
+
+            var names = store.Search("", new[] { "PLC", "serial" }).Select(t => t.Name).OrderBy(n => n).ToArray();
+            Assert.Equal(new[] { "COM", "Đo" }, names);
+            Assert.Equal(3, store.Search("", new[] { "", "  " }).Count());
+            Assert.Equal(3, store.Search("", Enumerable.Empty<string>()).Count());
         }
 
         [Theory]

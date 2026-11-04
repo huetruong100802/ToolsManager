@@ -74,14 +74,39 @@ namespace Toolbox.Tests
                 var config = dir.WriteFile(".claude.json", @"{
   ""mcpServers"": {
     ""toolbox"": { ""command"": ""C:\\a\\Toolbox.exe"" },
-    ""desk-mcp"": { ""command"": ""cmd"", ""args"": [""/c"", ""npx"", ""-y"", ""desk-mcp""] }
+    ""other-server"": { ""command"": ""cmd"" }
   }
 }");
 
                 var result = ClaudeCode.ReadConfig(config);
 
                 Assert.Equal("C:\\a\\Toolbox.exe", result.User.Entry(ToolboxServer).Command);
-                Assert.Equal("cmd", result.User.Entry(DeskMcp.ServerName).Command);
+                Assert.Equal("cmd", result.User.Entry("other-server").Command);
+            }
+        }
+
+        [Fact]
+        public void ReadConfig_ServerCuaMotWorkspace_KhongLanSangToolboxVaToanMay()
+        {
+            using (var dir = new TempDir())
+            {
+                var repo = dir.Combine("repo");
+                Directory.CreateDirectory(repo);
+                var slashRepo = repo.Replace('\\', '/');
+                var config = dir.WriteFile(".claude.json", $@"{{
+  ""mcpServers"": {{ ""toolbox"": {{ ""command"": ""C:\\a\\Toolbox.exe"" }} }},
+  ""projects"": {{
+    ""{slashRepo}"": {{ ""mcpServers"": {{ ""other-server"": {{ ""command"": ""cmd"" }} }} }}
+  }}
+}}");
+
+                var result = ClaudeCode.ReadConfig(config);
+
+                Assert.Null(result.User.Entry("other-server"));
+                Assert.Equal(AgentLink.NotConnected, result.User.LinkTo("other-server"));
+                var workspace = Assert.Single(result.Workspaces);
+                Assert.Equal(AgentLink.Connected, workspace.LinkTo("other-server"));
+                Assert.Null(workspace.Entry(ToolboxServer));
             }
         }
 

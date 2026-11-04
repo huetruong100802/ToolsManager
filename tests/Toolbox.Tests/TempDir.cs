@@ -25,7 +25,17 @@ namespace Toolbox.Tests
 
         public void Dispose()
         {
-            try { Directory.Delete(Path, recursive: true); } catch (IOException) { }
+            // Git tạo object chỉ đọc (nhất là trong worktree), nên bỏ thuộc tính đó trước khi xoá.
+            try
+            {
+                if (!Directory.Exists(Path))
+                    return;
+                foreach (var file in Directory.GetFiles(Path, "*", SearchOption.AllDirectories))
+                    File.SetAttributes(file, FileAttributes.Normal);
+                Directory.Delete(Path, recursive: true);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

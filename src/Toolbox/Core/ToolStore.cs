@@ -177,15 +177,21 @@ namespace Toolbox.Core
             return true;
         }
 
-        /// <summary>Tìm theo id/tên/mô tả/tag, không phân biệt hoa thường và dấu; lọc thêm theo tag nếu có.</summary>
-        public IEnumerable<ToolEntry> Search(string query, string tag = null)
+        /// <summary>
+        /// Tìm theo id/tên/mô tả/tag, không phân biệt hoa thường và dấu.
+        /// Nếu có <paramref name="tags"/>: tool phải có ít nhất một tag trong danh sách (khớp bất kỳ).
+        /// </summary>
+        public IEnumerable<ToolEntry> Search(string query, IEnumerable<string> tags = null)
         {
             var terms = Text.Fold(query).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            var foldedTag = Text.Fold(tag);
+            var foldedTags = (tags ?? Enumerable.Empty<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(Text.Fold)
+                .ToList();
 
             return _tools.Where(t =>
             {
-                if (foldedTag.Length > 0 && !t.Tags.Any(x => Text.Fold(x) == foldedTag))
+                if (foldedTags.Count > 0 && !t.Tags.Any(x => foldedTags.Contains(Text.Fold(x))))
                     return false;
 
                 var haystack = Text.Fold(string.Join(" ", new[] { t.Id, t.Name, t.Description }.Concat(t.Tags)));

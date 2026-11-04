@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Web.Script.Serialization;
 using Toolbox.Core;
+using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Mcp
 {
@@ -14,22 +15,75 @@ namespace Toolbox.Mcp
     /// MCP server tối giản qua stdio (JSON-RPC, mỗi message một dòng), cho agent tra cứu, chạy, đăng ký và sửa tool trong danh sách.
     /// Chỉ hỗ trợ capability "tools": list_tools, run_tool, register_tool, update_tool, unregister_tool.
     /// </summary>
-    public sealed class McpServer
+    public sealed partial class McpServer
     {
         private const string DefaultProtocolVersion = "2025-06-18";
         private const int DefaultTimeoutSeconds = 60;
         private const int MaxTimeoutSeconds = 600;
 
         private readonly Func<ToolStore> _loadStore;
+        private readonly string _workspaceId;
+        private readonly Func<WorkspaceStore> _loadWorkspaces;
+        private readonly string _runsDir;
+        private SessionRuns _session;
         private readonly JavaScriptSerializer _json = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
         /// <param name="loadStore">Đọc lại tools.json mỗi lần gọi để thấy ngay thay đổi từ GUI.</param>
-        public McpServer(Func<ToolStore> loadStore)
+        /// <param name="workspaceId">Null: toàn máy, quản lý mọi tool. Có giá trị: chỉ quản lý tool gắn với workspace này.</param>
+        /// <param name="loadWorkspaces">Đọc lại workspaces.json mỗi lần gọi. Bắt buộc khi có workspaceId.</param>
+        /// <param name="runsDir">Thư mục log của tác vụ do agent khởi chạy. Null: thư mục mặc định của Toolbox.</param>
+        public McpServer(Func<ToolStore> loadStore, string workspaceId = null, Func<WorkspaceStore> loadWorkspaces = null, string runsDir = null)
         {
             _loadStore = loadStore;
+            _workspaceId = workspaceId;
+            _loadWorkspaces = loadWorkspaces;
+            _runsDir = runsDir;
+        }
+
+        private bool Scoped => _workspaceId != null;
+
+        /// <summary>Workspace của phiên này, đọc lại mỗi lần gọi để thấy thay đổi từ GUI. Trả về null kèm lỗi nếu chưa đăng ký.</summary>
+        private Workspace CurrentWorkspace(out string error)
+        {
+            error = null;
+            if (!Scoped)
+                return null;
+            try
+            {
+                var workspace = _loadWorkspaces?.Invoke().Find(_workspaceId);
+                if (workspace == null)
+                    error = $"Workspace \"{_workspaceId}\" chưa được đăng ký trong Toolbox. Mở Toolbox, thêm workspace rồi kết nối lại agent từ cửa sổ Kết nối agent.";
+                return workspace;
+            }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException)
+            {
+                error = "Không đọc được danh sách workspace: " + ex.Message;
+                return null;
+            }
         }
 
         public void Run(TextReader input, TextWriter output)
+        {
+            try
+            {
+                Loop(input, output);
+            }
+            finally
+            {
+                // Agent ngắt kết nối thì dừng các tác vụ nó đã khởi chạy, không để lại tiến trình mồ côi.
+                Close();
+            }
+        }
+
+        /// <summary>Dừng các tác vụ do phiên này khởi chạy. Gọi khi kết thúc phiên (Run tự gọi).</summary>
+        public void Close()
+        {
+            var session = _session;
+            _session = null;
+            session?.Dispose();
+        }
+
+        private void Loop(TextReader input, TextWriter output)
         {
             string line;
             while ((line = input.ReadLine()) != null)
@@ -95,7 +149,7 @@ namespace Toolbox.Mcp
                 : _json.Serialize(new Dictionary<string, object> { ["jsonrpc"] = "2.0", ["id"] = id, ["result"] = result });
         }
 
-        private static object Initialize(Dictionary<string, object> parameters)
+        private object Initialize(Dictionary<string, object> parameters)
         {
             // Chỉ dùng phần "tools" ổn định giữa các phiên bản giao thức nên nhận version client đề nghị.
             var version = parameters != null && parameters.TryGetValue("protocolVersion", out var v) && v is string s ? s : DefaultProtocolVersion;
@@ -108,12 +162,27 @@ namespace Toolbox.Mcp
                     ["name"] = "toolbox",
                     ["version"] = Assembly.GetExecutingAssembly().GetName().Version.ToString(3),
                 },
-                ["instructions"] = "Toolbox chứa danh sách tool người dùng đã đăng ký trên máy. "
-                    + "Dùng list_tools để tìm tool trước khi tự viết script mới; dùng run_tool để chạy.",
+                ["instructions"] = Instructions(),
             };
         }
 
-        private static object[] ToolDefinitions() => new object[]
+        private string Instructions()
+        {
+            if (!Scoped)
+                return "Toolbox chứa danh sách tool người dùng đã đăng ký trên máy. "
+                    + "Dùng list_tools để tìm tool trước khi tự viết script mới; dùng run_tool để chạy.";
+            var workspace = CurrentWorkspace(out var error);
+            if (error != null)
+                return error;
+            return $"Toolbox đang giới hạn trong workspace \"{workspace.Name}\": chỉ thấy, chạy và sửa tool đã gắn với workspace này. "
+                + "register_tool đăng ký tool rồi gắn vào workspace này; unregister_tool chỉ gỡ khỏi workspace, không xoá khỏi thư viện. "
+                + "Để chạy app, server hay e2e của workspace: list_setup để xem profile, bộ chạy và lệnh, rồi run_profile hoặc run_stack thay vì tự đoán lệnh. "
+                + "Tác vụ do agent khởi chạy dừng khi phiên kết thúc.";
+        }
+
+        private object[] ToolDefinitions() => CoreToolDefinitions().Concat(Scoped ? SetupToolDefinitions().Concat(ManageToolDefinitions()).ToArray() : new object[0]).ToArray();
+
+        private static object[] CoreToolDefinitions() => new object[]
         {
             new Dictionary<string, object>
             {
@@ -198,16 +267,43 @@ namespace Toolbox.Mcp
 
             try
             {
+                // Phiên có workspace mà workspace chưa đăng ký thì mọi lệnh đều báo lỗi, không làm gì.
+                var workspace = CurrentWorkspace(out var scopeError);
+                if (scopeError != null)
+                    return ToolResult(scopeError, isError: true);
+
                 switch (name)
                 {
                     case "list_tools":
-                        return ListTools(_loadStore(), arguments);
+                        return ListTools(_loadStore(), arguments, workspace);
                     case "run_tool":
-                        return RunTool(_loadStore(), arguments);
+                        return RunTool(_loadStore(), arguments, workspace);
+                    case "list_setup":
+                    case "run_profile":
+                    case "run_custom":
+                    case "run_stack":
+                    case "run_action":
+                    case "run_status":
+                    case "run_stop":
+                    case "prepare_worktree":
+                    case "add_tool":
+                    case "remove_tool":
+                    case "bind_library_tool":
+                    case "create_profile":
+                    case "update_profile":
+                    case "delete_profile":
+                    case "create_custom":
+                    case "update_custom":
+                    case "delete_custom":
+                    case "create_stack":
+                    case "update_stack":
+                    case "delete_stack":
+                    case "set_worktree":
+                        return SetupCall(name, arguments, workspace);
                     case "register_tool":
                     case "update_tool":
                     case "unregister_tool":
-                        return WriteTool(name, arguments);
+                        return WriteTool(name, arguments, workspace);
                     default:
                         throw new InvalidParamsException("Unknown tool: " + name);
                 }
@@ -223,7 +319,7 @@ namespace Toolbox.Mcp
         /// register_tool, update_tool, unregister_tool. Đọc-sửa-ghi trong một khoá để không ghi đè thay đổi của GUI.
         /// Lỗi đầu vào ném trước khi Save, nên danh sách trên đĩa không đổi.
         /// </summary>
-        private object WriteTool(string name, Dictionary<string, object> arguments)
+        private object WriteTool(string name, Dictionary<string, object> arguments, Workspace workspace)
         {
             using (ToolStore.Lock())
             {
@@ -233,24 +329,77 @@ namespace Toolbox.Mcp
                 switch (name)
                 {
                     case "register_tool":
-                        var registered = AgentTools.Register(store, ToRequest(arguments));
-                        store.Save();
-                        return ToolResult(Describe(registered), isError: false);
+                        return RegisterTool(store, arguments, workspace);
                     case "update_tool":
-                        var updated = AgentTools.Update(store, GetString(arguments, "id"), ToRequest(arguments));
+                    {
+                        var id = GetString(arguments, "id");
+                        if (workspace != null && !IsBound(workspace, id))
+                            return NotInWorkspace(id);
+                        var updated = AgentTools.Update(store, id, ToRequest(arguments));
                         store.Save();
                         return ToolResult(Describe(updated), isError: false);
+                    }
                     default:
-                        var id = GetString(arguments, "id");
-                        if (string.IsNullOrWhiteSpace(id))
-                            return ToolResult("Thiếu id. Dùng list_tools để xem id.", isError: true);
-                        if (!store.Remove(id))
-                            return ToolResult($"Không có tool \"{id}\". Dùng list_tools để xem id.", isError: true);
-                        store.Save();
-                        return ToolResult($"Đã bỏ \"{id}\" khỏi danh sách. File gốc và bản chép trong thư viện vẫn còn.", isError: false);
+                        return Unregister(store, GetString(arguments, "id"), workspace);
                 }
             }
         }
+
+        /// <summary>Trong workspace: chỉ tạo mới hoặc sửa tool đã gắn; trùng tool ngoài workspace thì từ chối và không lưu gì.</summary>
+        private object RegisterTool(ToolStore store, Dictionary<string, object> arguments, Workspace workspace)
+        {
+            var outcome = AgentTools.Register(store, ToRequest(arguments));
+            if (workspace != null && !outcome.Created && !IsBound(workspace, outcome.Tool.Id))
+                return ToolResult($"Đã có tool \"{outcome.Tool.Id}\" trong thư viện nhưng không thuộc workspace này nên agent không sửa được. "
+                    + "Đổi name hoặc path để đăng ký tool khác, hoặc nhờ người dùng gắn tool đó vào workspace trong Toolbox.", isError: true);
+
+            store.Save();
+            if (workspace != null)
+                BindInWorkspace(outcome.Tool);
+            return ToolResult(Describe(outcome), isError: false);
+        }
+
+        /// <summary>Trong workspace: chỉ gỡ khỏi workspace, giữ tool trong thư viện. Toàn máy: bỏ khỏi thư viện và khỏi mọi workspace.</summary>
+        private object Unregister(ToolStore store, string id, Workspace workspace)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return ToolResult("Thiếu id. Dùng list_tools để xem id.", isError: true);
+
+            if (workspace != null)
+            {
+                if (!IsBound(workspace, id))
+                    return NotInWorkspace(id);
+                var workspaces = _loadWorkspaces();
+                workspaces.Find(_workspaceId)?.UnbindLibrary(id);
+                workspaces.Save();
+                return ToolResult($"Đã gỡ \"{id}\" khỏi workspace. Tool vẫn còn trong thư viện.", isError: false);
+            }
+
+            if (!store.Remove(id))
+                return ToolResult($"Không có tool \"{id}\". Dùng list_tools để xem id.", isError: true);
+            store.Save();
+            if (_loadWorkspaces != null)
+            {
+                var workspaces = _loadWorkspaces();
+                if (workspaces.UnbindToolEverywhere(id) > 0)
+                    workspaces.Save();
+            }
+            return ToolResult($"Đã bỏ \"{id}\" khỏi danh sách. File gốc và bản chép trong thư viện vẫn còn.", isError: false);
+        }
+
+        private void BindInWorkspace(ToolEntry tool)
+        {
+            var workspaces = _loadWorkspaces();
+            var workspace = workspaces.Find(_workspaceId);
+            if (workspace != null && workspace.BindLibrary(tool))
+                workspaces.Save();
+        }
+
+        private bool IsBound(Workspace workspace, string toolId) =>
+            !string.IsNullOrEmpty(toolId) && workspace.FindLibrary(toolId) != null;
+
+        private static object NotInWorkspace(string id) =>
+            ToolResult($"Tool \"{id}\" không thuộc workspace này nên không thao tác được. Dùng list_tools để xem tool của workspace.", isError: true);
 
         private static AgentTools.Request ToRequest(Dictionary<string, object> arguments) => new AgentTools.Request
         {
@@ -286,9 +435,11 @@ namespace Toolbox.Mcp
             return _json.Serialize(view);
         }
 
-        private object ListTools(ToolStore store, Dictionary<string, object> arguments)
+        private object ListTools(ToolStore store, Dictionary<string, object> arguments, Workspace workspace)
         {
-            var tools = store.Search(GetString(arguments, "query"), GetString(arguments, "tag"))
+            var tag = GetString(arguments, "tag");
+            var tools = store.Search(GetString(arguments, "query"), tag == null ? null : new[] { tag })
+                .Where(t => workspace == null || workspace.FindLibrary(t.Id) != null)
                 .Select(t => new Dictionary<string, object>
                 {
                     ["id"] = t.Id,
@@ -302,12 +453,14 @@ namespace Toolbox.Mcp
                 })
                 .ToList();
 
+            if (tools.Count == 0 && workspace != null)
+                return ToolResult($"Workspace \"{workspace.Name}\" chưa có tool nào khớp.", isError: false);
             return tools.Count == 0
                 ? ToolResult($"Không có tool nào khớp (tổng {store.Tools.Count} tool đã đăng ký).", isError: false)
                 : ToolResult(_json.Serialize(tools), isError: false);
         }
 
-        private object RunTool(ToolStore store, Dictionary<string, object> arguments)
+        private object RunTool(ToolStore store, Dictionary<string, object> arguments, Workspace workspace)
         {
             var id = GetString(arguments, "id");
             if (string.IsNullOrWhiteSpace(id))
@@ -317,7 +470,14 @@ namespace Toolbox.Mcp
             if (tool == null)
                 return ToolResult($"Không có tool \"{id}\". Dùng list_tools để xem id.", isError: true);
 
+            var binding = workspace?.FindLibrary(id);
+            if (workspace != null && binding == null)
+                return NotInWorkspace(id);
+
+            // Không truyền args thì dùng tham số riêng của workspace (nếu có), còn lại để Runner dùng tham số trong thư viện.
             var args = GetString(arguments, "args");
+            if (string.IsNullOrWhiteSpace(args) && !string.IsNullOrWhiteSpace(binding?.Args))
+                args = binding.Args;
             var wait = arguments.TryGetValue("wait", out var w) && w is bool b && b;
             var timeout = DefaultTimeoutSeconds;
             if (arguments.TryGetValue("timeoutSeconds", out var t) && t != null)

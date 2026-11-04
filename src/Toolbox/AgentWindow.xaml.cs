@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Toolbox.Core;
+using Toolbox.Core.Workspaces;
 
 namespace Toolbox
 {
@@ -62,12 +63,22 @@ $@"{{
 
             // Bản đang chạy hoặc bản đã cài đều tính là "đúng exe".
             var exes = new[] { _currentExe, _installer.InstalledExe };
-            var user = new TargetRow(config.User, ClaudeCode.ToolboxServer, "Toàn bộ máy", "Mọi workspace Claude Code đều dùng được (scope user)", exes);
+            var user = new TargetRow(config.User, ClaudeCode.ToolboxServer, "Toàn bộ máy", "Agent quản lý mọi tool, không giới hạn workspace (scope user)",
+                workspaceRow: false, toolboxWorkspaceId: null, exes: exes);
             UserRow.Content = user;
             UserHint.Visibility = user.Link == AgentLink.Connected ? Visibility.Visible : Visibility.Collapsed;
 
+            var registered = LoadRegistered();
             _workspaces = config.Workspaces
-                .Select(w => new TargetRow(w, ClaudeCode.ToolboxServer, Path.GetFileName(w.Workspace), w.Workspace, exes))
+                .Select(w =>
+                {
+                    var match = registered.FirstOrDefault(r => SamePath(r.ResolvedPath, w.Workspace));
+                    var detail = match == null
+                        ? "Chưa đăng ký trong Toolbox · " + w.Workspace
+                        : "Chỉ tool của workspace này · " + w.Workspace;
+                    return new TargetRow(w, ClaudeCode.ToolboxServer, Path.GetFileName(w.Workspace), detail,
+                        workspaceRow: true, toolboxWorkspaceId: match?.Id, exes: exes);
+                })
                 .OrderBy(r => r.Link == AgentLink.NotConnected)
                 .ThenBy(r => r.Target.Workspace, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -105,16 +116,73 @@ $@"{{
             await Connect(existing?.Target ?? new ClaudeTarget { Workspace = path });
         }
 
+        /// <summary>
+        /// Toàn máy: <c>--mcp</c>, agent quản lý mọi tool. Workspace: phải đăng ký trong Toolbox trước,
+        /// rồi kết nối với <c>--workspace &lt;id&gt;</c> để agent chỉ thấy tool của workspace đó.
+        /// </summary>
         private async Task Connect(ClaudeTarget target)
         {
             var exe = ChooseExe();
-            if (exe != null)
+            if (exe == null)
+                return;
+
+            var commandArgs = $"\"{exe}\" --mcp";
+            if (!string.IsNullOrEmpty(target.Workspace))
             {
-                var commandArgs = $"\"{exe}\" --mcp";
-                await RunCli(cli => ClaudeCode.Connect(cli, target, ClaudeCode.ToolboxServer, commandArgs),
-                    "claude " + ClaudeCode.AddArguments(ClaudeCode.ToolboxServer, target.Workspace, commandArgs));
+                var workspaceId = EnsureRegistered(target.Workspace);
+                if (workspaceId == null)
+                    return;
+                commandArgs += " --workspace " + workspaceId;
+            }
+
+            await RunCli(cli => ClaudeCode.Connect(cli, target, ClaudeCode.ToolboxServer, commandArgs),
+                "claude " + ClaudeCode.AddArguments(ClaudeCode.ToolboxServer, target.Workspace, commandArgs));
+        }
+
+        private List<Workspace> LoadRegistered()
+        {
+            try
+            {
+                return WorkspaceStore.Load(WorkspaceStore.DefaultPath).Workspaces.ToList();
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Dialogs.Error(this, ex.Message);
+                return new List<Workspace>();
             }
         }
+
+        /// <summary>Id workspace Toolbox của thư mục này; chưa có thì hỏi rồi đăng ký. Null nếu người dùng bỏ qua hoặc lỗi.</summary>
+        private string EnsureRegistered(string path)
+        {
+            try
+            {
+                var store = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
+                var existing = store.Workspaces.FirstOrDefault(w => SamePath(w.ResolvedPath, path));
+                if (existing != null)
+                    return existing.Id;
+
+                var answer = MessageBox.Show(this,
+                    $"Thư mục này chưa là workspace trong Toolbox:\n{path}\n\n"
+                    + "Agent chỉ quản lý được tool của workspace đã đăng ký. Đăng ký workspace này rồi kết nối?",
+                    "Toolbox", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes)
+                    return null;
+
+                var name = Path.GetFileName(path.TrimEnd('\\', '/'));
+                var added = store.Add(new Workspace { Name = string.IsNullOrWhiteSpace(name) ? path : name, Path = path });
+                store.Save();
+                return added.Id;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(this, "Không đăng ký được workspace: " + ex.Message);
+                return null;
+            }
+        }
+
+        private static bool SamePath(string a, string b) =>
+            string.Equals((a ?? "").TrimEnd('\\', '/'), (b ?? "").TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Khai báo bằng exe ở chỗ cố định. Đang chạy bản tải về thì đề nghị cài trước, tránh agent mất kết nối khi file bị xoá/di chuyển.

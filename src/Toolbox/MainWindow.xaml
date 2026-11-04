@@ -1,219 +1,158 @@
 <Window x:Class="Toolbox.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Toolbox" Width="980" Height="620" MinWidth="820" MinHeight="400"
-        Style="{StaticResource AppWindow}" AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop"
-        WindowStartupLocation="CenterScreen">
+        xmlns:views="clr-namespace:Toolbox.Views"
+        Title="Toolbox" Width="1180" Height="680" MinWidth="1000" MinHeight="460"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterScreen">
     <DockPanel>
-        <!-- Header -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
-                BorderThickness="0,0,0,1" Padding="20,14">
+        <!-- Thanh trạng thái: số tác vụ đang chạy và cổng đang dùng. -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="14,4">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource GhostButton}" Click="OnConnectAgent" Margin="0,0,6,0"
-                            AutomationProperties.Name="Kết nối agent…">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource Icon}" Text="&#xE71B;" Margin="0,0,7,0" />
-                            <TextBlock Text="Kết nối agent…" />
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource GhostButton}" Click="OnDeskMcp" Margin="0,0,6,0"
-                            AutomationProperties.Name="desk-mcp…" Content="desk-mcp…" />
-                    <Button Click="OnImport" Margin="0,0,8,0" AutomationProperties.Name="Nhập gói…">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" Margin="0,0,7,0" />
-                            <TextBlock Text="Nhập gói…" />
-                        </StackPanel>
-                    </Button>
-                    <Button Click="OnPickApp" Margin="0,0,8,0" AutomationProperties.Name="App đã cài…"
-                            ToolTip="Chọn từ các app có trong Start Menu">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource Icon}" Text="&#xE71D;" Margin="0,0,7,0" />
-                            <TextBlock Text="App đã cài…" />
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource PrimaryButton}" Click="OnAdd" AutomationProperties.Name="+ Thêm tool">
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnStatusTasksClick"
+                        Content="Xem tác vụ" Padding="10,2" AutomationProperties.Name="Mở trang Tác vụ" />
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Muted}"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="224" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Rail trái: Thư viện, Tổng quan, Tác vụ, danh sách workspace. -->
+            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                <DockPanel Margin="12,14,12,12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,16">
+                        <Border Width="32" Height="32" CornerRadius="9" Background="{StaticResource BrandGradient}" Margin="0,0,10,0">
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" FontSize="16" Foreground="White" HorizontalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="Toolbox" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Button x:Name="AddWorkspaceButton" DockPanel.Dock="Bottom" Click="OnAddWorkspace" Margin="0,8,0,0"
+                            AutomationProperties.Name="Thêm workspace">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" />
-                            <TextBlock Text="Thêm tool" />
+                            <TextBlock Text="Thêm workspace" />
                         </StackPanel>
                     </Button>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource BrandGradient}" Margin="0,0,12,0">
-                        <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" FontSize="17" Foreground="White"
-                                   HorizontalAlignment="Center" />
-                    </Border>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Toolbox" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="Quản lý tool trên máy, đóng gói gửi đồng đội" Foreground="{StaticResource Muted}" FontSize="12" />
-                    </StackPanel>
-                </StackPanel>
-            </DockPanel>
-        </Border>
 
-        <!-- Footer -->
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
-                BorderThickness="0,1,0,0" Padding="20,10">
-            <DockPanel>
-                <Button x:Name="PackButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Đóng gói"
-                        Click="OnPack" IsEnabled="False" />
-                <Button x:Name="RemoveButton" DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Content="Xoá khỏi danh sách"
-                        Click="OnRemove" IsEnabled="False" Margin="0,0,8,0" />
-                <CheckBox x:Name="SelectAll" DockPanel.Dock="Left" Content="Chọn tất cả" VerticalAlignment="Center" Margin="0,0,16,0"
-                          Click="OnSelectAll" />
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
-            </DockPanel>
-        </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <RadioButton x:Name="LibraryNav" Style="{StaticResource RailItem}" Click="OnLibraryClick" IsChecked="True"
+                                         AutomationProperties.Name="Thư viện">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                    <TextBlock Text="Thư viện" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="OverviewNav" Style="{StaticResource RailItem}" Click="OnOverviewClick"
+                                         AutomationProperties.Name="Tổng quan">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE80F;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                    <TextBlock Text="Tổng quan" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="TasksNav" Style="{StaticResource RailItem}" Click="OnTasksClick"
+                                         AutomationProperties.Name="Tác vụ">
+                                <DockPanel>
+                                    <Border x:Name="TasksBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{StaticResource OkSoft}"
+                                            BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                            Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Số tác vụ đang chạy ngầm">
+                                        <TextBlock x:Name="TasksBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
+                                    </Border>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                        <TextBlock Text="Tác vụ" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </RadioButton>
 
-        <DockPanel Margin="20,14,20,0">
-            <Border x:Name="InstallBanner" DockPanel.Dock="Top" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentSoftLine}"
-                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,12" Visibility="Collapsed">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Cài vào máy" Click="OnInstall" Margin="12,0,0,0" />
-                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE946;" Foreground="{StaticResource Accent}"
-                               FontSize="16" Margin="0,0,10,0" />
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                               Text="Toolbox chưa được cài. Cài để có shortcut trong Start Menu và double-click file .toolbox là nhập gói (không cần quyền admin)." />
+                            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
+                                       Margin="10,18,0,6" />
+                            <ItemsControl x:Name="WorkspaceList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <RadioButton Style="{StaticResource RailItem}" Click="OnWorkspaceClick" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                                     ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}">
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{StaticResource OkSoft}"
+                                                        BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                                        Margin="6,0,0,0" VerticalAlignment="Center"
+                                                        ToolTip="Số tác vụ đang chạy ngầm">
+                                                    <TextBlock Text="{Binding RunningCount}" FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Ok}" />
+                                                </Border>
+                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12"
+                                                           Foreground="{StaticResource WarnInk}" Visibility="{Binding MissingVisibility}"
+                                                           Margin="6,0,0,0" ToolTip="Không tìm thấy thư mục" />
+                                                <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"
+                                                         VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </RadioButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="NoWorkspaceHint" Style="{StaticResource Hint}" Margin="10,2,6,0"
+                                       Text="Chưa có workspace. Thêm một thư mục repo để chạy lệnh ngay tại đó." />
+                        </StackPanel>
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
 
-            <!-- Tìm + lọc tag -->
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                <ComboBox x:Name="TagFilter" DockPanel.Dock="Right" Width="170" Margin="10,0,0,0" SelectionChanged="OnFilterChanged"
-                          ToolTip="Lọc theo tag" />
-                <Grid>
-                    <TextBox x:Name="SearchBox" Padding="32,6,8,6" TextChanged="OnFilterChanged"
-                             AutomationProperties.Name="Tìm" />
-                    <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{StaticResource Faint}"
-                               HorizontalAlignment="Left" Margin="11,0,0,0" IsHitTestVisible="False" />
-                    <TextBlock Text="Tìm theo tên, mô tả, tag…" Foreground="{StaticResource Faint}" Margin="34,0,0,0"
-                               VerticalAlignment="Center" IsHitTestVisible="False">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Grid>
-            </DockPanel>
+            <!-- Vùng nội dung: thư viện, tổng quan, tác vụ, hoặc trang của workspace đang chọn. -->
+            <Grid Grid.Column="1">
+                <views:LibraryView x:Name="Library" />
+                <views:OverviewView x:Name="OverviewPage" Visibility="Collapsed" />
+                <views:TasksView x:Name="TasksPage" Visibility="Collapsed" />
 
-            <Grid>
-                <ListBox x:Name="ToolList" HorizontalContentAlignment="Stretch" MouseDoubleClick="OnListDoubleClick"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <CheckBox IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                <Grid Grid.Column="1" Width="38" Height="38" VerticalAlignment="Center" Margin="0,0,12,0">
-                                    <Border CornerRadius="10" Background="{StaticResource AccentSoft}">
-                                        <Grid>
-                                            <TextBlock Text="{Binding Initial}" Visibility="{Binding InitialVisibility}" FontSize="16" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            <Image Source="{Binding Icon}" Visibility="{Binding IconVisibility}" Width="26" Height="26"
-                                                   RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </Border>
-                                    <Ellipse Width="10" Height="10" Fill="{Binding StatusBrush}" Stroke="White" StrokeThickness="2"
-                                             HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4"
-                                             ToolTip="{Binding StatusTip}" />
-                                </Grid>
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <!-- Tên co lại khi hẹp; tag nằm cột riêng bên phải, tối đa MaxVisibleTags chip. -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Tool.Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                                   Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding AllTagsTip}">
-                                            <ItemsControl ItemsSource="{Binding VisibleTags}" ItemTemplate="{StaticResource TagChip}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                            </ItemsControl>
-                                            <Border Background="{StaticResource TagBg}" CornerRadius="10" Padding="7,1" Margin="0,0,4,0"
-                                                    VerticalAlignment="Center" Visibility="{Binding MoreTagsVisibility}">
-                                                <TextBlock Text="{Binding MoreTags}" FontSize="11" Foreground="{StaticResource TagInk}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </Grid>
-                                    <TextBlock Text="{Binding Tool.Description}" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"
-                                               Margin="0,2,0,0" />
-                                    <!-- DockPanel (không phải StackPanel ngang) để cảnh báo dài bị cắt bằng dấu …, không tràn sang nút. -->
-                                    <DockPanel Visibility="{Binding WarningVisibility}" Margin="0,3,0,0">
-                                        <DockPanel.Style>
-                                            <Style TargetType="DockPanel">
-                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Danger}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding CanInstall}" Value="True">
-                                                        <Setter Property="TextElement.Foreground" Value="{StaticResource WarnInk}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </DockPanel.Style>
-                                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12" Margin="0,0,6,0" />
-                                        <TextBlock Text="{Binding Warning}" TextTrimming="CharacterEllipsis" />
-                                    </DockPanel>
+                <DockPanel x:Name="WorkspacePage" Visibility="Collapsed">
+                    <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                            BorderThickness="0,0,0,1" Padding="20,14">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource GhostButton}" Click="OnOpenWorkspaceFolder" Margin="0,0,6,0"
+                                        AutomationProperties.Name="Mở thư mục workspace">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" Margin="0,0,7,0" />
+                                        <TextBlock Text="Mở thư mục" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource DangerButton}" Click="OnRemoveWorkspace" Content="Gỡ workspace"
+                                        ToolTip="Chỉ gỡ khỏi Toolbox, không xoá thư mục trên đĩa" />
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse x:Name="WsDot" Width="12" Height="12" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="WsName" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                    <Button Style="{StaticResource GhostButton}" Click="OnOpenFolder" Tag="{Binding}" ToolTip="Mở thư mục"
-                                            AutomationProperties.Name="Thư mục" Width="34" Padding="0">
-                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" />
-                                    </Button>
-                                    <Button Style="{StaticResource GhostButton}" Click="OnEdit" Tag="{Binding}" ToolTip="Sửa"
-                                            AutomationProperties.Name="Sửa" Width="34" Padding="0" Margin="2,0,8,0">
-                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE70F;" />
-                                    </Button>
-                                    <Button Style="{StaticResource PrimaryButton}" Click="OnInstallSetup" Tag="{Binding}" Padding="14,4"
-                                            Visibility="{Binding InstallVisibility}" AutomationProperties.Name="Cài đặt">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" FontSize="12" Margin="0,0,6,0" />
-                                            <TextBlock Text="Cài đặt" />
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{StaticResource SoftButton}" Click="OnRun" Tag="{Binding}" AutomationProperties.Name="▶ Chạy" Padding="14,4"
-                                            Visibility="{Binding RunVisibility}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" FontSize="12" Foreground="{StaticResource Accent}"
-                                                       Margin="0,0,6,0" />
-                                            <TextBlock Text="Chạy" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-
-                <StackPanel x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-                    <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource AccentSoft}" HorizontalAlignment="Center"
-                            Margin="0,0,0,14">
-                        <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" FontSize="28" Foreground="{StaticResource Accent}"
-                                   HorizontalAlignment="Center" />
+                                <TextBlock x:Name="WsPath" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                           Margin="22,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
                     </Border>
-                    <TextBlock Text="Chưa có tool nào" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,6" />
-                    <TextBlock Foreground="{StaticResource Muted}" TextAlignment="Center" LineHeight="20">
-                        Bấm "App đã cài…" để chọn app trên máy, "Thêm tool" để chọn file,<LineBreak />
-                        hoặc kéo thả file .exe / script / shortcut / thư mục vào đây.<LineBreak />
-                        Kéo thả (hoặc double-click) file .toolbox để nhập gói.
-                    </TextBlock>
-                </StackPanel>
+
+                    <Border x:Name="MissingBanner" DockPanel.Dock="Top" Background="{StaticResource WarnSoft}"
+                            BorderBrush="{StaticResource WarnLine}" BorderThickness="0,0,0,1" Padding="20,10" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Trỏ lại thư mục…" Click="OnRelocateWorkspace" Margin="12,0,0,0" />
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" Foreground="{StaticResource WarnInk}"
+                                       FontSize="16" Margin="0,0,10,0" />
+                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource WarnInk}"
+                                       Text="Không tìm thấy thư mục của workspace này (đã đổi tên, di chuyển hoặc xoá). Lệnh không chạy được cho tới khi trỏ lại." />
+                        </DockPanel>
+                    </Border>
+
+                    <views:WorkspaceView x:Name="WorkspaceContent" />
+                </DockPanel>
+
+                <!-- Panel log trượt bên phải, đè lên nội dung. -->
+                <views:InspectorView x:Name="Inspector" HorizontalAlignment="Right" VerticalAlignment="Stretch" Visibility="Collapsed" />
             </Grid>
-        </DockPanel>
+        </Grid>
     </DockPanel>
 </Window>

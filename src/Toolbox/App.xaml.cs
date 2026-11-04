@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Windows;
 using Toolbox.Core;
+using Toolbox.Core.Workspaces;
 using Toolbox.Mcp;
 
 namespace Toolbox
@@ -20,11 +21,30 @@ namespace Toolbox
                 var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
                 var input = new StreamReader(Console.OpenStandardInput(), encoding);
                 var output = new StreamWriter(Console.OpenStandardOutput(), encoding) { NewLine = "\n" };
-                new McpServer(() => ToolStore.Load(ToolStore.DefaultPath)).Run(input, output);
+                var workspaceId = WorkspaceArgument(e.Args);
+                new McpServer(() => ToolStore.Load(ToolStore.DefaultPath), workspaceId, () => WorkspaceStore.Load(WorkspaceStore.DefaultPath))
+                    .Run(input, output);
                 Environment.Exit(0);
             }
 
             new MainWindow(e.Args.FirstOrDefault(a => File.Exists(a))).Show();
+        }
+
+        /// <summary>
+        /// --workspace &lt;id&gt;: giới hạn MCP server trong một workspace đã đăng ký. Không có thì là toàn máy.
+        /// Có cờ mà thiếu id thì thoát ngay, để không vô tình chạy ở chế độ toàn máy.
+        /// </summary>
+        private static string WorkspaceArgument(string[] args)
+        {
+            var index = Array.FindIndex(args, a => string.Equals(a, "--workspace", StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+                return null;
+            if (index + 1 >= args.Length || args[index + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine("Thiếu id sau --workspace. Ví dụ: Toolbox.exe --mcp --workspace 1a2b3c4d");
+                Environment.Exit(2);
+            }
+            return args[index + 1];
         }
     }
 }

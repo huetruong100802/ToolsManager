@@ -18,7 +18,7 @@
                 </StackPanel>
                 <Border x:Name="Chip" Grid.Column="1" CornerRadius="9" Padding="8,1" Margin="12,0" VerticalAlignment="Center"
                         Background="{StaticResource Hover}">
-                    <TextBlock x:Name="ChipText" Text="Chưa kết nối" FontSize="11" Foreground="{StaticResource Muted}" />
+                    <TextBlock x:Name="ChipText" Text="{Binding ChipText}" FontSize="11" Foreground="{StaticResource Muted}" />
                 </Border>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ConnectButton" Content="Kết nối" Click="OnConnect" MinWidth="104" Style="{StaticResource PrimaryButton}" />
@@ -29,14 +29,12 @@
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Link}" Value="Connected">
                     <Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentSoft}" />
-                    <Setter TargetName="ChipText" Property="Text" Value="Đã kết nối" />
                     <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource Accent}" />
                     <Setter TargetName="ConnectButton" Property="Visibility" Value="Collapsed" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Link}" Value="Stale">
                     <Setter TargetName="Chip" Property="Background" Value="{StaticResource WarnSoft}" />
-                    <Setter TargetName="ChipText" Property="Text" Value="Trỏ tới exe khác" />
                     <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource WarnInk}" />
                     <Setter TargetName="ConnectButton" Property="Content" Value="Kết nối lại" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
@@ -57,7 +55,7 @@
 
         <DockPanel Margin="20,16,20,16">
             <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{StaticResource Muted}" LineHeight="19"
-                       Text="Claude Code dùng Toolbox để tìm (list_tools) và chạy (run_tool) các tool trong danh sách. Kết nối toàn máy, hoặc chỉ cho từng workspace." />
+                       Text="Claude Code dùng Toolbox để tìm (list_tools), chạy (run_tool) và đăng ký tool. Toàn máy: agent quản lý mọi tool. Từng workspace: agent chỉ thấy và quản lý tool đã gắn vào workspace đó, và workspace phải được đăng ký trong Toolbox." />
 
             <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                     CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
@@ -76,7 +74,7 @@
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Workspace Claude Code" FontWeight="SemiBold" />
                     <TextBlock x:Name="UserHint" Style="{StaticResource Hint}" Margin="0,2,0,0" Visibility="Collapsed"
-                               Text="Đã kết nối toàn máy, mọi workspace đều dùng được." />
+                               Text="Đã kết nối toàn máy: agent quản lý mọi tool, không giới hạn workspace." />
                 </StackPanel>
             </DockPanel>
 

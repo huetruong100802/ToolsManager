@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -87,7 +88,66 @@ namespace Toolbox
 
         public Visibility InstallVisibility => Tool.CanInstall ? Visibility.Visible : Visibility.Collapsed;
 
-        public Visibility RunVisibility => Tool.CanInstall ? Visibility.Collapsed : Visibility.Visible;
+        // ---------- Trạng thái chạy (do MainWindow đẩy vào từ RunTracker) ----------
+
+        private RunInstance _current;
+        private RunInstance _last;
+
+        public void ApplyRun(RunInstance current, RunInstance last)
+        {
+            _current = current;
+            _last = last;
+            OnPropertyChanged(nameof(IsRunning));
+            OnPropertyChanged(nameof(RunVisibility));
+            OnPropertyChanged(nameof(StopVisibility));
+            Tick();
+        }
+
+        /// <summary>Làm mới chữ "chạy được 5 phút" / "3 phút trước" mỗi giây.</summary>
+        public void Tick()
+        {
+            if (_current == null && _last == null)
+                return;
+            OnPropertyChanged(nameof(UptimeVisibility));
+            OnPropertyChanged(nameof(UptimeText));
+            OnPropertyChanged(nameof(ResultVisibility));
+            OnPropertyChanged(nameof(ResultText));
+            OnPropertyChanged(nameof(ResultBrush));
+        }
+
+        public bool IsRunning => _current != null && _current.IsRunning;
+
+        /// <summary>Đang chạy thì nút Chạy nhường chỗ cho nút Dừng.</summary>
+        public Visibility RunVisibility => Tool.CanInstall || IsRunning ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility StopVisibility => IsRunning ? Visibility.Visible : Visibility.Collapsed;
+
+        public Visibility UptimeVisibility => IsRunning ? Visibility.Visible : Visibility.Collapsed;
+
+        public string UptimeText => IsRunning ? "Đang chạy " + Text.Duration(DateTime.UtcNow - _current.StartedAt) : null;
+
+        /// <summary>Kết quả lần chạy trước, chỉ hiện khi không còn chạy.</summary>
+        public Visibility ResultVisibility => !IsRunning && _last != null ? Visibility.Visible : Visibility.Collapsed;
+
+        public string ResultText
+        {
+            get
+            {
+                if (_last?.EndedAt == null)
+                    return null;
+                var ago = Text.Ago(DateTime.UtcNow - _last.EndedAt.Value);
+                if (_last.Stopped)
+                    return "Đã dừng · " + ago;
+                return _last.ExitCode.HasValue && _last.ExitCode.Value != 0
+                    ? "Lỗi mã " + _last.ExitCode.Value + " · " + ago
+                    : "Đã thoát · " + ago;
+            }
+        }
+
+        /// <summary>Đỏ chỉ khi thoát với mã lỗi; chữ luôn nói rõ nên màu không phải kênh duy nhất.</summary>
+        public Brush ResultBrush => _last != null && !_last.Stopped && _last.ExitCode.HasValue && _last.ExitCode.Value != 0
+            ? Resource("Danger")
+            : Resource("Muted");
 
         /// <summary>Số tag hiện trên dòng; phần còn lại gom thành chip "+n" để dòng không bị dài ra.</summary>
         public const int MaxVisibleTags = 3;

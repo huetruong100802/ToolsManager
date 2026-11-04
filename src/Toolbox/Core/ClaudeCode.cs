@@ -26,6 +26,21 @@ namespace Toolbox.Core
         /// (Claude Code lưu theo thư mục lúc chạy nên "C:/a" và "c:/a" là hai key khác nhau).
         /// </summary>
         public List<string> ConfiguredKeys { get; } = new List<string>();
+
+        /// <summary>Tham số dòng lệnh, ví dụ "--mcp" hoặc "--mcp --workspace &lt;id&gt;".</summary>
+        public List<string> Args { get; set; } = new List<string>();
+
+        /// <summary>Kết nối đã giới hạn trong một workspace (có cờ --workspace).</summary>
+        public bool HasWorkspaceScope => Args.Contains("--workspace");
+
+        /// <summary>Kết nối này giới hạn đúng vào workspace có id này chưa.</summary>
+        public bool ScopedTo(string workspaceId)
+        {
+            for (var i = 0; i + 1 < Args.Count; i++)
+                if (Args[i] == "--workspace" && string.Equals(Args[i + 1], workspaceId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
     }
 
     /// <summary>Một chỗ Claude Code dùng được MCP: toàn máy (scope user) hoặc một workspace (scope local).</summary>
@@ -34,7 +49,7 @@ namespace Toolbox.Core
         /// <summary>null = toàn máy.</summary>
         public string Workspace { get; set; }
 
-        /// <summary>Khai báo theo tên server (toolbox, desk-mcp…).</summary>
+        /// <summary>Khai báo theo tên server (toolbox, …).</summary>
         public Dictionary<string, McpEntry> Servers { get; } = new Dictionary<string, McpEntry>(StringComparer.OrdinalIgnoreCase);
 
         public McpEntry Entry(string server) => Servers.TryGetValue(server, out var entry) ? entry : null;
@@ -107,7 +122,7 @@ namespace Toolbox.Core
                         foreach (var server in ServersOf(project.Value as Dictionary<string, object>))
                         {
                             if (!target.Servers.TryGetValue(server.Key, out var entry))
-                                target.Servers[server.Key] = entry = new McpEntry { Command = server.Value.Command };
+                                target.Servers[server.Key] = entry = new McpEntry { Command = server.Value.Command, Args = server.Value.Args };
                             entry.Command = entry.Command ?? server.Value.Command;
                             entry.ConfiguredKeys.Add(project.Key.Replace('/', '\\'));
                         }
@@ -229,7 +244,10 @@ namespace Toolbox.Core
                 if (!(server.Value is Dictionary<string, object> entry))
                     continue;
                 var command = entry.TryGetValue("command", out var c) ? c as string : null;
-                result[server.Key] = new McpEntry { Command = command };
+                var args = entry.TryGetValue("args", out var a) && !(a is string) && a is System.Collections.IEnumerable items
+                    ? items.Cast<object>().OfType<string>().ToList()
+                    : new List<string>();
+                result[server.Key] = new McpEntry { Command = command, Args = args };
             }
             return result;
         }

@@ -1,0 +1,48 @@
+<UserControl x:Class="Toolbox.Views.TasksView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="24,20">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Tác vụ" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock x:Name="Summary" Style="{StaticResource Hint}" Margin="0,4,0,14" />
+        </StackPanel>
+        <TextBlock x:Name="EmptyHint" DockPanel.Dock="Top" Style="{StaticResource Hint}" Visibility="Collapsed"
+                   Text="Chưa có tác vụ nào. Chạy lệnh trong một workspace để thấy tác vụ ở đây." />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="TaskList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <Button Style="{StaticResource GhostButton}" Content="Xem log" Click="OnShowLog"
+                                            AutomationProperties.Name="Xem log tác vụ" />
+                                    <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" Margin="6,0,0,0"
+                                            Visibility="{Binding StopVisibility}" />
+                                    <Button Style="{StaticResource SoftButton}" Content="Chạy lại" Click="OnRestart" Margin="6,0,0,0"
+                                            Visibility="{Binding RestartVisibility}" />
+                                </StackPanel>
+                                <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding StateBrush}"
+                                         VerticalAlignment="Top" Margin="0,6,12,0" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock FontSize="12" Foreground="{StaticResource Muted}" Margin="0,3,0,0"
+                                               TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding WorkspaceName, Mode=OneWay}" />
+                                        <Run Text=" · " />
+                                        <Run Text="{Binding StateText, Mode=OneWay}" />
+                                        <Run Text="{Binding PortText, Mode=OneWay}" />
+                                        <Run Text=" · " />
+                                        <Run Text="{Binding TimeText, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

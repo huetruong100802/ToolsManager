@@ -110,9 +110,17 @@ namespace Toolbox.Core
 
         public static int? Start(ToolEntry tool, string args = null)
         {
-            using (var process = Process.Start(CreateStartInfo(tool, args)))
+            using (var process = StartProcess(tool, args))
                 return process?.Id;
         }
+
+        /// <summary>Như <see cref="Start"/> nhưng giao lại tiến trình cho người gọi (người gọi tự Dispose).</summary>
+        public static Process StartProcess(ToolEntry tool, string args = null) =>
+            Process.Start(CreateStartInfo(tool, args));
+
+        /// <summary>Có đáng theo dõi "đang chạy" không: thư mục chỉ mở Explorer rồi xong, không phải tác vụ.</summary>
+        public static bool IsTrackable(ToolEntry tool) =>
+            tool.IsCommand || !Directory.Exists(tool.ResolvedPath);
 
         public static RunResult RunAndCapture(ToolEntry tool, string args, TimeSpan timeout) =>
             Capture(CreateCaptureStartInfo(tool, args), timeout);
@@ -159,7 +167,7 @@ namespace Toolbox.Core
             Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true })?.Dispose();
         }
 
-        private static void KillTree(int processId)
+        internal static void KillTree(int processId)
         {
             var info = new ProcessStartInfo("taskkill.exe", $"/T /F /PID {processId}")
             {
