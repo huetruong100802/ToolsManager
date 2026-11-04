@@ -10,7 +10,7 @@
 
 Tool thường nằm rải rác: phần mềm trong `Program Files`, bản tải về trong `Downloads`, script do agent tạo. Bạn phải nhớ đường dẫn mới dùng được, và gửi cho đồng đội thì rất phiền. Toolbox gom tất cả vào một danh sách. Toolbox không sửa file gốc của tool, và không bao giờ xoá file gốc. Xoá một tool khỏi danh sách chỉ là xoá một dòng trong `tools.json`.
 
-Toolbox là một file `Toolbox.exe` khoảng 150 KB, viết bằng WPF trên .NET Framework 4.8 có sẵn trong Windows. Người dùng không phải cài thêm gì để chạy.
+Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .NET Framework 4.8 có sẵn trong Windows. Người dùng không phải cài thêm gì để chạy.
 
 ---
 
@@ -40,9 +40,12 @@ Toolbox là một file `Toolbox.exe` khoảng 150 KB, viết bằng WPF trên .N
 | **Nhập gói** | Bấm **Nhập gói**, kéo thả, hoặc double-click file `.toolbox`. Chọn tool cần nhập, xử lý trùng `id` (thay thế, giữ cả hai, hoặc bỏ qua). |
 | | Chặn file có đường dẫn thoát ra ngoài thư mục đích (zip-slip). Cảnh báo khi gói chứa `.exe` hoặc script. |
 | **Bộ cài** | Gửi kèm file cài đặt (`pack=setup`) cho app cần driver. Bên nhận thấy thẻ cam **Chưa cài trên máy này** và nút **Cài đặt**. Toolbox không cài ngầm: UAC và các bước cài do người dùng tự bấm. |
-| **AI agent (MCP)** | `Toolbox.exe --mcp` chạy MCP server qua stdio, không mở cửa sổ. Agent tìm, chạy, đăng ký, sửa và bỏ tool. |
+| **AI agent (MCP)** | `Toolbox.exe --mcp` chạy MCP server qua stdio, không mở cửa sổ. Agent tìm, chạy, đăng ký, sửa và bỏ tool, và điều khiển workspace (profile, bộ chạy, lệnh riêng, worktree). |
 | | Nút **Kết nối agent…** khai báo Toolbox vào Claude Code cho toàn máy hoặc từng workspace. |
-| | Nút **desk-mcp…** khai báo [desk-mcp](https://github.com/DigitalDog1/desk-mcp) (điều khiển giao diện Windows) theo cùng cách. |
+| **Workspace** | **+ Thêm workspace** và chọn một thư mục dự án. Toolbox quét `.sln`, `.git`, `angular.json`, `package.json` rồi gợi ý tool, kèm lý do bằng tiếng Việt. |
+| | Mỗi workspace có tab theo loại tool (.NET, Angular, npm, Git), tab **Lệnh riêng** và tab **Bộ chạy**. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
+| | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. Tab **Tổng quan** và **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
+| | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
 | **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`. |
 | **An toàn dữ liệu** | Sao lưu `tools.json` trước mỗi lần thay đổi danh sách (giữ 50 bản mới nhất). Ghi nhật ký `changes.log` gồm nguồn (GUI hoặc MCP). Mọi lần ghi giữ mutex để không ghi chồng nhau. |
 
@@ -55,7 +58,7 @@ Toolbox là một file `Toolbox.exe` khoảng 150 KB, viết bằng WPF trên .N
 ### Yêu cầu
 
 - **Để chạy:** Windows 10 bản 1903 trở lên hoặc Windows 11. Không cần cài thêm gì.
-- **Tuỳ chọn:** Node.js 20 trở lên trên `PATH` nếu muốn dùng desk-mcp. PowerShell 7 (`pwsh`) hoặc Windows PowerShell nếu chạy file `.ps1`.
+- **Tuỳ chọn:** PowerShell 7 (`pwsh`) hoặc Windows PowerShell nếu chạy file `.ps1`.
 - **Để build:** .NET SDK (đã build và test với .NET SDK 10.0.401) và .NET Framework 4.8 targeting pack.
 
 ### Build
@@ -78,7 +81,7 @@ dotnet build src/Toolbox/Toolbox.csproj -c Release
 dotnet test tests/Toolbox.Tests/Toolbox.Tests.csproj
 ```
 
-Bộ test xUnit gồm 94 test, bao phủ đóng gói, chạy tool, MCP server, thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
+Bộ test xUnit gồm 221 test, bao phủ đóng gói, chạy tool, MCP server, workspace (phát hiện, cổng, bộ chạy, worktree), thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
 
 ## Sử dụng
 
@@ -112,6 +115,16 @@ Chế độ `pack` quyết định gói chứa gì:
 ### Chạy tool
 
 Double-click hoặc bấm ▶. Nút **📁** mở thư mục chứa tool. Tham số mặc định (`args`) được dùng mỗi khi chạy, trừ khi agent truyền `args` khác qua MCP.
+
+### Workspace
+
+Workspace là một thư mục dự án, ví dụ repo Angular hoặc solution .NET. Bấm **+ Thêm workspace** ở cột trái, chọn thư mục, rồi nhận tool gợi ý hoặc bấm **+ Thêm tool** để gắn thêm. Mỗi lệnh có thể bấm **Lưu profile** để giữ lại cách chạy hiện tại, kèm tham số và cổng.
+
+![Workspace với tab Angular: lệnh chạy dev, build và test](docs/images/workspace.png)
+
+Tab **Bộ chạy** gom nhiều lệnh thành một chuỗi, ví dụ bật API, chờ cổng mở, rồi mới bật web. Tab **Tổng quan** tóm tắt các workspace, số tác vụ đang chạy, cổng đang dùng và hoạt động gần đây.
+
+![Tổng quan: số workspace, tác vụ đang chạy, cổng đang dùng và hoạt động gần đây](docs/images/overview.png)
 
 ## Kết nối AI agent (MCP)
 
@@ -152,7 +165,22 @@ Claude Desktop, Cursor và VS Code/Copilot được khai báo tay. Cửa sổ **
 
 Quy tắc chọn kiểu lưu và chế độ đóng gói khi `register_tool` nằm trong [Dữ liệu và sao lưu](#dữ-liệu-và-sao-lưu).
 
-> **Lưu ý bảo mật:** danh sách không phải allowlist bảo mật. Agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã đăng ký. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và client như Claude Code vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
+### Công cụ workspace
+
+| Tool | Làm gì |
+|---|---|
+| `list_setup` | Xem cấu hình chạy của workspace: tool và lệnh (action, biến thể, tham số), profile, bộ chạy, lệnh riêng. |
+| `run_profile` | Chạy một profile đã đặt tên, đúng tham số đã lưu. `waitReady=true`: chờ cổng của profile nghe được rồi mới báo xong. |
+| `run_custom` | Chạy một lệnh riêng của workspace. Muốn chờ cổng thì truyền port và `waitReady=true`. |
+| `run_stack` | Chạy một bộ chạy: các bước theo thứ tự, mỗi bước chờ theo cấu hình của bước (cổng hoặc thoát). |
+| `run_action` | Chạy một lệnh của tool trong workspace với tham số tuỳ ý, không cần profile. |
+| `run_status` | Trạng thái một lần chạy hoặc một tác vụ: running, done, failed, stopped, exitCode, cổng và vài dòng log gần nhất. |
+| `run_stop` | Dừng một lần chạy, hoặc một tác vụ do phiên MCP này khởi chạy. Tác vụ của phiên cũng dừng khi phiên kết thúc. |
+| `prepare_worktree` | Tạo worktree mới của workspace và đưa file local (không commit) vào đó. |
+| `create_*`, `update_*`, `delete_*` | Tạo, sửa, xoá profile, lệnh riêng và bộ chạy. `delete_custom` từ chối nếu bộ chạy còn dùng lệnh đó. |
+| `set_worktree` | Cấu hình file local đưa vào worktree và lệnh cài đặt (`files=[]` hoặc `command=""` để xoá). |
+
+> **Lưu ý bảo mật:** danh sách không phải allowlist bảo mật. Agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã đăng ký. `create_custom` cho agent lưu một dòng lệnh shell tuỳ ý vào workspace, và `run_custom` chạy dòng lệnh đó với quyền của bạn. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và client như Claude Code vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
 
 ## Dữ liệu và sao lưu
 
@@ -163,6 +191,8 @@ tools.json                  # danh sách tool
 library\<id>\…              # bản chép của tool có store=copy; setup\ nếu có bộ cài
 backup\tools-<thời điểm>.json   # bản trước mỗi lần thay đổi danh sách, giữ 50 bản mới nhất
 changes.log                 # mỗi thay đổi một dòng: thời gian, nguồn (gui/mcp), thao tác, id, tên
+workspaces.json             # workspace: tool gắn vào, profile, lệnh riêng, bộ chạy, cấu hình worktree
+runs\<taskId>.log           # log của tác vụ chạy ngầm, giữ tối đa 200 file mới nhất
 ```
 
 Ví dụ một mục trong `tools.json`:
@@ -207,8 +237,12 @@ src/Toolbox/                 # Toolbox.exe (WPF, net48)
   Core/                      # ToolEntry, ToolStore, Packer, PackageImporter, Runner, ToolDefaults, ClaudeCode
   Core/AgentTools.cs         # đăng ký, sửa, bỏ tool cho agent và quy tắc chọn store/pack
   Core/Library.cs            # ngưỡng dung lượng, chép vào thư viện, fingerprint
+  Core/Workspaces/           # Workspace, WorkspaceStore, ToolCatalog, WorkspaceDetector, TaskHost, StackRunner, WorktreePreparer
   Mcp/McpServer.cs           # JSON-RPC qua stdio
-  *.xaml                     # MainWindow, ToolEditWindow, ImportWindow, AgentWindow, AppPickerWindow…
+  Mcp/McpServer.Setup.cs     # công cụ workspace: run_profile, run_stack, prepare_worktree…
+  Mcp/SessionRuns.cs         # tác vụ do phiên MCP khởi chạy, dừng khi phiên kết thúc
+  Views/                     # LibraryView, WorkspaceView, OverviewView, TasksView…
+  *.xaml                     # MainWindow, ToolEditWindow, ImportWindow, AgentWindow, WorktreeSetupWindow…
 tests/Toolbox.Tests/         # xUnit, tham chiếu trực tiếp project Toolbox
 docs/
   design.md                  # thiết kế chi tiết và tiến độ (tiếng Việt)
@@ -219,7 +253,8 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 
 ## Giới hạn đã biết
 
-- **Cần sửa trước khi phát hành:** cửa sổ GUI giữ danh sách trong bộ nhớ, nên có thể ghi đè thay đổi mà agent vừa làm. Cách sửa là nạp lại `tools.json` trước mỗi thao tác ghi.
+- **Cần sửa trước khi phát hành:** cửa sổ GUI giữ danh sách tool và workspace trong bộ nhớ, nên có thể ghi đè thay đổi mà agent vừa làm. Cách sửa là nạp lại `tools.json` và `workspaces.json` trước mỗi thao tác ghi.
+- Cửa sổ **Worktree…** và việc tạo, sửa, xoá workspace, profile, lệnh riêng, bộ chạy trên GUI mới được kiểm bằng test tự động, chưa thử tay đầy đủ trên màn hình.
 - Chưa có theo dõi file (`FileSystemWatcher`), nên GUI không tự cập nhật khi agent thay đổi danh sách.
 - Chưa có tab Lịch sử trên GUI. Xem thay đổi của agent ở `changes.log`.
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
@@ -231,7 +266,6 @@ Tiến độ chi tiết và các bước đã xong nằm ở [docs/design.md](do
 ## Tài liệu liên quan
 
 - [docs/design.md](docs/design.md): thiết kế, định dạng dữ liệu, quy tắc đăng ký và tiến độ.
-- [desk-mcp](https://github.com/DigitalDog1/desk-mcp): MCP server điều khiển giao diện Windows. Toolbox chỉ khai báo kết nối, không cài gói trước. Cần Node.js 20 trở lên trên `PATH`.
 
 ## Giấy phép
 

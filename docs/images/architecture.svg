@@ -13,7 +13,7 @@
   <rect x="40" y="60" width="260" height="110" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
   <text x="170" y="97" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">Toolbox.exe (giao diện)</text>
   <text x="170" y="124" text-anchor="middle" font-size="13" fill="#334155">Danh sách · tìm · đóng gói · nhập gói</text>
-  <text x="170" y="146" text-anchor="middle" font-size="13" fill="#334155">Kết nối agent · desk-mcp · cài vào máy</text>
+  <text x="170" y="146" text-anchor="middle" font-size="13" fill="#334155">Kết nối agent · cài vào máy</text>
 
   <!-- Tool của người dùng -->
   <rect x="680" y="60" width="260" height="110" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
