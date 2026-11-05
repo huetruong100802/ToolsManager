@@ -32,7 +32,7 @@ namespace Toolbox.Tests
                 ProposalsPath = dir.Combine("proposals.json"),
                 ActivityPath = dir.Combine("activity.jsonl"),
                 LibPath = dir.WriteFile("lib.exe", "q"),
-                GitActionId = ToolCatalog.Find("git").Actions[0].Id,
+                GitActionId = TestData.GitAction,
             };
             Directory.CreateDirectory(dir.Combine("repo"));
 

@@ -21,7 +21,7 @@ namespace Toolbox.Tests
 
                 Assert.Equal(new[] { "dotnet", "git", "angular", "npm" }.OrderBy(x => x), found.Keys.OrderBy(x => x));
                 Assert.Equal("frontend", found["angular"].Cwd);
-                Assert.Contains("2 mục", found["angular"].Reason);
+                Assert.Contains("angular.json", found["angular"].Reason);
                 Assert.Equal("frontend", found["npm"].Cwd);
                 Assert.Contains("3 mục", found["npm"].Reason);
                 Assert.Contains("app.sln", found["dotnet"].Reason);

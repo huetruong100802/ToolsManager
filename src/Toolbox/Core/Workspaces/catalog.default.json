@@ -1,78 +1,33 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tools": [
     {
       "kind": "dotnet",
       "name": ".NET",
       "rule": "sln/csproj",
-      "detect": { "patterns": [ "*.sln", "*.slnx", "*.csproj" ], "depth": 0 },
-      "actions": [
-        { "id": "build", "label": "Build", "variants": [
-          { "id": "debug", "label": "Debug", "template": "dotnet build" },
-          { "id": "release", "label": "Release", "template": "dotnet build -c Release" } ] },
-        { "id": "test", "label": "Test", "variants": [
-          { "id": "all", "label": "Tất cả", "template": "dotnet test" },
-          { "id": "filter", "label": "Theo tên", "template": "dotnet test --filter \"{filter}\"",
-            "params": [ { "key": "filter", "prompt": "Bộ lọc test", "default": "FullyQualifiedName~" } ] } ] },
-        { "id": "run", "label": "Chạy", "variants": [
-          { "id": "default", "label": "Mặc định", "template": "dotnet run" } ] },
-        { "id": "restore", "label": "Restore", "variants": [ { "id": "default", "label": "Mặc định", "template": "dotnet restore" } ] },
-        { "id": "clean", "label": "Clean", "variants": [ { "id": "default", "label": "Mặc định", "template": "dotnet clean" } ] }
-      ]
+      "command": "dotnet",
+      "detect": { "patterns": [ "*.sln", "*.slnx", "*.csproj" ], "depth": 0 }
     },
     {
       "kind": "git",
       "name": "git",
       "rule": ".git",
-      "detect": { "patterns": [ ".git" ], "depth": 0 },
-      "actions": [
-        { "id": "status", "label": "Trạng thái", "variants": [
-          { "id": "short", "label": "Gọn", "template": "git status -sb" },
-          { "id": "full", "label": "Đầy đủ", "template": "git status" } ] },
-        { "id": "pull", "label": "Pull", "variants": [
-          { "id": "rebase", "label": "Rebase", "template": "git pull --rebase" },
-          { "id": "merge", "label": "Merge", "template": "git pull" } ] },
-        { "id": "fetch", "label": "Fetch", "variants": [ { "id": "all", "label": "Mọi remote", "template": "git fetch --all --prune" } ] },
-        { "id": "log", "label": "Lịch sử", "variants": [
-          { "id": "recent", "label": "20 commit gần nhất", "template": "git log --oneline -20" },
-          { "id": "count", "label": "Số commit tuỳ chọn", "template": "git log --oneline -{n}",
-            "params": [ { "key": "n", "prompt": "Số commit", "default": "50" } ] } ] },
-        { "id": "diff", "label": "Diff", "variants": [ { "id": "stat", "label": "Thống kê", "template": "git diff --stat" } ] }
-      ]
+      "command": "git",
+      "detect": { "patterns": [ ".git" ], "depth": 0 }
     },
     {
       "kind": "angular",
       "name": "Angular",
       "rule": "angular.json",
-      "detect": { "patterns": [ "angular.json" ], "depth": 1 },
-      "scan": [
-        { "action": "serve", "command": "npx ng serve --help" },
-        { "action": "build", "command": "npx ng build --help" },
-        { "action": "test", "command": "npx ng test --help" },
-        { "action": "lint", "command": "npx ng lint --help" }
-      ],
-      "actions": [
-        { "id": "serve", "label": "Chạy dev", "variants": [
-          { "id": "dev", "label": "Dev", "template": "npx ng serve {project} {portFlag} {port}",
-            "params": [ { "key": "project", "prompt": "Project", "default": "", "options": { "file": "angular.json", "jsonPath": "projects" } },
-                        { "key": "port", "prompt": "Cổng", "default": "4200", "port": true } ] } ] },
-        { "id": "build", "label": "Build", "variants": [
-          { "id": "dev", "label": "Build", "template": "npx ng build {project}",
-            "params": [ { "key": "project", "prompt": "Project", "default": "", "options": { "file": "angular.json", "jsonPath": "projects" } } ] } ] },
-        { "id": "test", "label": "Test", "variants": [
-          { "id": "watch", "label": "Test", "template": "npx ng test {project}",
-            "params": [ { "key": "project", "prompt": "Project", "default": "", "options": { "file": "angular.json", "jsonPath": "projects" } } ] } ] },
-        { "id": "lint", "label": "Lint", "variants": [
-          { "id": "default", "label": "Mặc định", "template": "npx ng lint {project}",
-            "params": [ { "key": "project", "prompt": "Project", "default": "", "options": { "file": "angular.json", "jsonPath": "projects" } } ] } ] }
-      ]
+      "command": "npx ng",
+      "detect": { "patterns": [ "angular.json" ], "depth": 1 }
     },
     {
       "kind": "npm",
       "name": "npm",
       "rule": "package.json",
       "detect": { "patterns": [ "package.json" ], "depth": 1, "requireActions": true },
-      "actionsFrom": { "file": "package.json", "jsonPath": "scripts", "template": "npm run {id}", "variant": "run" }
+      "actionsFrom": { "file": "package.json", "jsonPath": "scripts", "template": "npm run {id}" }
     }
   ]
 }

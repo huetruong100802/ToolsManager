@@ -16,8 +16,11 @@ namespace Toolbox.Tests
             Entries = { new CapabilityEntry { Action = action, Name = flag, TakesValue = true, Source = "scan", Role = "port" } },
         };
 
-        public static ActionDef Angular(string actionId, ToolCapabilities caps) =>
-            ToolCatalog.WithCapabilities(ToolCatalog.Find("angular").Actions.First(a => a.Id == actionId), caps);
+        /// <summary>Action của một lệnh con, dựng từ bảng khả năng cho trước (không đọc đĩa).</summary>
+        public static ActionDef Sub(string kind, string subcommand, ToolCapabilities caps = null) =>
+            ToolCatalog.FromSubcommand(ToolCatalog.Find(kind), caps ?? new ToolCapabilities { Kind = kind }, subcommand);
+
+        public static ActionDef Angular(string subcommand, ToolCapabilities caps) => Sub("angular", subcommand, caps);
     }
 
     public class CapabilitiesTests
@@ -96,7 +99,6 @@ Options:
 
         [Theory]
         [InlineData("port; rm")]
-        [InlineData("port")]
         [InlineData("--")]
         public void AddManual_TenCoSai_BiTuChoi(string name)
         {
@@ -114,31 +116,70 @@ Options:
         }
 
         [Fact]
-        public void WithCapabilities_ChuaGanCo_LenhKhongChay()
+        public void FromSubcommand_ChuaGanCoCong_KhongCoThamSoCong()
         {
             var action = CapabilityFixtures.Angular("serve", new ToolCapabilities { Kind = "angular" });
 
-            var errors = CommandBuilder.Validate(action.Default, new Dictionary<string, string> { ["port"] = "4200" });
-
-            Assert.Contains("port", errors.Keys);
-            Assert.Throws<ArgumentException>(() => CommandBuilder.Build(action.Default, new Dictionary<string, string> { ["port"] = "4200" }));
+            Assert.DoesNotContain(action.Default.Params, p => p.IsPort);
+            Assert.Equal("npx ng serve", CommandBuilder.Build(action.Default));
         }
 
         [Fact]
-        public void WithCapabilities_DaGanCo_DungCoDoBang()
+        public void FromSubcommand_DaGanCo_DungCoDoBang()
         {
             var action = CapabilityFixtures.Angular("serve", CapabilityFixtures.Port("angular", "serve", "--port"));
 
-            Assert.Equal("npx ng serve dxai --port 4200",
-                CommandBuilder.Build(action.Default, new Dictionary<string, string> { ["project"] = "dxai", ["port"] = "4200" }));
+            Assert.Equal("npx ng serve --port 4200 --open",
+                CommandBuilder.Build(action.Default, new Dictionary<string, string> { ["port"] = "4200", ["args"] = "--open" }));
         }
 
         [Fact]
-        public void WithCapabilities_CoCoGanChoActionKhac_VanBaoLoi()
+        public void FromSubcommand_CoGanChoLenhConKhac_KhongAnhHuong()
         {
             var action = CapabilityFixtures.Angular("serve", CapabilityFixtures.Port("angular", "build", "--port"));
 
-            Assert.Contains(CommandBuilder.Validate(action.Default, new Dictionary<string, string>()).Keys, k => k == "port");
+            Assert.DoesNotContain(action.Default.Params, p => p.IsPort);
+        }
+
+        [Fact]
+        public void FromSubcommand_CongDeTrong_PhaiNhapTruocKhiChay()
+        {
+            var action = CapabilityFixtures.Angular("serve", CapabilityFixtures.Port("angular", "serve", "--port"));
+
+            Assert.Contains("port", CommandBuilder.Validate(action.Default, new Dictionary<string, string>()).Keys);
+            Assert.Throws<ArgumentException>(() => CommandBuilder.Build(action.Default));
+        }
+
+        [Fact]
+        public void Subcommands_ChiLayMucCuaTool_KhongLayCo()
+        {
+            var data = new ToolCapabilities { Kind = "x" };
+            CapabilityStore.AddManual(data, "", "serve", false, null);
+            CapabilityStore.AddManual(data, "", "build", false, null);
+            CapabilityStore.AddManual(data, "serve", "--port", true, null);
+            CapabilityStore.AddManual(data, "", "--version", false, null);
+
+            Assert.Equal(new[] { "build", "serve" }, CapabilityStore.Subcommands(data).Select(e => e.Name).ToArray());
+        }
+
+        [Fact]
+        public void ActionsFor_LayLenhConTuBangKhaNang()
+        {
+            var workspace = new Workspace { Name = "w", Path = Path.GetTempPath() };
+
+            var actions = ToolCatalog.ActionsFor(workspace, new ToolBinding { Kind = "git" });
+
+            Assert.Contains(TestData.GitAction, actions.Select(a => a.Id));
+            Assert.Equal(TestData.GitAction, actions.First(a => a.Id == TestData.GitAction).Label);
+            Assert.StartsWith("git " + TestData.GitAction, actions.First(a => a.Id == TestData.GitAction).Default.Template);
+        }
+
+        [Fact]
+        public void ActionsFor_KindKhongCoTrongDanhMuc_KhongCoAction()
+        {
+            var workspace = new Workspace { Name = "w", Path = Path.GetTempPath() };
+
+            Assert.Empty(ToolCatalog.ActionsFor(workspace, new ToolBinding { Kind = "chua-co-bang" }));
         }
 
         [Fact]

@@ -39,7 +39,7 @@ namespace Toolbox.Tests
                 WorkspacesPath = path,
                 Repo = repo,
                 WorkspaceId = workspace.Id,
-                GitActionId = ToolCatalog.Find("git").Actions[0].Id,
+                GitActionId = TestData.GitAction,
             };
         }
 

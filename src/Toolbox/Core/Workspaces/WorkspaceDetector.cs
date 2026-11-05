@@ -67,11 +67,9 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Số mục đọc được từ chính file đánh dấu (script trong package.json, project trong angular.json...); 0 nếu không có.</summary>
         private static int CountEntries(ToolDef tool, string dir, string marker)
         {
-            if (tool.ActionsFrom != null && IsFrom(tool.ActionsFrom.Source, marker))
-                return ToolCatalog.ReadSource(dir, tool.ActionsFrom.Source).Count;
-            var param = tool.Actions.SelectMany(a => a.Variants).SelectMany(v => v.Params)
-                .FirstOrDefault(p => IsFrom(p.Options, marker));
-            return param == null ? 0 : ToolCatalog.OptionsFor(param, dir).Count;
+            return tool.ActionsFrom != null && IsFrom(tool.ActionsFrom.Source, marker)
+                ? ToolCatalog.ReadSource(dir, tool.ActionsFrom.Source).Count
+                : 0;
         }
 
         /// <summary>Nguồn đọc từ đúng file đánh dấu vừa tìm thấy.</summary>

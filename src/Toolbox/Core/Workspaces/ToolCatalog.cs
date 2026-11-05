@@ -145,29 +145,20 @@ namespace Toolbox.Core.Workspaces
         public bool RequireActions { get; }
     }
 
-    /// <summary>Lệnh trợ giúp của một action, dùng để quét khả năng (cờ, tuỳ chọn). Chạy trong thư mục chạy của binding.</summary>
-    public sealed class ScanDef
-    {
-        public ScanDef(string actionId, string command)
-        {
-            ActionId = actionId;
-            Command = command;
-        }
-
-        public string ActionId { get; }
-        public string Command { get; }
-    }
-
+    /// <summary>
+    /// Một tool: lệnh gốc cộng các hậu tố. Hậu tố (lệnh con như <c>serve</c>, cờ như <c>--port</c>) không khai báo ở đây;
+    /// chúng đến từ bảng khả năng của tool (quét từ trợ giúp hoặc bạn nhập tay), nên tool nào cũng dùng được.
+    /// </summary>
     public sealed class ToolDef
     {
-        public ToolDef(string kind, string name, string rule, DetectRule detect, ActionsFromDef actionsFrom, params ActionDef[] actions)
+        public ToolDef(string kind, string name, string rule, DetectRule detect, ActionsFromDef actionsFrom, string command = null)
         {
             Kind = kind;
             Name = name;
             Rule = rule;
             Detect = detect;
             ActionsFrom = actionsFrom;
-            Actions = actions;
+            Command = command;
         }
 
         public string Kind { get; }
@@ -176,11 +167,14 @@ namespace Toolbox.Core.Workspaces
         public string Rule { get; }
         /// <summary>Cách nhận diện trong thư mục (null nếu tool không tự nhận diện).</summary>
         public DetectRule Detect { get; }
-        /// <summary>Action lấy từ nguồn trong thư mục chạy (null nếu action cố định trong catalog).</summary>
+        /// <summary>Hậu tố lấy từ nguồn trong thư mục chạy, ví dụ script trong package.json (null nếu lấy từ bảng khả năng).</summary>
         public ActionsFromDef ActionsFrom { get; }
-        public IReadOnlyList<ActionDef> Actions { get; }
-        /// <summary>Lệnh trợ giúp để quét khả năng, theo action. Rỗng nếu tool không khai báo.</summary>
-        public IReadOnlyList<ScanDef> Scans { get; set; } = new ScanDef[0];
+        /// <summary>Lệnh gốc, ví dụ <c>npx ng</c>; null nếu tool chỉ có hậu tố từ <see cref="ActionsFrom"/>.</summary>
+        public string Command { get; }
+
+        /// <summary>Lệnh trợ giúp để quét hậu tố: của chính tool (<paramref name="suffix"/> rỗng) hoặc của một lệnh con.</summary>
+        public string HelpCommand(string suffix) =>
+            string.IsNullOrEmpty(Command) ? null : Command + (string.IsNullOrEmpty(suffix) ? "" : " " + suffix) + " --help";
     }
 
     /// <summary>
@@ -228,22 +222,48 @@ namespace Toolbox.Core.Workspaces
         public static ToolDef Find(string kind) =>
             All.FirstOrDefault(t => string.Equals(t.Kind, kind, StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>Các action của một binding. Action lấy từ nguồn (như script npm) đọc tại thư mục chạy của binding.</summary>
+        /// <summary>
+        /// Các action của một binding. Mỗi action là một hậu tố của lệnh gốc, nhãn là chính chữ đó. Nguồn: script đọc từ file
+        /// của binding (npm), hoặc lệnh con trong bảng khả năng của tool (quét hay nhập tay). Chưa có bảng thì chưa có action.
+        /// </summary>
         public static IReadOnlyList<ActionDef> ActionsFor(Workspace workspace, ToolBinding binding)
         {
             var tool = Find(binding.Kind);
             if (tool == null)
                 return new ActionDef[0];
-            if (tool.ActionsFrom == null)
+            if (tool.ActionsFrom != null)
             {
-                var capabilities = LoadCapabilities(tool.Kind);
-                return tool.Actions.Select(a => WithCapabilities(a, capabilities)).ToArray();
+                var from = tool.ActionsFrom;
+                return ReadSource(workspace.ResolveCwd(binding.Cwd), from.Source)
+                    .Select(name => new ActionDef(name, name, new VariantDef(from.VariantId, name, from.Template.Replace("{id}", name))))
+                    .ToArray();
             }
+            if (string.IsNullOrEmpty(tool.Command))
+                return new ActionDef[0];
 
-            var from = tool.ActionsFrom;
-            return ReadSource(workspace.ResolveCwd(binding.Cwd), from.Source)
-                .Select(name => new ActionDef(name, name, new VariantDef(from.VariantId, name, from.Template.Replace("{id}", name))))
-                .ToArray();
+            var capabilities = LoadCapabilities(tool.Kind);
+            return capabilities == null
+                ? new ActionDef[0]
+                : CapabilityStore.Subcommands(capabilities).Select(sub => FromSubcommand(tool, capabilities, sub.Name)).ToArray();
+        }
+
+        /// <summary>
+        /// Action của một lệnh con: <c>lệnh-gốc lệnh-con [cờ-cổng {port}] {args}</c>. Cờ cổng chỉ có khi bạn đã gán vai trò
+        /// "port" cho một cờ của lệnh con; <c>{args}</c> là chỗ gõ mọi hậu tố khác.
+        /// </summary>
+        public static ActionDef FromSubcommand(ToolDef tool, ToolCapabilities capabilities, string subcommand)
+        {
+            var port = CapabilityStore.PortFlag(capabilities, subcommand);
+            var parameters = new List<ParamDef>();
+            var template = tool.Command + " " + subcommand;
+            if (port != null)
+            {
+                template += " " + port.Name + " {port}";
+                parameters.Add(new ParamDef("port", "Cổng", "", isPort: true));
+            }
+            template += " {args}";
+            parameters.Add(new ParamDef("args", "Hậu tố thêm", ""));
+            return new ActionDef(subcommand, subcommand, new VariantDef("default", subcommand, template, parameters.ToArray()));
         }
 
         public static ActionDef FindAction(Workspace workspace, ToolBinding binding, string actionId) =>
@@ -315,41 +335,24 @@ namespace Toolbox.Core.Workspaces
                 if (tools.Any(t => string.Equals(t.Kind, kind, StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidDataException($"Trùng kind \"{kind}\" trong catalog.json.");
 
-                var actions = (Get(tool, "actions") as object[] ?? new object[0]).Select(a => ParseAction(a as Dictionary<string, object>, kind)).ToArray();
+                var command = Text(tool, "command")?.Trim();
+                var actionsFrom = ParseActionsFrom(Get(tool, "actionsFrom") as Dictionary<string, object>, kind);
+                if (string.IsNullOrEmpty(command) && actionsFrom == null)
+                    throw new InvalidDataException($"\"{kind}\": cần \"command\" (lệnh gốc) hoặc \"actionsFrom\".");
+                if (command != null && command.Any(c => "&|<>^\"%\r\n".IndexOf(c) >= 0))
+                    throw new InvalidDataException($"\"{kind}\": command không được có các ký tự & | < > ^ \" % hoặc xuống dòng.");
                 tools.Add(new ToolDef(
                     kind,
                     Text(tool, "name") ?? kind,
                     Text(tool, "rule") ?? "",
                     ParseDetect(Get(tool, "detect") as Dictionary<string, object>, kind),
-                    ParseActionsFrom(Get(tool, "actionsFrom") as Dictionary<string, object>, kind),
-                    actions) { Scans = ParseScans(tool, kind) });
+                    actionsFrom,
+                    string.IsNullOrEmpty(command) ? null : command));
             }
             return tools;
         }
 
-        /// <summary>
-        /// Token cờ cổng trong mẫu lệnh, ví dụ <c>npx ng serve {project} {portFlag} {port}</c>. Tên cờ thật lấy từ bảng
-        /// khả năng (vai trò "port"), không ghi trong catalog. Chưa gán thì token còn nguyên và lệnh không chạy được.
-        /// </summary>
-        public const string PortFlagToken = "{portFlag}";
-
-        /// <summary>Thay <see cref="PortFlagToken"/> trong các mẫu lệnh của action bằng cờ cổng đã gán; chưa có cờ thì giữ nguyên.</summary>
-        public static ActionDef WithCapabilities(ActionDef action, ToolCapabilities capabilities)
-        {
-            if (!action.Variants.Any(v => v.Template.Contains(PortFlagToken)))
-                return action;
-
-            var flag = capabilities == null ? null : CapabilityStore.PortFlag(capabilities, action.Id);
-            var name = flag != null && CapabilityStore.FlagName.IsMatch(flag.Name) ? flag.Name : null;
-            var variants = action.Variants
-                .Select(v => v.Template.Contains(PortFlagToken)
-                    ? new VariantDef(v.Id, v.Label, v.Template.Replace(PortFlagToken, name ?? PortFlagToken), v.Params.ToArray())
-                    : v)
-                .ToArray();
-            return new ActionDef(action.Id, action.Label, variants);
-        }
-
-        /// <summary>Bảng khả năng của tool; file hỏng thì null (lệnh có token cờ sẽ báo chưa có cờ).</summary>
+        /// <summary>Bảng khả năng của tool; file hỏng thì null (tool coi như chưa có hậu tố nào).</summary>
         private static ToolCapabilities LoadCapabilities(string kind)
         {
             try
@@ -360,22 +363,6 @@ namespace Toolbox.Core.Workspaces
             {
                 return null;
             }
-        }
-
-        private static IReadOnlyList<ScanDef> ParseScans(Dictionary<string, object> tool, string kind)
-        {
-            var items = Get(tool, "scan") as object[];
-            if (items == null)
-                return new ScanDef[0];
-            return items.Select(item =>
-            {
-                var map = item as Dictionary<string, object>;
-                var action = map == null ? null : Text(map, "action");
-                var command = map == null ? null : Text(map, "command");
-                if (action == null || !SafeKey.IsMatch(action) || string.IsNullOrWhiteSpace(command))
-                    throw new InvalidDataException($"\"{kind}\": mỗi mục scan cần action và command.");
-                return new ScanDef(action, command.Trim());
-            }).ToArray();
         }
 
         private static bool IsSafe(string name) => name != null && SafeKey.IsMatch(name);
@@ -417,7 +404,16 @@ namespace Toolbox.Core.Workspaces
                 // Ghi nhớ trước khi đọc: file lỗi thì không đọc lại liên tục cho tới khi nó đổi.
                 _stamp = info.LastWriteTimeUtc;
                 _length = info.Length;
-                _tools = Parse(File.ReadAllText(path, Encoding.UTF8));
+                var text = File.ReadAllText(path, Encoding.UTF8);
+                var upgraded = UpgradeOutdated(path, text);
+                if (!ReferenceEquals(upgraded, text))
+                {
+                    text = upgraded;
+                    info = new FileInfo(path);
+                    _stamp = info.LastWriteTimeUtc;
+                    _length = info.Length;
+                }
+                _tools = Parse(text);
                 LastError = null;
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException || ex is ArgumentException || ex is InvalidOperationException)
@@ -425,6 +421,36 @@ namespace Toolbox.Core.Workspaces
                 LastError = $"Không đọc được {path}: {ex.Message}\nTạm dùng danh mục trước đó hoặc mặc định.";
                 if (_tools == null)
                     _tools = Parse(DefaultJson());
+            }
+        }
+
+        /// <summary>
+        /// Catalog cũ (schemaVersion thấp hơn bản mặc định) khai báo action và biến thể ngay trong file, mô hình đã bỏ.
+        /// Sao lưu thành <c>catalog.json.v{n}.bak</c> rồi ghi lại bản mặc định; trả về văn bản mới, hoặc đúng chuỗi cũ nếu không cần.
+        /// File không có schemaVersion được coi là do bạn tự viết theo định dạng hiện tại, không đụng tới.
+        /// </summary>
+        internal static string UpgradeOutdated(string path, string text)
+        {
+            var found = SchemaOf(text);
+            var fresh = DefaultJson();
+            if (found <= 0 || found >= SchemaOf(fresh))
+                return text;
+            File.Copy(path, path + ".v" + found + ".bak", true);
+            File.WriteAllText(path, fresh, new UTF8Encoding(false));
+            return fresh;
+        }
+
+        /// <summary>schemaVersion của catalog; 0 nếu thiếu hoặc không đọc được.</summary>
+        private static int SchemaOf(string json)
+        {
+            try
+            {
+                var root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+                return root != null && root.TryGetValue("schemaVersion", out var v) ? Convert.ToInt32(v, CultureInfo.InvariantCulture) : 0;
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is FormatException || ex is InvalidCastException || ex is OverflowException)
+            {
+                return 0;
             }
         }
 
@@ -437,49 +463,6 @@ namespace Toolbox.Core.Workspaces
                 using (var reader = new StreamReader(stream, Encoding.UTF8))
                     return reader.ReadToEnd();
             }
-        }
-
-        private static ActionDef ParseAction(Dictionary<string, object> action, string kind)
-        {
-            if (action == null)
-                throw new InvalidDataException($"Action của \"{kind}\" phải là object.");
-            var id = Text(action, "id");
-            if (id == null || !SafeKey.IsMatch(id))
-                throw new InvalidDataException($"Action của \"{kind}\" có id không hợp lệ: \"{id}\".");
-            var variants = (Get(action, "variants") as object[] ?? new object[0])
-                .Select(v => ParseVariant(v as Dictionary<string, object>, kind, id))
-                .ToArray();
-            if (variants.Length == 0)
-                throw new InvalidDataException($"Action \"{id}\" của \"{kind}\" cần ít nhất một biến thể.");
-            return new ActionDef(id, Text(action, "label") ?? id, variants);
-        }
-
-        private static VariantDef ParseVariant(Dictionary<string, object> variant, string kind, string action)
-        {
-            if (variant == null)
-                throw new InvalidDataException($"Biến thể của \"{kind} {action}\" phải là object.");
-            var id = Text(variant, "id");
-            var template = Text(variant, "template");
-            if (string.IsNullOrEmpty(id) || !SafeKey.IsMatch(id) || string.IsNullOrWhiteSpace(template))
-                throw new InvalidDataException($"Biến thể \"{id}\" của \"{kind} {action}\" cần id và template.");
-            var parameters = (Get(variant, "params") as object[] ?? new object[0]).Select(p => ParseParam(p as Dictionary<string, object>, kind, action)).ToArray();
-            return new VariantDef(id, Text(variant, "label") ?? id, template, parameters);
-        }
-
-        private static ParamDef ParseParam(Dictionary<string, object> param, string kind, string action)
-        {
-            if (param == null)
-                throw new InvalidDataException($"Tham số của \"{kind} {action}\" phải là object.");
-            var key = Text(param, "key");
-            if (string.IsNullOrEmpty(key) || !Regex.IsMatch(key, @"^[A-Za-z][A-Za-z0-9_]*$"))
-                throw new InvalidDataException($"Tham số của \"{kind} {action}\" có key không hợp lệ: \"{key}\".");
-            var options = Get(param, "options") as Dictionary<string, object>;
-            return new ParamDef(
-                key,
-                Text(param, "prompt") ?? key,
-                Text(param, "default") ?? "",
-                Get(param, "port") is bool port && port,
-                options == null ? null : ParseSource(options, kind));
         }
 
         private static DetectRule ParseDetect(Dictionary<string, object> detect, string kind)

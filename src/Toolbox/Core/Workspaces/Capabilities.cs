@@ -67,6 +67,19 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Tên cờ hợp lệ để ghép vào dòng lệnh: <c>-x</c> hoặc <c>--ten-co</c>.</summary>
         public static readonly Regex FlagName = new Regex(@"^--?[A-Za-z][A-Za-z0-9_-]*$", RegexOptions.Compiled);
 
+        /// <summary>Tên lệnh con hợp lệ: <c>serve</c>, <c>add-package</c>, <c>run:dev</c>. Không bắt đầu bằng dấu gạch.</summary>
+        public static readonly Regex SubcommandName = new Regex(@"^[A-Za-z][A-Za-z0-9_.:@-]*$", RegexOptions.Compiled);
+
+        /// <summary>Hậu tố hợp lệ: cờ hoặc lệnh con. Cả hai chỉ là chữ nối vào sau lệnh gốc.</summary>
+        public static bool IsSuffix(string name) => name != null && (FlagName.IsMatch(name) || SubcommandName.IsMatch(name));
+
+        public static bool IsFlag(string name) => name != null && FlagName.IsMatch(name);
+
+        /// <summary>Lệnh con của tool: các mục ở phạm vi của chính tool (<c>Action</c> rỗng) không phải cờ, theo thứ tự đã quét.</summary>
+        public static IReadOnlyList<CapabilityEntry> Subcommands(ToolCapabilities data) =>
+            data.Entries.Where(e => string.IsNullOrEmpty(e.Action) && !IsFlag(e.Name) && SubcommandName.IsMatch(e.Name ?? ""))
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
         private static readonly object Gate = new object();
 
         public static string DefaultDirectory => Path.Combine(DataDir.Root, "capabilities");
@@ -84,7 +97,7 @@ namespace Toolbox.Core.Workspaces
                 var data = new JavaScriptSerializer().Deserialize<ToolCapabilities>(File.ReadAllText(path, Encoding.UTF8)) ?? new ToolCapabilities();
                 data.Kind = kind;
                 data.Scans = (data.Scans ?? new List<ScanRecord>()).Where(s => s != null).ToList();
-                data.Entries = (data.Entries ?? new List<CapabilityEntry>()).Where(e => e != null && FlagName.IsMatch(e.Name ?? "")).ToList();
+                data.Entries = (data.Entries ?? new List<CapabilityEntry>()).Where(e => e != null && IsSuffix(e.Name)).ToList();
                 return data;
             }
             catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is IOException)
@@ -147,10 +160,12 @@ namespace Toolbox.Core.Workspaces
         public static void AddManual(ToolCapabilities data, string action, string name, bool takesValue, string description)
         {
             name = (name ?? "").Trim();
-            if (!FlagName.IsMatch(name))
-                throw new ArgumentException("Tên cờ phải như --port hoặc -p, chỉ gồm chữ, số, - và _.");
+            if (!IsSuffix(name))
+                throw new ArgumentException("Hậu tố phải như serve, --port hoặc -p, chỉ gồm chữ, số, - và _.");
             if (data.Entries.Any(e => SameAction(e.Action, action) && e.Name == name))
-                throw new ArgumentException($"{name} đã có trong lệnh này.");
+                throw new ArgumentException($"{name} đã có trong bảng.");
+            // Lệnh con không nhận giá trị: giá trị nằm ở các cờ của nó.
+            takesValue = takesValue && IsFlag(name);
             data.Entries.Add(new CapabilityEntry
             {
                 Action = action,
@@ -168,7 +183,7 @@ namespace Toolbox.Core.Workspaces
 
         /// <summary>Cờ có vai trò cổng của action, hoặc null nếu chưa gán.</summary>
         public static CapabilityEntry PortFlag(ToolCapabilities data, string action) =>
-            data.Entries.FirstOrDefault(e => SameAction(e.Action, action) && e.Role == PortRole && FlagName.IsMatch(e.Name ?? ""));
+            data.Entries.FirstOrDefault(e => SameAction(e.Action, action) && e.Role == PortRole && IsFlag(e.Name));
 
         public static ScanRecord LastScan(ToolCapabilities data, string action) =>
             data.Scans.LastOrDefault(s => SameAction(s.Action, action));
@@ -184,7 +199,8 @@ namespace Toolbox.Core.Workspaces
     {
         public const int DefaultTimeoutMs = 30000;
 
-        public static ScanOutcome Run(string command, string workingDirectory, int timeoutMs = DefaultTimeoutMs)
+        /// <param name="includeSubcommands">True khi quét trợ giúp của chính tool: đọc luôn danh sách lệnh con. Quét lệnh con thì chỉ lấy cờ.</param>
+        public static ScanOutcome Run(string command, string workingDirectory, int timeoutMs = DefaultTimeoutMs, bool includeSubcommands = false)
         {
             var outcome = new ScanOutcome { Command = command };
             if (string.IsNullOrWhiteSpace(command))
@@ -235,6 +251,8 @@ namespace Toolbox.Core.Workspaces
             }
 
             outcome.Entries = HelpParser.Parse(text);
+            if (includeSubcommands)
+                outcome.Entries.AddRange(HelpParser.ParseSubcommands(text));
             outcome.Fingerprint = Fingerprint(text);
             if (outcome.Entries.Count == 0)
             {
@@ -242,7 +260,7 @@ namespace Toolbox.Core.Workspaces
                 var head = (text ?? "").Trim();
                 if (head.Length > 200)
                     head = head.Substring(0, 200) + "…";
-                outcome.Error = "Không đọc được cờ nào." + (head.Length > 0 ? " Đầu ra: " + head.Replace("\r", " ").Replace("\n", " ") : " Lệnh không in gì.");
+                outcome.Error = "Không đọc được hậu tố nào." + (head.Length > 0 ? " Đầu ra: " + head.Replace("\r", " ").Replace("\n", " ") : " Lệnh không in gì.");
             }
             return outcome;
         }
@@ -312,6 +330,49 @@ namespace Toolbox.Core.Workspaces
                     TakesValue = value.Success,
                     Description = description.Length == 0 ? null : description,
                     Excerpt = excerpt,
+                    Source = "scan",
+                    Role = "",
+                });
+            }
+            return result;
+        }
+
+        /// <summary>Dòng tiêu đề nhóm lệnh con: không thụt đầu dòng và nhắc tới "command"/"lệnh", ví dụ "Commands:" hay "SDK commands:".</summary>
+        private static readonly Regex CommandsHeading = new Regex(@"^\S.*\b(commands?|lệnh)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>Một lệnh con: thụt đầu dòng, một từ, hai khoảng trắng trở lên rồi mô tả.</summary>
+        private static readonly Regex SubcommandLine = new Regex(@"^(\s+)([A-Za-z][A-Za-z0-9_.:@-]*)(?:\s*,\s*[A-Za-z][\w.-]*)*\s{2,}(\S.*)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Đọc lệnh con từ các nhóm có tiêu đề nhắc tới "commands". Trợ giúp không có nhóm như vậy (ví dụ <c>git --help</c>)
+        /// thì không đọc ra gì và bạn nhập tay; đoán thêm sẽ lẫn mô tả vào danh sách.
+        /// </summary>
+        public static List<CapabilityEntry> ParseSubcommands(string text)
+        {
+            var result = new List<CapabilityEntry>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var inGroup = false;
+            foreach (var raw in (text ?? "").Replace("\r", "").Split('\n'))
+            {
+                if (raw.Trim().Length == 0)
+                    continue;
+                if (!char.IsWhiteSpace(raw[0]))
+                {
+                    inGroup = CommandsHeading.IsMatch(raw);
+                    continue;
+                }
+                if (!inGroup)
+                    continue;
+                var m = SubcommandLine.Match(raw);
+                if (!m.Success || !CapabilityStore.SubcommandName.IsMatch(m.Groups[2].Value) || !seen.Add(m.Groups[2].Value))
+                    continue;
+                var excerpt = raw.TrimEnd();
+                result.Add(new CapabilityEntry
+                {
+                    Name = m.Groups[2].Value,
+                    TakesValue = false,
+                    Description = m.Groups[3].Value.Trim(),
+                    Excerpt = excerpt.Length > 240 ? excerpt.Substring(0, 240) + "…" : excerpt,
                     Source = "scan",
                     Role = "",
                 });

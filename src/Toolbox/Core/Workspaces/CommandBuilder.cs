@@ -69,10 +69,6 @@ namespace Toolbox.Core.Workspaces
         {
             var errors = new Dictionary<string, string>();
             var values = Effective(variant, vals);
-            // Token cờ cổng còn nguyên: tool chưa có bảng khả năng hoặc chưa gán cờ cổng. Không được dựng lệnh thiếu cờ.
-            if (variant.Template.Contains(ToolCatalog.PortFlagToken))
-                errors[variant.Params.FirstOrDefault(p => p.IsPort)?.Key ?? ""] =
-                    "Chưa biết cờ cổng của lệnh này. Mở Khả năng của tool, quét lệnh rồi chọn cờ cổng.";
             foreach (var p in variant.Params)
             {
                 var value = values[p.Key];

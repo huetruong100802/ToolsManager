@@ -4,7 +4,7 @@
         Title="Khả năng của tool" Width="760" Height="560" MinWidth="620" MinHeight="420"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <!-- Chân: thêm tay một cờ, và đóng. Luôn hiện, không bị cuộn khuất. -->
+        <!-- Chân: thêm tay một hậu tố (lệnh con hoặc cờ) của tool, và đóng. Luôn hiện, không bị cuộn khuất. -->
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
@@ -12,8 +12,8 @@
                         Style="{StaticResource PrimaryButton}" Click="OnClose" />
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="170" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="190" />
+                        <ColumnDefinition Width="120" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -21,13 +21,11 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Thêm cờ tay: tên cờ" Style="{StaticResource FieldLabel}" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Giá trị" Style="{StaticResource FieldLabel}" Margin="12,0,0,0" />
-                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Mô tả (không bắt buộc)" Style="{StaticResource FieldLabel}" Margin="0,0,12,0" />
-                    <TextBox Grid.Row="1" Grid.Column="0" x:Name="NameBox" ToolTip="Ví dụ --port hoặc -p" FontFamily="Consolas" Margin="0,4,0,0" />
-                    <CheckBox Grid.Row="1" Grid.Column="1" x:Name="TakesBox" Content="Có giá trị" Margin="12,4,0,0" VerticalAlignment="Center"
-                              ToolTip="Cờ có đi kèm giá trị không (--port 4200)" />
-                    <TextBox Grid.Row="1" Grid.Column="2" x:Name="DescBox" Margin="0,4,12,0" ToolTip="Mô tả ngắn" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" x:Name="AddLabel" Style="{StaticResource FieldLabel}" />
+                    <TextBox Grid.Row="1" Grid.Column="0" x:Name="NameBox" ToolTip="Ví dụ serve, --port hoặc -p" FontFamily="Consolas" Margin="0,4,0,0" />
+                    <CheckBox Grid.Row="1" Grid.Column="1" x:Name="TakesBox" Content="Có giá trị" Margin="12,4,12,0" VerticalAlignment="Center"
+                              ToolTip="Cờ có đi kèm giá trị không (--port 4200). Lệnh con không có giá trị." />
+                    <TextBox Grid.Row="1" Grid.Column="2" x:Name="DescBox" Margin="0,4,12,0" ToolTip="Mô tả ngắn, không bắt buộc" />
                     <Button Grid.Row="1" Grid.Column="3" Content="Thêm" MinWidth="80" Margin="0,4,0,0" Click="OnAdd" />
                 </Grid>
             </DockPanel>
@@ -39,8 +37,6 @@
             <DockPanel Margin="0,12,0,0">
                 <Button DockPanel.Dock="Right" x:Name="RescanButton" Content="Quét lại" MinWidth="100" Margin="12,0,0,0"
                         Style="{StaticResource PrimaryButton}" Click="OnRescan" />
-                <ComboBox x:Name="ActionPicker" DockPanel.Dock="Left" Width="200" DisplayMemberPath="Label"
-                          SelectionChanged="OnActionChanged" ToolTip="Lệnh có các cờ bên dưới" />
                 <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="14,0,0,0" />
             </DockPanel>
         </StackPanel>

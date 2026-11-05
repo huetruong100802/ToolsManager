@@ -14,35 +14,45 @@ namespace Toolbox.Tests
       ""kind"": ""flutter"",
       ""name"": ""Flutter"",
       ""rule"": ""pubspec.yaml"",
-      ""detect"": { ""patterns"": [ ""pubspec.yaml"" ], ""depth"": 0 },
-      ""actions"": [
-        { ""id"": ""run"", ""label"": ""Chạy"", ""variants"": [
-          { ""id"": ""device"", ""label"": ""Theo thiết bị"", ""template"": ""flutter run -d {device}"",
-            ""params"": [ { ""key"": ""device"", ""prompt"": ""Thiết bị"", ""default"": ""chrome"" } ] } ] }
-      ]
+      ""command"": ""flutter"",
+      ""detect"": { ""patterns"": [ ""pubspec.yaml"" ], ""depth"": 0 }
     }
   ]
 }";
 
         [Fact]
-        public void Parse_ToolMoi_DocDuocDetectVaLenh()
+        public void Parse_ToolMoi_DocDuocDetectVaLenhGoc()
         {
             var tool = ToolCatalog.Parse(Flutter).Single();
 
             Assert.Equal("flutter", tool.Kind);
+            Assert.Equal("flutter", tool.Command);
             Assert.Equal(new[] { "pubspec.yaml" }, tool.Detect.Patterns.ToArray());
-            var param = tool.Actions[0].Variants[0].Params[0];
-            Assert.Equal("device", param.Key);
-            Assert.Equal("chrome", param.Default);
-            Assert.Equal("flutter run -d chrome", CommandBuilder.Build(tool.Actions[0].Variants[0], new System.Collections.Generic.Dictionary<string, string> { ["device"] = "chrome" }));
+            Assert.Null(tool.ActionsFrom);
+        }
+
+        [Fact]
+        public void Parse_ThieuLenhGocVaActionsFrom_BiTuChoi()
+        {
+            const string json = @"{ ""tools"": [ { ""kind"": ""x"", ""name"": ""X"" } ] }";
+
+            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
+        }
+
+        [Fact]
+        public void Parse_LenhGocCoKyTuNguyHiem_BiTuChoi()
+        {
+            const string json = @"{ ""tools"": [ { ""kind"": ""x"", ""name"": ""X"", ""command"": ""x & calc"" } ] }";
+
+            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
         }
 
         [Fact]
         public void Parse_TrungKind_BiTuChoi()
         {
             const string json = @"{ ""tools"": [
-  { ""kind"": ""flutter"", ""name"": ""A"" },
-  { ""kind"": ""FLUTTER"", ""name"": ""B"" } ] }";
+  { ""kind"": ""flutter"", ""name"": ""A"", ""command"": ""flutter"" },
+  { ""kind"": ""FLUTTER"", ""name"": ""B"", ""command"": ""flutter"" } ] }";
 
             Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
         }
@@ -75,16 +85,15 @@ namespace Toolbox.Tests
             }
         }
 
+        // Nguồn danh sách của tool kiểu npm: mỗi mục một action, nhãn là chính chữ đó.
         private const string Make = @"{ ""tools"": [ {
   ""kind"": ""make"", ""name"": ""Make"",
-  ""actions"": [ { ""id"": ""run"", ""label"": ""Chạy"", ""variants"": [
-    { ""id"": ""target"", ""label"": ""Target"", ""template"": ""make {target}"",
-      ""params"": [ { ""key"": ""target"", ""prompt"": ""Target"", ""options"": { ""file"": ""Makefile"", ""pattern"": ""^([A-Za-z0-9_.-]+):"" } } ] } ] } ] } ] }";
+  ""actionsFrom"": { ""file"": ""Makefile"", ""pattern"": ""^([A-Za-z0-9_.-]+):"", ""template"": ""make {id}"" } } ] }";
 
-        private static ParamDef MakeParam(string options)
+        private static ValueSource MakeSource(string source)
         {
-            var json = Make.Replace("{ \"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\" }", options);
-            return ToolCatalog.Parse(json).Single().Actions[0].Variants[0].Params[0];
+            var json = Make.Replace("\"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\"", source);
+            return ToolCatalog.Parse(json).Single().ActionsFrom.Source;
         }
 
         [Fact]
@@ -94,65 +103,95 @@ namespace Toolbox.Tests
             {
                 dir.WriteFile("Makefile", "build:\n\tdotnet build\ntest:\n\tdotnet test\n# bình luận\n");
 
-                var param = MakeParam("{ \"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\" }");
+                var source = MakeSource("\"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\"");
 
-                Assert.Equal(new[] { "build", "test" }, ToolCatalog.OptionsFor(param, dir.Path).ToArray());
+                Assert.Equal(new[] { "build", "test" }, ToolCatalog.ReadSource(dir.Path, source).ToArray());
             }
         }
 
         [Fact]
         public void Options_ValuesGhiSan_KhongCanFile()
         {
-            var param = MakeParam("{ \"values\": [ \"admin\", \"customer\" ] }");
+            var source = MakeSource("\"values\": [ \"admin\", \"customer\" ]");
 
-            Assert.Equal(new[] { "admin", "customer" }, ToolCatalog.OptionsFor(param, null).ToArray());
+            Assert.Equal(new[] { "admin", "customer" }, ToolCatalog.ReadSource(null, source).ToArray());
         }
 
         [Fact]
-        public void Options_SetupKhongCoAngularJson_KhongCoGoiYNhungVanChay()
+        public void ReadSource_SetupKhongCoFile_KhongCoGoiYNhungKhongLoi()
         {
             using (var dir = new TempDir())
             {
-                // Setup không có angular.json: danh sách project rỗng, ô vẫn gõ tay, không báo lỗi.
-                var project = ToolCatalog.Find("angular").Actions.First(a => a.Id == "serve").Default.Params.First(p => p.Key == "project");
+                var source = MakeSource("\"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\"");
 
-                Assert.Empty(ToolCatalog.OptionsFor(project, dir.Path));
-                Assert.Empty(ToolCatalog.OptionsFor(project, null));
+                Assert.Empty(ToolCatalog.ReadSource(dir.Path, source));
+                Assert.Empty(ToolCatalog.ReadSource(null, source));
             }
         }
 
         [Fact]
         public void Parse_PatternKhongCoNhom_BiTuChoi()
         {
-            Assert.Throws<InvalidDataException>(() => MakeParam("{ \"file\": \"Makefile\", \"pattern\": \"^build:\" }"));
+            Assert.Throws<InvalidDataException>(() => MakeSource("\"file\": \"Makefile\", \"pattern\": \"^build:\""));
         }
 
         [Fact]
         public void Parse_PatternSai_BiTuChoi()
         {
-            Assert.Throws<InvalidDataException>(() => MakeParam("{ \"file\": \"Makefile\", \"pattern\": \"(\" }"));
+            Assert.Throws<InvalidDataException>(() => MakeSource("\"file\": \"Makefile\", \"pattern\": \"(\""));
         }
 
         [Fact]
         public void Parse_ValuesCoKyTuLa_BiTuChoi()
         {
-            Assert.Throws<InvalidDataException>(() => MakeParam("{ \"values\": [ \"a&b\" ] }"));
+            Assert.Throws<InvalidDataException>(() => MakeSource("\"values\": [ \"a&b\" ]"));
         }
 
         [Fact]
         public void Parse_NguonRaNgoaiThuMuc_BiTuChoi()
         {
-            Assert.Throws<InvalidDataException>(() => MakeParam("{ \"file\": \"..\\\\Makefile\", \"pattern\": \"^([a-z]+):\" }"));
+            Assert.Throws<InvalidDataException>(() => MakeSource("\"file\": \"..\\\\Makefile\", \"pattern\": \"^([a-z]+):\""));
         }
 
         [Fact]
-        public void Build_ProjectDaChon_ChenVaoLenh()
+        public void Upgrade_CatalogSchemaCu_SaoLuuRoiGhiBanMacDinh()
+        {
+            using (var dir = new TempDir())
+            {
+                const string old = "{ \"schemaVersion\": 2, \"tools\": [ { \"kind\": \"x\", \"name\": \"X\", \"actions\": [] } ] }";
+                var path = dir.WriteFile("catalog.json", old);
+
+                var text = ToolCatalog.UpgradeOutdated(path, old);
+
+                Assert.NotEqual(old, text);
+                Assert.Equal(text, File.ReadAllText(path));
+                Assert.Equal(old, File.ReadAllText(path + ".v2.bak"));
+                Assert.Contains(ToolCatalog.Parse(text), t => t.Kind == "dotnet" && t.Command == "dotnet");
+            }
+        }
+
+        [Fact]
+        public void Upgrade_CatalogMoiHoacKhongCoSchema_KhongDungToi()
+        {
+            using (var dir = new TempDir())
+            {
+                const string mine = "{ \"tools\": [ { \"kind\": \"x\", \"name\": \"X\", \"command\": \"x\" } ] }";
+                var path = dir.WriteFile("catalog.json", mine);
+
+                Assert.Same(mine, ToolCatalog.UpgradeOutdated(path, mine));
+                Assert.Equal(mine, File.ReadAllText(path));
+                Assert.False(File.Exists(path + ".v0.bak"));
+            }
+        }
+
+        [Fact]
+        public void Build_LenhConCoCongVaHauTo_GhepDungThuTu()
         {
             var serve = CapabilityFixtures.Angular("serve", CapabilityFixtures.Port("angular", "serve", "--port")).Default;
 
-            var line = CommandBuilder.Build(serve, new System.Collections.Generic.Dictionary<string, string> { ["project"] = "dxfac", ["port"] = "4200" });
+            var line = CommandBuilder.Build(serve, new System.Collections.Generic.Dictionary<string, string> { ["port"] = "4200", ["args"] = "dxfac" });
 
-            Assert.Equal("npx ng serve dxfac --port 4200", line);
+            Assert.Equal("npx ng serve --port 4200 dxfac", line);
         }
     }
 }

@@ -87,7 +87,7 @@ namespace Toolbox.Tests
         {
             var ws = Ws();
             ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
-            var action = ToolCatalog.Find(ToolCatalog.DotNet).Actions[0];
+            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0])[0];
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = action.Id, ProfileId = "ma" }, 0);
 
@@ -131,7 +131,7 @@ namespace Toolbox.Tests
             var ws = Ws();
             ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
             var tool = ToolCatalog.Find(ToolCatalog.DotNet);
-            var action = tool.Actions[0];
+            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0])[0];
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = tool.Kind, ActionId = action.Id }, 0);
 
@@ -147,15 +147,15 @@ namespace Toolbox.Tests
             ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
             var profile = new Profile
             {
-                Id = "p1", Label = "Test lọc", Kind = ToolCatalog.DotNet, ActionId = "test", VariantId = "filter",
-                Vals = { ["filter"] = "FullyQualifiedName~Api" },
+                Id = "p1", Label = "Test lọc", Kind = ToolCatalog.DotNet, ActionId = "test", VariantId = "default",
+                Vals = { ["args"] = "--no-build" },
             };
             ws.Profiles.Add(profile);
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = "test", ProfileId = "p1" }, 0);
 
             Assert.False(r.IsBroken);
-            Assert.Equal("dotnet test --filter \"FullyQualifiedName~Api\"", r.Spec.CommandLine);
+            Assert.Equal("dotnet test --no-build", r.Spec.CommandLine);
             Assert.Null(r.Spec.Port);
             Assert.Equal("Test lọc", r.Spec.Label);
             Assert.Equal(TaskKey.ForProfile("w1", profile), r.Spec.Key);
