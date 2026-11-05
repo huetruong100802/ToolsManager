@@ -143,22 +143,27 @@ namespace Toolbox.Views
         private UIElement PermissionPanel(AgentRecord agent)
         {
             var panel = new StackPanel();
-            panel.Children.Add(Section("TRONG PHẠM VI CỦA AGENT"));
+            panel.Children.Add(Section(agent.IsGlobal ? "PHẠM VI: TOÀN MÁY" : "TRONG WORKSPACE NÀY"));
             panel.Children.Add(agent.IsGlobal
-                ? Line("Agent toàn máy chỉ quản lý thư viện tool (thêm, sửa, xoá), không đụng profile hay bộ chạy của workspace nào.")
-                : Line("Thêm, sửa, xoá tool riêng, profile, bộ chạy, lệnh riêng trong workspace này. Luôn bật."));
+                ? PermRow("Quản lý thư viện tool", "Thêm, sửa, xoá tool dùng chung. Không đụng profile hay bộ chạy của workspace nào.", "cố định")
+                : PermRow("Thêm, sửa, xoá tool riêng, profile, bộ chạy, lệnh riêng", null, "luôn bật"));
             panel.Children.Add(Section("THƯ VIỆN TOOL"));
             panel.Children.Add(agent.IsGlobal
-                ? Line("Đầy đủ: xem, thêm, sửa, xoá tool dùng chung.")
-                : Line("Xem thư viện, gắn tool có sẵn vào workspace, thêm tool mới. Sửa hoặc xoá tool dùng chung chỉ qua đề xuất để bạn duyệt."));
+                ? PermRow("Xem, thêm, sửa, xoá tool dùng chung", null, "cố định")
+                : PermRow("Xem thư viện, gắn tool có sẵn, thêm tool mới", null, "luôn bật"));
+            if (!agent.IsGlobal)
+                panel.Children.Add(PermRow("Sửa, xoá tool dùng chung", "Không trực tiếp. Agent chỉ gửi đề xuất để bạn duyệt.", "qua duyệt"));
 
             panel.Children.Add(Section("CHẠY LỆNH"));
             var auto = new RadioButton { Content = "Tự chạy profile, bộ chạy và tool đã có", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
+            var ask = new RadioButton { Content = "Hỏi bạn trước mỗi lần chạy (lệnh được duyệt đúng một lần)", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var none = new RadioButton { Content = "Không cho chạy", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var current = RunModes.Normalize(agent.RunMode);
             auto.IsChecked = current == RunModes.Auto;
-            none.IsChecked = current != RunModes.Auto;
+            ask.IsChecked = current == RunModes.Ask;
+            none.IsChecked = current == RunModes.None;
             panel.Children.Add(auto);
+            panel.Children.Add(ask);
             panel.Children.Add(none);
 
             panel.Children.Add(Section("CÔNG CỤ AGENT THẤY"));
@@ -169,7 +174,7 @@ namespace Toolbox.Views
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
             actions.Children.Add(Btn("Lưu quyền", "SoftButton", (s, e) =>
             {
-                var mode = auto.IsChecked == true ? RunModes.Auto : RunModes.None;
+                var mode = auto.IsChecked == true ? RunModes.Auto : ask.IsChecked == true ? RunModes.Ask : RunModes.None;
                 AgentStore.Update(AgentStore.DefaultPath, store =>
                 {
                     var found = store.Find(agent.Id);
@@ -196,6 +201,27 @@ namespace Toolbox.Views
             return wrap;
         }
 
+        /// <summary>Một dòng quyền: tên quyền (và mô tả nếu có) bên trái, nhãn trạng thái bên phải.</summary>
+        private UIElement PermRow(string title, string detail, string status)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var text = new StackPanel();
+            text.Children.Add(Text(title, wrap: true));
+            if (!string.IsNullOrEmpty(detail))
+                text.Children.Add(Text(detail, size: 12, brush: "Muted", wrap: true));
+            grid.Children.Add(text);
+
+            var tag = Pill(status, "Hover", "Muted");
+            tag.Margin = new Thickness(12, 0, 0, 0);
+            tag.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(tag, 1);
+            grid.Children.Add(tag);
+            return grid;
+        }
+
         // ---------- Tab Chờ duyệt ----------
 
         private void ShowProposals()
@@ -220,13 +246,28 @@ namespace Toolbox.Views
             var panel = new StackPanel();
 
             var head = new StackPanel { Orientation = Orientation.Horizontal };
-            head.Children.Add(Text((proposal.Kind == ProposalKinds.DeleteTool ? "Xoá khỏi thư viện: " : "Sửa tool dùng chung: ") + (tool?.Name ?? proposal.ToolName ?? proposal.ToolId), bold: true));
-            head.Children.Add(Pill(affected == 0 ? "không workspace nào dùng" : $"ảnh hưởng {affected} workspace", affected == 0 ? "OkSoft" : "WarnSoft", affected == 0 ? "Ok" : "WarnInk"));
+            if (proposal.Kind == ProposalKinds.Run)
+            {
+                head.Children.Add(Text("Chạy: " + (proposal.ToolName ?? proposal.ToolId), bold: true));
+            }
+            else
+            {
+                head.Children.Add(Text((proposal.Kind == ProposalKinds.DeleteTool ? "Xoá khỏi thư viện: " : "Sửa tool dùng chung: ") + (tool?.Name ?? proposal.ToolName ?? proposal.ToolId), bold: true));
+                head.Children.Add(Pill(affected == 0 ? "không workspace nào dùng" : $"ảnh hưởng {affected} workspace", affected == 0 ? "OkSoft" : "WarnSoft", affected == 0 ? "Ok" : "WarnInk"));
+            }
             panel.Children.Add(head);
             panel.Children.Add(Text($"{proposal.AgentName} · {Ago(proposal.CreatedAt)}", size: 12, brush: "Muted"));
 
             if (!string.IsNullOrWhiteSpace(proposal.Reason))
                 panel.Children.Add(Text("Lý do: " + proposal.Reason, size: 12.5, margin: new Thickness(0, 6, 0, 0), wrap: true));
+
+            // Lệnh chạy: hiện đúng lệnh và tham số agent gửi; duyệt xong agent gọi lại thì chạy đúng một lần.
+            if (proposal.Kind == ProposalKinds.Run)
+            {
+                var runPrint = proposal.Fields != null && proposal.Fields.TryGetValue(RunApprovals.PrintField, out var printed) ? printed : "";
+                panel.Children.Add(Text(runPrint, size: 12, family: "Consolas", margin: new Thickness(0, 8, 0, 0), wrap: true));
+                panel.Children.Add(Text("Chỉ chạy đúng lần này. Lần sau agent phải xin duyệt lại.", size: 12, brush: "Muted", margin: new Thickness(0, 4, 0, 0), wrap: true));
+            }
 
             if (proposal.Kind == ProposalKinds.UpdateTool && proposal.Fields != null)
             {
@@ -236,24 +277,53 @@ namespace Toolbox.Views
                 panel.Children.Add(diff);
             }
 
+            // Phạm vi duyệt: sửa tool dùng chung (mặc định) hoặc chỉ ghi tham số cho workspace đề xuất.
+            var workspaceScope = new RadioButton { GroupName = "scope-" + proposal.Id, Margin = new Thickness(0, 2, 0, 0) };
+            var sharedScope = new RadioButton { GroupName = "scope-" + proposal.Id, IsChecked = true };
+            if (proposal.Kind == ProposalKinds.UpdateTool)
+            {
+                var scopeBox = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+                sharedScope.Content = affected == 0
+                    ? "Sửa tool dùng chung"
+                    : $"Sửa tool dùng chung (ảnh hưởng {affected} workspace)";
+                workspaceScope.Content = "Chỉ cho workspace này (" + WorkspaceName(proposal.WorkspaceId) + ")";
+                scopeBox.Children.Add(sharedScope);
+                scopeBox.Children.Add(workspaceScope);
+                if (!ProposalApplier.CanScopeToWorkspace(proposal, out var why))
+                {
+                    workspaceScope.IsEnabled = false;
+                    scopeBox.Children.Add(Text(why, size: 12, brush: "Muted", margin: new Thickness(22, 2, 0, 0), wrap: true));
+                }
+                else
+                {
+                    scopeBox.Children.Add(Text("Tool trong thư viện và workspace khác giữ nguyên; chỉ profile ở workspace này chạy với tham số mới.",
+                        size: 12, brush: "Muted", margin: new Thickness(22, 2, 0, 0), wrap: true));
+                }
+                panel.Children.Add(scopeBox);
+            }
+
+            string Scope() => workspaceScope.IsEnabled && workspaceScope.IsChecked == true ? ProposalScopes.Workspace : ProposalScopes.Shared;
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
-            actions.Children.Add(Btn("Duyệt", "PrimaryButton", (s, e) => Decide(proposal, approve: true)));
+            actions.Children.Add(Btn("Duyệt", "PrimaryButton", (s, e) => Decide(proposal, approve: true, scope: Scope())));
             actions.Children.Add(Btn("Từ chối", "GhostButton", (s, e) => Decide(proposal, approve: false)));
             panel.Children.Add(actions);
             return Card(panel, bottom: 10);
         }
 
-        private void Decide(Proposal proposal, bool approve)
+        private void Decide(Proposal proposal, bool approve, string scope = null)
         {
             try
             {
-                var result = approve ? Apply(proposal) : "Đã từ chối.";
-                ProposalStore.Update(ProposalStore.DefaultPath, store => { store.Decide(proposal.Id, approve); return true; });
+                var result = !approve ? "Đã từ chối."
+                    : proposal.Kind == ProposalKinds.Run ? "Đã duyệt. Agent gọi lại đúng lệnh này để chạy."
+                    : ProposalScopes.Normalize(scope) == ProposalScopes.Workspace ? ApplyToWorkspace(proposal)
+                    : Apply(proposal);
+                ProposalStore.Update(ProposalStore.DefaultPath, store => { store.Decide(proposal.Id, approve, scope); return true; });
                 ActivityLog.Append(ActivityLog.DefaultPath, new ActivityEntry
                 {
                     AgentId = proposal.AgentId, AgentName = proposal.AgentName, WorkspaceId = proposal.WorkspaceId,
                     Action = approve ? "approve" : "reject", Target = proposal.ToolName ?? proposal.ToolId,
-                    Result = approve ? "applied" : "rejected",
+                    Result = !approve ? "rejected" : ProposalScopes.Normalize(scope) == ProposalScopes.Workspace ? "applied-workspace" : "applied",
                 });
                 if (approve)
                     MessageBox.Show(Host, result, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -278,6 +348,18 @@ namespace Toolbox.Views
             }
             if (proposal.Kind == ProposalKinds.DeleteTool)
                 WorkspaceStore.Update(WorkspaceStore.DefaultPath, workspaces => workspaces.UnbindToolEverywhere(proposal.ToolId) > 0);
+            return message;
+        }
+
+        /// <summary>Ghi tham số vào tool đã gắn trong workspace đề xuất; thư viện không đổi.</summary>
+        private static string ApplyToWorkspace(Proposal proposal)
+        {
+            string message = null;
+            WorkspaceStore.Update(WorkspaceStore.DefaultPath, workspaces =>
+            {
+                message = ProposalApplier.ApplyToWorkspace(workspaces, proposal);
+                return true;
+            });
             return message;
         }
 
@@ -320,31 +402,141 @@ namespace Toolbox.Views
             ["create_stack"] = "Tạo bộ chạy", ["update_stack"] = "Sửa bộ chạy", ["delete_stack"] = "Xoá bộ chạy",
             ["set_worktree"] = "Cấu hình worktree", ["prepare_worktree"] = "Chuẩn bị worktree",
             ["run_tool"] = "Chạy tool", ["run_profile"] = "Chạy profile", ["run_custom"] = "Chạy lệnh riêng", ["run_stack"] = "Chạy bộ chạy", ["run_action"] = "Chạy lệnh", ["run"] = "Chạy",
-            ["save"] = "Lưu", ["delete"] = "Xoá", ["propose"] = "Đề xuất", ["approve"] = "Bạn duyệt đề xuất", ["reject"] = "Bạn từ chối đề xuất",
+            ["save"] = "Lưu", ["delete"] = "Xoá", ["propose"] = "Đề xuất", ["undo"] = "Hoàn tác", ["approve"] = "Bạn duyệt đề xuất", ["reject"] = "Bạn từ chối đề xuất",
         };
 
         private void ShowActivity()
         {
-            var entries = ActivityLog.Read(ActivityLog.DefaultPath, 100);
-            if (entries.Count == 0)
+            _activity = ActivityLog.Read(ActivityLog.DefaultPath, 100);
+            if (_activity.Count == 0)
             {
                 Body.Children.Add(Hint("Chưa có việc nào. Mỗi lần agent thêm, sửa, xoá hoặc chạy gì, và mỗi lần bạn duyệt đề xuất, sẽ ghi ở đây."));
                 return;
             }
 
-            foreach (var entry in entries)
+            // Đọc workspace và kho tool một lần để biết dòng nào còn hoàn tác được.
+            _activityWorkspaces = null;
+            _activityTools = null;
+            try
             {
+                _activityWorkspaces = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
+                _activityTools = ToolStore.Load(ToolStore.DefaultPath);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { }
+
+            // Thanh lọc: chọn agent và tìm trong nội dung dòng (mockup: "Mọi agent" + "Tìm trong nhật ký").
+            var bar = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
+            _activityAgent = new ComboBox { MinWidth = 180, ToolTip = "Lọc theo agent" };
+            _activityAgent.Items.Add("Mọi agent");
+            foreach (var name in _activity.Select(e => e.AgentName).Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase))
+                _activityAgent.Items.Add(name);
+            _activityAgent.SelectedIndex = 0;
+            DockPanel.SetDock(_activityAgent, Dock.Left);
+            bar.Children.Add(_activityAgent);
+
+            _activitySearch = new TextBox { Margin = new Thickness(8, 0, 0, 0), ToolTip = "Tìm trong nhật ký" };
+            bar.Children.Add(_activitySearch);
+            Body.Children.Add(bar);
+
+            _activityRows = new StackPanel();
+            Body.Children.Add(_activityRows);
+            Body.Children.Add(Hint("Mỗi thay đổi đều được sao lưu trước khi ghi (xem mục Dữ liệu và sao lưu trong README)."));
+
+            _activityAgent.SelectionChanged += (s, e) => RenderActivity();
+            _activitySearch.TextChanged += (s, e) => RenderActivity();
+            RenderActivity();
+        }
+
+        private List<ActivityEntry> _activity = new List<ActivityEntry>();
+        private WorkspaceStore _activityWorkspaces;
+        private ToolStore _activityTools;
+        private StackPanel _activityRows;
+        private ComboBox _activityAgent;
+        private TextBox _activitySearch;
+
+        /// <summary>Vẽ lại các dòng nhật ký theo agent và ô tìm đang chọn.</summary>
+        private void RenderActivity()
+        {
+            if (_activityRows == null)
+                return;
+            _activityRows.Children.Clear();
+            var agent = _activityAgent.SelectedIndex > 0 ? _activityAgent.SelectedItem as string : null;
+            var needle = (_activitySearch.Text ?? "").Trim();
+
+            var shown = 0;
+            foreach (var entry in _activity)
+            {
+                if (agent != null && !string.Equals(entry.AgentName, agent, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var label = ActionNames.TryGetValue(entry.Action ?? "", out var name) ? name : entry.Action;
+                if (needle.Length > 0 && $"{label} {entry.Target} {entry.AgentName} {entry.Result}".IndexOf(needle, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                shown++;
+
                 var row = new DockPanel();
                 var result = ResultPill(entry.Result);
                 DockPanel.SetDock(result, Dock.Right);
                 row.Children.Add(result);
+                var undoButton = UndoButton(entry, _activity, _activityWorkspaces, _activityTools);
+                if (undoButton != null)
+                {
+                    undoButton.Margin = new Thickness(0, 0, 8, 0);
+                    DockPanel.SetDock(undoButton, Dock.Right);
+                    row.Children.Add(undoButton);
+                }
                 var text = new StackPanel();
-                text.Children.Add(Text($"{(ActionNames.TryGetValue(entry.Action ?? "", out var name) ? name : entry.Action)}  {entry.Target}".TrimEnd(), bold: true));
+                text.Children.Add(Text($"{label}  {entry.Target}".TrimEnd(), bold: true));
                 text.Children.Add(Text($"{entry.AgentName} · {Ago(entry.Time)}", size: 12, brush: "Muted"));
                 row.Children.Add(text);
-                Body.Children.Add(Card(row, bottom: 6));
+                _activityRows.Children.Add(Card(row, bottom: 6));
             }
-            Body.Children.Add(Hint("Mỗi thay đổi đều được sao lưu trước khi ghi (xem mục Dữ liệu và sao lưu trong README)."));
+            if (shown == 0)
+                _activityRows.Children.Add(Hint("Không có dòng nào khớp bộ lọc."));
+        }
+
+        /// <summary>Nút "Hoàn tác" cho dòng có thể đã làm thay đổi dữ liệu; tắt kèm lý do khi không hoàn tác được. Null: dòng không liên quan.</summary>
+        private Button UndoButton(ActivityEntry entry, List<ActivityEntry> log, WorkspaceStore workspaces, ToolStore tools)
+        {
+            var isChange = entry.Undo != null
+                || (entry.Result == "applied" && ActivityUndo.UndoableActions.Contains(entry.Action ?? ""));
+            if (!isChange)
+                return null;
+
+            string reason = null;
+            var enabled = false;
+            if (ActivityUndo.IsUndone(entry, log))
+                reason = ActivityUndo.AlreadyUndone;
+            else if (entry.Undo == null)
+                reason = "Dòng cũ, không có dữ liệu hoàn tác.";
+            else if (workspaces == null || tools == null)
+                reason = "Không đọc được dữ liệu hiện tại để kiểm.";
+            else
+            {
+                var workspace = string.IsNullOrEmpty(entry.WorkspaceId) ? null : workspaces.Find(entry.WorkspaceId);
+                enabled = ActivityUndo.CanUndo(entry, workspace, tools, out reason);
+            }
+
+            var button = Btn("Hoàn tác", "GhostButton", (s, e) => Undo(entry));
+            button.IsEnabled = enabled;
+            button.ToolTip = enabled ? "Khôi phục đúng đối tượng này về bản trước khi agent đổi." : reason;
+            ToolTipService.SetShowOnDisabled(button, true);
+            return button;
+        }
+
+        private void Undo(ActivityEntry entry)
+        {
+            if (!Dialogs.Confirm(Host, $"Hoàn tác \"{(ActionNames.TryGetValue(entry.Action ?? "", out var name) ? name : entry.Action)} {entry.Target}\"?\n\nChỉ đối tượng này được khôi phục về bản trước; các thay đổi khác của bạn giữ nguyên."))
+                return;
+            try
+            {
+                var message = ActivityUndo.Undo(entry, WorkspaceStore.DefaultPath, ToolStore.DefaultPath, ActivityLog.DefaultPath);
+                MessageBox.Show(Host, message, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(Host, "Không hoàn tác được: " + ex.Message);
+            }
+            Refresh();
         }
 
         private UIElement ResultPill(string result)
@@ -368,7 +560,15 @@ namespace Toolbox.Views
         private string WorkspaceName(string id) =>
             string.IsNullOrEmpty(id) ? "toàn máy" : _workspaceNames.TryGetValue(id, out var name) ? name : "workspace đã gỡ";
 
-        private static string RunModeText(string mode) => RunModes.Normalize(mode) == RunModes.Auto ? "tự chạy cái đã có" : "không cho chạy";
+        private static string RunModeText(string mode)
+        {
+            switch (RunModes.Normalize(mode))
+            {
+                case RunModes.Auto: return "tự chạy cái đã có";
+                case RunModes.Ask: return "hỏi trước mỗi lần chạy";
+                default: return "không cho chạy";
+            }
+        }
 
         private static bool TryTime(string iso, out DateTime utc)
         {

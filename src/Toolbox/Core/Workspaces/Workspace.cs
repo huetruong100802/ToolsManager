@@ -110,8 +110,19 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "variant", Order = 4)]
         public string VariantId { get; set; }
 
+        /// <summary>
+        /// Chỉ với Kind "library" (toolId của thư viện) hoặc "custom" (<see cref="CustomCommand.Id"/>). Hai loại này để
+        /// <see cref="ActionId"/>/<see cref="VariantId"/> trống; tham số thêm nằm ở Vals["args"], nối sau tham số hiệu lực của tool / sau dòng lệnh riêng.
+        /// </summary>
+        [DataMember(Name = "refId", Order = 6, EmitDefaultValue = false)]
+        public string RefId { get; set; }
+
         [DataMember(Name = "vals", Order = 5)]
         public Dictionary<string, string> Vals { get; set; } = new Dictionary<string, string>();
+
+        /// <summary>Tham số thêm của profile loại library/custom (Vals["args"]); rỗng nếu không có.</summary>
+        public string ExtraArgs =>
+            Vals != null && Vals.TryGetValue(ProfileKind.ArgsKey, out var args) ? (args ?? "").Trim() : "";
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
@@ -119,6 +130,22 @@ namespace Toolbox.Core.Workspaces
             if (Vals == null)
                 Vals = new Dictionary<string, string>();
         }
+    }
+
+    /// <summary>Hai loại profile ngoài catalog dựng sẵn (dotnet, git, angular, npm): tool thư viện và lệnh riêng.</summary>
+    public static class ProfileKind
+    {
+        public const string Library = "library";
+        public const string Custom = "custom";
+        /// <summary>Khoá trong <see cref="Profile.Vals"/> chứa tham số thêm.</summary>
+        public const string ArgsKey = "args";
+
+        public static bool IsLibrary(string kind) => string.Equals(kind, Library, System.StringComparison.OrdinalIgnoreCase);
+
+        public static bool IsCustom(string kind) => string.Equals(kind, Custom, System.StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Loại trỏ bằng <see cref="Profile.RefId"/> thay vì action của catalog.</summary>
+        public static bool IsRef(string kind) => IsLibrary(kind) || IsCustom(kind);
     }
 
     [DataContract]
@@ -146,6 +173,13 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Cổng cần chờ khi <see cref="Wait"/> là port và lệnh không tự khai cổng.</summary>
         [DataMember(Name = "port", Order = 5, EmitDefaultValue = false)]
         public int Port { get; set; }
+
+        /// <summary>
+        /// 0 = không nhóm. Các bước liên tiếp cùng Group &gt; 0 bắt đầu cùng lúc; bước sau nhóm chỉ chạy khi mọi bước trong nhóm
+        /// đã đạt <see cref="Wait"/> của riêng nó.
+        /// </summary>
+        [DataMember(Name = "group", Order = 6, EmitDefaultValue = false)]
+        public int Group { get; set; }
     }
 
     /// <summary>Chuỗi các bước chạy tuần tự bằng một cú bấm.</summary>
@@ -203,6 +237,10 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Ghim lên đầu danh sách workspace ở rail, để tìm nhanh khi có nhiều workspace.</summary>
         [DataMember(Name = "pinned", Order = 10, EmitDefaultValue = false)]
         public bool Pinned { get; set; }
+
+        /// <summary>Lưu trữ: ẩn khỏi rail, vẫn giữ nguyên dữ liệu; bấm "Lưu trữ" ở rail để xem lại.</summary>
+        [DataMember(Name = "archived", Order = 11, EmitDefaultValue = false)]
+        public bool Archived { get; set; }
 
         [DataMember(Name = "libraryBindings", Order = 8)]
         public List<LibraryBinding> LibraryBindings { get; set; } = new List<LibraryBinding>();

@@ -98,7 +98,8 @@ namespace Toolbox.Views
         public ParamRow(ParamDef def, string value, Action changed)
         {
             Def = def;
-            _value = value ?? "";
+            // Form mới điền sẵn mặc định, để ô hiện đúng giá trị lệnh sẽ dùng (không ẩn). Profile đã lưu giữ nguyên giá trị của nó.
+            _value = value ?? def.Default ?? "";
             _changed = changed;
         }
 
@@ -112,6 +113,11 @@ namespace Toolbox.Views
 
         /// <summary>Gợi ý mờ khi để trống: giá trị mặc định của tham số.</summary>
         public string Default => Def.Default;
+
+        /// <summary>Danh sách gợi ý đọc từ thư mục chạy (ô "" đầu = mặc định). Rỗng nghĩa là ô nhập tay.</summary>
+        public IReadOnlyList<string> Options { get; set; } = new string[0];
+
+        public Visibility OptionsVisibility => Options.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         public string Value
         {
@@ -152,12 +158,16 @@ namespace Toolbox.Views
         private VariantDef _variant;
         private bool _hasErrors;
 
-        public ActionRow(ToolDef tool, ToolBinding binding, ActionDef action, Func<IReadOnlyDictionary<int, string>> usedPorts)
+        /// <summary>Thư mục chạy tuyệt đối của binding, để đọc danh sách gợi ý (vd project trong angular.json).</summary>
+        private readonly string _workingDirectory;
+
+        public ActionRow(ToolDef tool, ToolBinding binding, ActionDef action, Func<IReadOnlyDictionary<int, string>> usedPorts, string workingDirectory = null)
         {
             Tool = tool;
             Binding = binding;
             Action = action;
             _usedPorts = usedPorts;
+            _workingDirectory = workingDirectory;
             _variant = action.Default;
             BuildParams(null);
         }
@@ -263,7 +273,11 @@ namespace Toolbox.Views
             {
                 string value = null;
                 vals?.TryGetValue(def.Key, out value);
-                Params.Add(new ParamRow(def, value, () => Revalidate()));
+                var row = new ParamRow(def, value, () => Revalidate());
+                var suggestions = ToolCatalog.OptionsFor(def, _workingDirectory);
+                if (suggestions.Count > 0)
+                    row.Options = new[] { "" }.Concat(suggestions).ToList();
+                Params.Add(row);
             }
         }
     }
@@ -274,6 +288,19 @@ namespace Toolbox.Views
         public ProfileRow(Workspace workspace, Profile profile)
         {
             Profile = profile;
+            if (ProfileKind.IsRef(profile.Kind))
+            {
+                // Tool thư viện / lệnh riêng: không có trong ToolCatalog; kiểm bằng bộ resolve của bộ chạy.
+                var resolved = StackResolver.Resolve(workspace, new StackStep { Kind = profile.Kind, ProfileId = profile.Id }, 0);
+                Problem = resolved.Problem;
+                RefSummary = ProfileKind.IsLibrary(profile.Kind)
+                    ? "Tool thư viện · " + (workspace.FindLibrary(profile.RefId ?? "")?.Name ?? profile.RefId)
+                    : "Lệnh riêng · " + (workspace.Customs.Find(c => string.Equals(c.Id, profile.RefId, StringComparison.OrdinalIgnoreCase))?.Label ?? "(đã xoá)");
+                if (profile.ExtraArgs.Length > 0)
+                    RefSummary += " · " + profile.ExtraArgs;
+                CanRun = Problem == null;
+                return;
+            }
             Binding = workspace.Binding(profile.Kind);
             Tool = ToolCatalog.Find(profile.Kind);
             Action = Binding == null ? null : ToolCatalog.FindAction(workspace, Binding, profile.ActionId);
@@ -303,6 +330,9 @@ namespace Toolbox.Views
 
         public string Title => Profile.Label;
 
+        /// <summary>Mô tả của profile loại library/custom (tên tool hoặc lệnh riêng + tham số thêm); null với loại dựng sẵn.</summary>
+        public string RefSummary { get; }
+
         public Visibility ProblemVisibility => Problem == null ? Visibility.Collapsed : Visibility.Visible;
 
         /// <summary>Mô tả ngắn: lệnh · biến thể · tham số, ví dụ "Chạy dev · Dev · cổng 4201".</summary>
@@ -310,6 +340,8 @@ namespace Toolbox.Views
         {
             get
             {
+                if (RefSummary != null)
+                    return RefSummary;
                 if (Action == null || Variant == null)
                     return $"{Profile.ActionId} · {Profile.VariantId}";
                 var parts = new List<string> { Action.Label };

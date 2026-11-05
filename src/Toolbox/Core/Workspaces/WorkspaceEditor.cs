@@ -82,7 +82,8 @@ namespace Toolbox.Core.Workspaces
                 Label = IsBlank(label) ? current.Label : label.Trim(),
                 Kind = current.Kind,
                 ActionId = current.ActionId,
-                VariantId = IsBlank(variantId) ? current.VariantId : variantId.Trim(),
+                RefId = current.RefId,
+                VariantId = ProfileKind.IsRef(current.Kind) ? current.VariantId : (IsBlank(variantId) ? current.VariantId : variantId.Trim()),
                 Vals = vals == null ? new Dictionary<string, string>(current.Vals) : new Dictionary<string, string>(vals),
             };
             var problem = CheckProfile(ws, copy);
@@ -108,6 +109,8 @@ namespace Toolbox.Core.Workspaces
 
         private static string CheckProfile(Workspace ws, Profile profile)
         {
+            if (ProfileKind.IsRef(profile.Kind))
+                return CheckRefProfile(ws, profile);
             var binding = ws.Binding(profile.Kind);
             if (binding == null)
                 return $"Workspace chưa có tool \"{profile.Kind}\". Thêm tool trước bằng add_tool.";
@@ -123,6 +126,47 @@ namespace Toolbox.Core.Workspaces
             profile.VariantId = variant.Id;
             var errors = CommandBuilder.Validate(variant, profile.Vals);
             return errors.Count == 0 ? null : string.Join(" ", errors.Values);
+        }
+
+        /// <summary>
+        /// Profile loại library: RefId là tool đã gắn vào workspace hoặc có trong thư viện (<paramref name="library"/>, null thì thư viện mặc định).
+        /// Loại custom: RefId là id một lệnh riêng của workspace. ActionId/VariantId được xoá trống; tham số thêm (args) phải an toàn.
+        /// </summary>
+        private static string CheckRefProfile(Workspace ws, Profile profile)
+        {
+            profile.Kind = ProfileKind.IsLibrary(profile.Kind) ? ProfileKind.Library : ProfileKind.Custom;
+            profile.RefId = profile.RefId?.Trim();
+            profile.ActionId = null;
+            profile.VariantId = null;
+            if (IsBlank(profile.RefId))
+                return profile.Kind == ProfileKind.Library
+                    ? "Profile loại library cần refId (id tool trong thư viện)."
+                    : "Profile loại custom cần refId (id lệnh riêng).";
+
+            if (profile.Kind == ProfileKind.Custom)
+            {
+                var command = ws.Customs.Find(c => Same(c.Id, profile.RefId));
+                if (command == null)
+                    return $"Không có lệnh riêng \"{profile.RefId}\" trong workspace. Dùng search type=custom để xem id.";
+                profile.RefId = command.Id;
+            }
+            else
+            {
+                var binding = ws.FindLibrary(profile.RefId);
+                if (binding != null)
+                    profile.RefId = binding.ToolId;
+                else
+                {
+                    var tool = StackResolver.LibraryStore(null)?.Find(profile.RefId);
+                    if (tool == null)
+                        return $"Không có tool \"{profile.RefId}\" trong workspace hay thư viện. Dùng search type=library để xem id.";
+                    profile.RefId = tool.Id;
+                }
+            }
+
+            if (profile.Vals == null)
+                profile.Vals = new Dictionary<string, string>();
+            return CommandBuilder.CheckExtraArgs(profile.ExtraArgs);
         }
 
         // ----- Lệnh riêng -----
@@ -169,8 +213,9 @@ namespace Toolbox.Core.Workspaces
                 return NotFound("lệnh riêng", id);
             var stacks = ws.Stacks.Where(s => s.Steps.Any(st => Same(st.Kind, TaskKey.Custom) && Same(st.ActionId, id)))
                 .Select(s => "bộ chạy \"" + s.Label + "\"").ToList();
+            stacks.AddRange(ws.Profiles.Where(p => ProfileKind.IsCustom(p.Kind) && Same(p.RefId, id)).Select(p => "profile \"" + p.Label + "\""));
             if (stacks.Count > 0)
-                return "Lệnh riêng đang được dùng bởi " + string.Join(", ", stacks) + ". Sửa các bộ chạy đó trước.";
+                return "Lệnh riêng đang được dùng bởi " + string.Join(", ", stacks) + ". Sửa các mục đó trước.";
             ws.Customs.Remove(command);
             return null;
         }
@@ -235,6 +280,9 @@ namespace Toolbox.Core.Workspaces
         {
             if (stack.Steps == null || stack.Steps.Count == 0)
                 return "Bộ chạy cần ít nhất một bước.";
+            var groupProblem = StackPlan.Validate(stack.Steps);
+            if (groupProblem != null)
+                return groupProblem;
             foreach (var resolved in StackResolver.ResolveAll(ws, stack))
             {
                 if (resolved.IsBroken)

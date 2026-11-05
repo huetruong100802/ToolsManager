@@ -1,0 +1,1 @@
+- P7: log dưới danh sách trong TasksView; 'Mở cửa sổ riêng' vẫn đẩy qua ShowLogRequested -> Inspector. MainWindow.xaml.cs không cần sửa. Lọc nằm ở TaskFilter (TaskRows.cs).

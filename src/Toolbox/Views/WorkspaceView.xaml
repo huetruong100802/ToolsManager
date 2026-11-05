@@ -1,6 +1,7 @@
 <UserControl x:Class="Toolbox.Views.WorkspaceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Toolbox.Views">
     <UserControl.Resources>
         <!-- Tab tool: chữ đậm và gạch chân accent khi chọn. -->
         <Style x:Key="TabButton" TargetType="RadioButton">
@@ -41,6 +42,7 @@
                                         CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Nhân bản" Click="OnDuplicateProfile" />
                                             <Button Style="{StaticResource GhostButton}" Content="Đổi tên" Click="OnRenameProfile" />
                                             <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteProfile" Margin="0,0,6,0" />
                                             <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
@@ -69,8 +71,10 @@
                                     <StackPanel>
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                                <Button Style="{StaticResource SoftButton}" Content="Sơ đồ" Click="OnDiagramStack" Margin="0,0,6,0"
+                                                        IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Sửa bộ chạy bằng sơ đồ" />
                                                 <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditStack"
-                                                        IsEnabled="{Binding CanEdit}" />
+                                                        IsEnabled="{Binding CanEdit}" ToolTip="Sửa dạng danh sách" />
                                                 <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteStack" Margin="0,0,6,0"
                                                         IsEnabled="{Binding CanEdit}" />
                                                 <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRunStack" MinWidth="72"
@@ -196,6 +200,8 @@
                 <StackPanel x:Name="ToolPage">
                     <DockPanel Margin="0,0,0,12">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Button Style="{StaticResource GhostButton}" Content="Khả năng…" Click="OnCapabilities"
+                                    ToolTip="Cờ và lệnh con của tool, đọc từ trợ giúp hoặc nhập tay. Đánh dấu cờ cổng ở đây." />
                             <Button Style="{StaticResource GhostButton}" Content="Đổi thư mục chạy…" Click="OnEditTool" />
                             <Button Style="{StaticResource GhostButton}" Content="Gỡ tool" Click="OnRemoveTool" />
                         </StackPanel>
@@ -235,9 +241,17 @@
                                                     <DataTemplate>
                                                         <StackPanel Margin="0,0,0,6">
                                                             <TextBlock Text="{Binding Prompt}" Style="{StaticResource FieldLabel}" />
-                                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left"
-                                                                     Width="260" AutomationProperties.Name="{Binding Prompt}"
-                                                                     ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
+                                                            <!-- Nút ▾ chỉ hiện khi tham số có nguồn gợi ý (catalog khai báo); ô vẫn gõ tay được. -->
+                                                            <DockPanel HorizontalAlignment="Left" Width="260">
+                                                                <Button DockPanel.Dock="Right" Width="32" Click="OnPickOptions"
+                                                                        Visibility="{Binding OptionsVisibility}"
+                                                                        ToolTip="Chọn từ danh sách gợi ý" AutomationProperties.Name="{Binding Prompt, StringFormat='Chọn gợi ý cho {0}'}">
+                                                                    <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{StaticResource Muted}" Width="8" Height="5" Stretch="Fill" />
+                                                                </Button>
+                                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AutomationProperties.Name="{Binding Prompt}"
+                                                                         ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
+                                                            </DockPanel>
                                                             <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" FontSize="12"
                                                                        TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding ErrorVisibility}" />
                                                         </StackPanel>
@@ -267,6 +281,8 @@
                     <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />
 
                     <DockPanel Margin="0,14,0,6">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="+ Profile mới"
+                                Click="OnNewProfile" Margin="8,0,0,0" AutomationProperties.Name="Tạo profile mới" />
                         <TextBox x:Name="RunSearch" DockPanel.Dock="Right" Width="220" TextChanged="OnRunSearch"
                                  AutomationProperties.Name="Tìm profile" ToolTip="Tìm profile theo tên" />
                         <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
@@ -346,8 +362,12 @@
                 </StackPanel>
 
                 <!-- Trang "Bộ chạy". -->
+                <v:PackTab x:Name="PackPage" Visibility="Collapsed" />
+
                 <StackPanel x:Name="StackPage" Visibility="Collapsed">
                     <DockPanel Margin="0,0,0,12">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Dựng bằng sơ đồ" Click="OnDiagramNew"
+                                VerticalAlignment="Top" Margin="8,0,0,0" AutomationProperties.Name="Dựng bộ chạy bằng sơ đồ" />
                         <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddStack" VerticalAlignment="Top"
                                 AutomationProperties.Name="Thêm bộ chạy">
                             <StackPanel Orientation="Horizontal">

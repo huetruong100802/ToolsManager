@@ -1,0 +1,14 @@
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(309,32): error CS0117: 'Button' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(391,17): error CS0117: 'ComboBox' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(440,53): error CS0117: 'Button' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+
+Build FAILED.
+
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(309,32): error CS0117: 'Button' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(391,17): error CS0117: 'ComboBox' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\StackDiagram.xaml.cs(440,53): error CS0117: 'Button' does not contain a definition for 'AutomationProperties' [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_pxoj1pkr_wpftmp.csproj]
+    0 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:02.29
+

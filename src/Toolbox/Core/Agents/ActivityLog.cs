@@ -19,6 +19,34 @@ namespace Toolbox.Core.Agents
         [DataMember(Name = "action")] public string Action { get; set; }
         [DataMember(Name = "target")] public string Target { get; set; }
         [DataMember(Name = "result")] public string Result { get; set; }
+
+        /// <summary>Dữ liệu để hoàn tác riêng thay đổi này. Null: dòng cũ hoặc việc không hoàn tác được.</summary>
+        [DataMember(Name = "undo", EmitDefaultValue = false)] public ActivityUndoData Undo { get; set; }
+
+        /// <summary>Dòng Action="undo": token của dòng gốc đã được hoàn tác.</summary>
+        [DataMember(Name = "undoOf", EmitDefaultValue = false)] public string UndoOf { get; set; }
+    }
+
+    /// <summary>
+    /// Bản trước của đúng một đối tượng bị đổi. Type: profile, stack, custom, binding (tool thư viện gắn vào workspace),
+    /// builtin (tool dựng sẵn của dự án), tool (ToolEntry trong thư viện).
+    /// </summary>
+    [DataContract]
+    public class ActivityUndoData
+    {
+        /// <summary>Định danh dòng để dòng "undo" trỏ về.</summary>
+        [DataMember(Name = "token", EmitDefaultValue = false)] public string Token { get; set; }
+        [DataMember(Name = "type")] public string Type { get; set; }
+        [DataMember(Name = "id")] public string Id { get; set; }
+
+        /// <summary>JSON bản trước; null nếu thao tác là tạo mới.</summary>
+        [DataMember(Name = "before", EmitDefaultValue = false)] public string Before { get; set; }
+
+        /// <summary>SHA-256 của JSON chuẩn hoá bản sau; rỗng nếu thao tác là xoá.</summary>
+        [DataMember(Name = "afterHash", EmitDefaultValue = false)] public string AfterHash { get; set; }
+
+        /// <summary>Đối tượng phụ đổi cùng thao tác (vd register_tool trong workspace: tool và chỗ gắn).</summary>
+        [DataMember(Name = "also", EmitDefaultValue = false)] public List<ActivityUndoData> Also { get; set; }
     }
 
     /// <summary>Nhật ký việc của agent, mỗi dòng một JSON trong activity.jsonl. Chỉ ghi thêm, không sửa dòng cũ.</summary>

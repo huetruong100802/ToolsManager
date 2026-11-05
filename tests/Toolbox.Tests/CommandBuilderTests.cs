@@ -8,7 +8,8 @@ namespace Toolbox.Tests
 {
     public class CommandBuilderTests
     {
-        private static VariantDef Serve => ToolCatalog.Find("angular").Actions.First(a => a.Id == "serve").Default;
+        // Cờ cổng lấy từ bảng khả năng (vai trò port), không từ catalog.
+        private static VariantDef Serve => CapabilityFixtures.Angular("serve", CapabilityFixtures.Port("angular", "serve", "--port")).Default;
         private static VariantDef Filter => ToolCatalog.Find("dotnet").Actions.First(a => a.Id == "test").Variant("filter");
 
         [Fact]

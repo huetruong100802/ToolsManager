@@ -48,6 +48,44 @@ namespace Toolbox.Core.Agents
         }
 
         /// <summary>
+        /// "Chỉ cho workspace này" chỉ áp dụng khi đề xuất sửa duy nhất <c>args</c> và biết workspace đề xuất.
+        /// </summary>
+        /// <param name="reason">Khi trả false: lý do hiện cho người dùng.</param>
+        public static bool CanScopeToWorkspace(Proposal proposal, out string reason)
+        {
+            reason = null;
+            if (proposal.Kind != ProposalKinds.UpdateTool)
+                reason = "Chỉ áp dụng cho đề xuất sửa tool, không áp dụng cho đề xuất xoá.";
+            else if (string.IsNullOrWhiteSpace(proposal.WorkspaceId))
+                reason = "Đề xuất không thuộc workspace nào.";
+            else if (proposal.Fields == null || proposal.Fields.Count == 0
+                     || proposal.Fields.Keys.Any(k => !string.Equals(k, "args", StringComparison.OrdinalIgnoreCase)))
+                reason = "Đề xuất đổi cả trường khác ngoài tham số (args); chỉ đổi tham số mới giới hạn được theo workspace.";
+            return reason == null;
+        }
+
+        /// <summary>
+        /// Ghi <c>args</c> đề xuất vào tool đã gắn trong workspace đề xuất; thư viện và workspace khác không đổi.
+        /// Người gọi tự <see cref="WorkspaceStore.Save"/> (nên dùng <see cref="WorkspaceStore.Update"/>).
+        /// Ném lỗi nếu không áp dụng được; khi đó chưa ghi gì.
+        /// </summary>
+        public static string ApplyToWorkspace(Workspaces.WorkspaceStore workspaces, Proposal proposal)
+        {
+            if (!CanScopeToWorkspace(proposal, out var reason))
+                throw new InvalidOperationException(reason);
+            var workspace = workspaces.Find(proposal.WorkspaceId)
+                ?? throw new System.IO.InvalidDataException($"Workspace \"{proposal.WorkspaceId}\" không còn.");
+            var binding = workspace.FindLibrary(proposal.ToolId)
+                ?? throw new System.IO.InvalidDataException(
+                    $"Workspace \"{workspace.Name}\" không còn gắn tool \"{proposal.ToolName ?? proposal.ToolId}\".");
+
+            var key = proposal.Fields.Keys.First();
+            // Tham số rỗng nghĩa là "dùng tham số của thư viện" (LibraryBinding.EffectiveArgs).
+            binding.Args = proposal.Fields[key];
+            return $"Đã đổi tham số của \"{proposal.ToolName ?? proposal.ToolId}\" chỉ trong workspace \"{workspace.Name}\".";
+        }
+
+        /// <summary>
         /// Ghi thay đổi vào <paramref name="store"/> (người gọi giữ <see cref="ToolStore.Lock"/> và tự Save).
         /// Ném lỗi nếu tool không còn hoặc nội dung không hợp lệ; khi đó chưa có gì được ghi.
         /// </summary>

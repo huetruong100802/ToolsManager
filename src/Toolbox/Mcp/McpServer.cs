@@ -278,7 +278,7 @@ namespace Toolbox.Mcp
                 if (scopeError != null)
                     return ToolResult(scopeError, isError: true);
 
-                var agentError = AgentError(name, out var agentRecord);
+                var agentError = AgentError(name, arguments, out var agentRecord);
                 if (agentError != null)
                     return ToolResult(agentError, isError: true);
                 TouchAgent();

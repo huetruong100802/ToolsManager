@@ -138,7 +138,8 @@ $@"{{
             }
 
             // Mỗi kết nối có một agent đăng ký trong Toolbox: để đổi quyền, xem nhật ký và duyệt đề xuất theo agent.
-            var agentId = EnsureAgent(workspaceId, target.Workspace);
+            var runMode = RunNone.IsChecked == true ? RunModes.None : RunAsk.IsChecked == true ? RunModes.Ask : RunModes.Auto;
+            var agentId = EnsureAgent(workspaceId, target.Workspace, AgentName.Text, runMode);
             if (agentId != null)
                 commandArgs += " --agent " + agentId;
 
@@ -147,7 +148,7 @@ $@"{{
         }
 
         /// <summary>Agent đã đăng ký cho phạm vi này (workspace hoặc toàn máy); chưa có thì tạo. Null nếu không ghi được agents.json.</summary>
-        private string EnsureAgent(string workspaceId, string workspacePath)
+        private string EnsureAgent(string workspaceId, string workspacePath, string name, string runMode)
         {
             try
             {
@@ -164,7 +165,8 @@ $@"{{
                         id = existing.Id;
                         return false;
                     }
-                    id = store.Add(new AgentRecord { Name = "Claude Code · " + label, Client = "claude", WorkspaceId = workspaceId, RunMode = RunModes.Auto }).Id;
+                    var agentName = string.IsNullOrWhiteSpace(name) ? "Claude Code · " + label : name.Trim();
+                    id = store.Add(new AgentRecord { Name = agentName, Client = "claude", WorkspaceId = workspaceId, RunMode = runMode }).Id;
                     return true;
                 });
                 return id;

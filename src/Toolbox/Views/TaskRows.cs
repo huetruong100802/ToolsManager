@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
 using Toolbox.Core.Workspaces;
@@ -43,6 +44,24 @@ namespace Toolbox.Views
         public Visibility StopVisibility { get; private set; }
 
         public Visibility RestartVisibility { get; private set; }
+
+        private bool _selected;
+
+        /// <summary>Dòng đang được chọn để xem log (viền nhấn).</summary>
+        public bool IsSelected
+        {
+            get => _selected;
+            set
+            {
+                if (_selected == value)
+                    return;
+                _selected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RowBorder)));
+            }
+        }
+
+        public Brush RowBorder => Res(_selected ? "Accent" : "Line");
 
         /// <summary>Đọc lại trạng thái từ tác vụ; báo giao diện mọi thuộc tính.</summary>
         public void Refresh(DateTime utcNow)
@@ -106,6 +125,47 @@ namespace Toolbox.Views
             foreach (var item in next)
                 item.Refresh(utcNow);
         }
+    }
+
+    /// <summary>Bộ lọc trạng thái trên trang Tác vụ.</summary>
+    internal enum TaskStateFilter { All, Running, Failed, Finished }
+
+    /// <summary>Lọc danh sách tác vụ và dòng log. Thuần logic, không đụng giao diện.</summary>
+    internal static class TaskFilter
+    {
+        private static readonly Regex ErrorLine = new Regex(
+            @"(error|errors|fail|failed|failure|exception|fatal)|lỗi|thất bại",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <param name="workspaceId">null/rỗng = mọi workspace.</param>
+        /// <param name="query">Khớp (không phân biệt hoa thường) với nhãn hoặc lệnh; rỗng = không lọc.</param>
+        public static bool Matches(TaskInfo task, TaskStateFilter state, string workspaceId, string query)
+        {
+            switch (state)
+            {
+                case TaskStateFilter.Running when !task.IsRunning:
+                case TaskStateFilter.Failed when task.State != TaskState.Failed:
+                case TaskStateFilter.Finished when task.IsRunning || task.State == TaskState.Failed:
+                    return false;
+            }
+            if (!string.IsNullOrEmpty(workspaceId)
+                && !string.Equals(task.Spec.WorkspaceId, workspaceId, StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (string.IsNullOrWhiteSpace(query))
+                return true;
+            var q = query.Trim();
+            return Contains(task.Spec.Label, q) || Contains(task.Spec.CommandLine, q);
+        }
+
+        /// <summary>Giữ các dòng log thoả cả "chỉ lỗi" và ô tìm.</summary>
+        public static string[] LogLines(IEnumerable<string> lines, bool errorsOnly, string query)
+        {
+            var q = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
+            return lines.Where(l => (!errorsOnly || ErrorLine.IsMatch(l)) && (q == null || Contains(l, q))).ToArray();
+        }
+
+        private static bool Contains(string text, string q) =>
+            text != null && text.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     /// <summary>Thao tác dùng chung cho dòng tác vụ; báo lỗi cho người dùng thay vì để ném ra giao diện.</summary>

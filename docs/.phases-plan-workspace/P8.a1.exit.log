@@ -1,0 +1,15 @@
+  Toolbox -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\bin\Debug\net48\Toolbox.exe
+  Toolbox.Tests -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll
+Test run for C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll (.NETFramework,Version=v4.8)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:05.18]     Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung [FAIL]
+  Failed Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung [875 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\RunTrackerTests.cs:line 72
+
+Failed!  - Failed:     1, Passed:   181, Skipped:     0, Total:   182, Duration: 5 s - Toolbox.Tests.dll (net48)
+

@@ -51,6 +51,18 @@ namespace Toolbox
 
         public string PinMenuText => Workspace.Pinned ? "Bỏ ghim" : "Ghim lên đầu";
 
+        /// <summary>Workspace đã lưu trữ: ẩn khỏi danh sách chính của rail.</summary>
+        public bool IsArchived => Workspace.Archived;
+
+        public string ArchiveMenuText => Workspace.Archived ? "Bỏ lưu trữ" : "Lưu trữ";
+
+        public void ToggleArchive()
+        {
+            Workspace.Archived = !Workspace.Archived;
+            Raise(nameof(IsArchived));
+            Raise(nameof(ArchiveMenuText));
+        }
+
         public void TogglePin()
         {
             Workspace.Pinned = !Workspace.Pinned;

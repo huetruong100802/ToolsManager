@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.Serialization;
+using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Core
 {
@@ -21,6 +22,10 @@ namespace Toolbox.Core
         /// <summary>Path của tool đã kèm file là đường dẫn tương đối trong gói ("id/..."); pack=none/setup giữ nguyên path gốc (setup thì file bộ cài nằm ở "id/...").</summary>
         [DataMember(Name = "tools", Order = 2)]
         public List<ToolEntry> Tools { get; set; } = new List<ToolEntry>();
+
+        /// <summary>Tuỳ chọn (gói theo workspace). Gói cũ không có thì null; FormatVersion vẫn là 1.</summary>
+        [DataMember(Name = "workspace", Order = 3, EmitDefaultValue = false)]
+        public WorkspacePackData Workspace { get; set; }
     }
 
     public class PackPreview
@@ -68,6 +73,29 @@ namespace Toolbox.Core
             var list = tools.ToList();
             if (list.Count == 0)
                 throw new ArgumentException("Chưa chọn tool nào để đóng gói.", nameof(tools));
+            PackCore(list, zipPath, null);
+        }
+
+        /// <summary>
+        /// Đóng gói theo workspace: tool (cơ chế Pack cũ) + phần workspace trong manifest (profile, bộ chạy, lệnh riêng, tool gắn kèm Args).
+        /// Tự mở rộng <paramref name="selection"/> bằng <see cref="WorkspacePack.Resolve"/>. Trả về bản xem trước kèm cảnh báo.
+        /// Gói không có gì để đóng thì ném ArgumentException.
+        /// </summary>
+        public static WorkspacePackPreview PackWorkspace(Workspace ws, ToolStore library, WorkspacePackSelection selection, string zipPath)
+        {
+            if (ws == null) throw new ArgumentNullException(nameof(ws));
+            var preview = WorkspacePack.Preview(ws, library, selection);
+            var tools = WorkspacePack.ToolsOf(library, preview.Selection);
+            var data = WorkspacePack.BuildData(ws, library, preview.Selection);
+            if (tools.Count == 0 && data.IsEmpty)
+                throw new ArgumentException("Chưa chọn gì để đóng gói.", nameof(selection));
+            PackCore(tools, zipPath, data.IsEmpty ? null : data);
+            return preview;
+        }
+
+        private static void PackCore(List<ToolEntry> list, string zipPath, WorkspacePackData workspace)
+        {
+            var tools = list;
             foreach (var tool in list.Where(t => !Text.IsValidId(t.Id)))
                 throw new ArgumentException($"Id không hợp lệ: \"{tool.Id}\".", nameof(tools));
             var duplicate = list.GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
@@ -80,6 +108,7 @@ namespace Toolbox.Core
             {
                 FormatVersion = PackManifest.CurrentFormatVersion,
                 CreatedAt = DateTime.Now.ToString("o"),
+                Workspace = workspace,
             };
 
             using (var stream = new FileStream(temp, FileMode.Create, FileAccess.ReadWrite))
@@ -223,6 +252,7 @@ namespace Toolbox.Core
                     && (tool.Setup == null || tool.Setup.Length <= prefix.Length || !tool.Setup.StartsWith(prefix, StringComparison.Ordinal)))
                     throw new InvalidDataException($"Tool \"{tool.Id}\" trong gói có đường dẫn bộ cài không hợp lệ.");
             }
+            manifest.Workspace?.Validate();
             return manifest;
         }
 

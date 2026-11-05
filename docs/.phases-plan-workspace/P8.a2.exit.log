@@ -1,0 +1,7 @@
+  Toolbox -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\bin\Debug\net48\Toolbox.exe
+  Toolbox.Tests -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll
+Test run for C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll (.NETFramework,Version=v4.8)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   182, Skipped:     0, Total:   182, Duration: 5 s - Toolbox.Tests.dll (net48)
+

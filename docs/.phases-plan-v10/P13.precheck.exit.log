@@ -1,0 +1,8 @@
+  Toolbox -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\bin\Debug\net48\Toolbox.exe
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\ProfileKindsTests.cs(259,44): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\Toolbox.Tests.csproj]
+  Toolbox.Tests -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll
+Test run for C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll (.NETFramework,Version=v4.8)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 2 s - Toolbox.Tests.dll (net48)
+

@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toolbox — mockup v2 (Scripts theo app)</title>
+<style>
+  :root{
+    --bg:#F4F5FA; --card:#FFFFFF; --line:#E4E6EF; --line2:#EEF0F6;
+    --text:#1F2330; --muted:#6B7280; --faint:#9CA3AF;
+    --accent:#5046E5; --accent-soft:#EEEDFD; --accent-line:#C9C5F7;
+    --ok:#15803D; --ok-soft:#E8F6EE; --warn:#B45309; --warn-soft:#FDF3E4;
+    --danger:#B91C1C; --danger-soft:#FBEAEA;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#E9EBF3;color:var(--text);font:14px/1.45 var(--sans)}
+  button,input,select{font:inherit;color:inherit}
+  code{font-family:var(--mono)}
+  .hide{display:none!important}
+
+  .mockbar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:10px 16px;background:#1F2330;color:#E5E7EB;font-size:13px}
+  .mockbar b{color:#fff;margin-right:4px}
+  .mockbar .sep{flex:1}
+  .mockbar .note{color:#9CA3AF;font-size:12px}
+  .seg{display:inline-flex;border:1px solid #3B4152;border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;border:0;padding:6px 12px;color:#D1D5DB;cursor:pointer}
+  .seg button.on{background:#5046E5;color:#fff}
+  .ghostbtn{background:transparent;border:1px solid #3B4152;border-radius:8px;padding:6px 12px;color:#E5E7EB;cursor:pointer}
+  .ghostbtn.on{border-color:#F59E0B;color:#FDE68A}
+
+  .app{position:relative;display:grid;grid-template-columns:208px 1fr;min-height:calc(100vh - 44px);margin:0 auto;max-width:1280px;
+    background:var(--bg);border:1px solid #D5D8E4;border-top:0}
+  .rail{background:#FBFBFD;border-right:1px solid var(--line);padding:14px 10px}
+  .rail h6{margin:14px 8px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .rail a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:var(--text);text-decoration:none}
+  .rail a .n{margin-left:auto;font-size:12px;color:var(--faint)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#5046E5;flex:none;display:inline-block}
+  .dot.gray{background:#C4C7D4}
+  .ws-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px}
+  .ws-row.on{background:#fff;box-shadow:0 0 0 1px var(--line)}
+  .ws-row small{display:block;color:var(--faint);font-size:11px}
+
+  .main{min-width:0;display:flex;flex-direction:column;position:relative}
+  .head{background:var(--card);padding:16px 22px 0;border-bottom:1px solid var(--line)}
+  .head h1{margin:0;font-size:20px;font-weight:650;display:flex;align-items:center;gap:10px}
+  .pathline{margin-top:4px;color:var(--muted);font-size:12.5px}
+  .chip-path{font-family:var(--mono);font-size:12px;background:var(--line2);border-radius:6px;padding:2px 8px;color:#374151}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+  .btn:hover{border-color:#CFd3E2}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  .btn.danger-txt{border-color:transparent;background:transparent;color:var(--danger)}
+  .btn.sm{padding:4px 10px;font-size:13px;border-radius:7px}
+  .run{border:1px solid var(--accent-line);background:#fff;color:var(--accent);border-radius:7px;padding:4px 10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .run:hover{background:var(--accent-soft)}
+
+  .tabs{display:flex;gap:4px;margin-top:14px;align-items:flex-end;flex-wrap:wrap}
+  .tab{padding:9px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .tab .badge{margin-left:6px;background:var(--line2);color:var(--muted);border-radius:999px;padding:0 7px;font-size:12px}
+  .tabs .spacer{flex:1}
+
+  .content{padding:18px 22px 40px}
+  .section-title{display:flex;align-items:baseline;gap:10px;margin:4px 0 12px;flex-wrap:wrap}
+  .section-title h2{margin:0;font-size:15px;font-weight:650}
+  .section-title .meta{color:var(--muted);font-size:12.5px}
+  .prov{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .prov .src{display:flex;gap:6px;align-items:center;font-size:13px}
+  .prov .grow{flex:1}
+  .pins{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .pins .lbl{font-size:12px;color:var(--muted);margin-right:4px}
+  .pin{display:inline-flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 5px 4px 10px}
+  .pin code{font-size:12.5px}
+
+  /* Chia đôi: app | lệnh */
+  .split{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;align-items:start}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .apps-head{padding:10px;border-bottom:1px solid var(--line2)}
+  .search{position:relative}
+  .search input{width:100%;padding:7px 10px 7px 30px;border:1px solid var(--line);border-radius:8px;background:#fff;outline:none}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search::before{content:"⌕";position:absolute;left:10px;top:4px;color:var(--faint);font-size:16px}
+  .apps-scroll{max-height:560px;overflow:auto;padding:6px}
+  .grp{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:10px 8px 4px}
+  .app-btn{width:100%;display:flex;align-items:center;gap:8px;border:0;background:transparent;border-radius:8px;padding:7px 8px;cursor:pointer;text-align:left}
+  .app-btn:hover{background:var(--line2)}
+  .app-btn.on{background:var(--accent-soft);color:var(--accent)}
+  .app-btn .nm{flex:1;min-width:0;font-weight:600;font-family:var(--mono);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-btn .ty{font-size:11px;color:var(--faint)}
+  .app-btn.on .ty{color:var(--accent)}
+  .app-btn .ct{font-size:11.5px;color:var(--muted);background:var(--line2);border-radius:999px;padding:0 7px}
+  .app-btn.on .ct{background:#fff;color:var(--accent)}
+
+  .cmds-head{padding:14px 16px 10px;border-bottom:1px solid var(--line2)}
+  .cmds-head h2{margin:0;font-size:16px;font-family:var(--mono)}
+  .cmds-head .meta{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .tg{display:inline-block;font-size:11px;border-radius:999px;background:var(--line2);color:var(--muted);padding:1px 8px;margin-left:6px;vertical-align:middle}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line2)}
+  .toolbar .search{flex:1;min-width:180px;max-width:320px}
+  .fchips{display:flex;gap:6px;flex-wrap:wrap}
+  .fchip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 10px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+  .fchip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+  .crow{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line2)}
+  .crow:last-child{border-bottom:0}
+  .cl code{font-weight:600;font-size:13px}
+  .cl .cat{display:block;color:var(--faint);font-size:11px;margin-top:1px}
+  .cc{display:flex;gap:6px;flex-wrap:wrap}
+  .cc .run{min-width:0}
+  .empty{padding:24px 16px;color:var(--faint);text-align:center}
+  .hint{padding:10px 16px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line2)}
+
+  /* Tab Chi tiết */
+  .dcard{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden}
+  .dhead{padding:12px 16px;font-weight:600;border-bottom:1px solid var(--line2);display:flex;gap:10px;align-items:baseline}
+  .dhead .meta{font-weight:400;color:var(--muted);font-size:12.5px}
+  .drow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line2)}
+  .drow:last-child{border-bottom:0}
+  .drow .dtx{flex:1;min-width:0}
+  .drow .k{font-size:13px}
+  .drow .v{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .drow .acts{display:flex;gap:8px;flex:none}
+  .danger-btn{border:1px solid #F3C7C7;background:#fff;color:var(--danger);border-radius:7px;padding:4px 10px;font-size:13px;cursor:pointer}
+
+  /* Hộp thêm tool */
+  .overlay-pick{display:none;position:absolute;inset:0;background:rgba(20,22,35,.28);z-index:20;align-items:center;justify-content:center;padding:24px}
+  #app[data-mode="pick"] .overlay-pick{display:flex}
+  .modal{width:min(640px,100%);background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(15,18,30,.28);display:flex;flex-direction:column;max-height:calc(100% - 20px)}
+  .modal header{padding:18px 20px 0}
+  .modal header h3{margin:0 0 4px;font-size:16px}
+  .modal header p{margin:0;color:var(--muted);font-size:12.5px}
+  .seg2{display:inline-flex;background:var(--line2);border-radius:9px;padding:3px;margin:14px 0 0}
+  .seg2 button{border:0;background:transparent;padding:6px 12px;border-radius:7px;color:var(--muted);cursor:pointer;font-size:13px}
+  .seg2 button.on{background:#fff;color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .modal .body{padding:14px 20px;overflow:auto;flex:1;min-height:0}
+  .modal .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  .modal .tools .search{flex:1;min-width:200px}
+  .pick{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;background:#fff}
+  .pick:hover{border-color:var(--accent-line)}
+  .pick.sel{border-color:var(--accent);background:#FBFAFF}
+  .pick.done{opacity:.55;cursor:default;background:#FAFBFD}
+  .pick input{margin-top:3px;accent-color:var(--accent)}
+  .pick .t{flex:1;min-width:0}
+  .pick .t b{font-weight:600}
+  .pick .t small{display:block;color:var(--muted);font-size:12px}
+  .pick .t .pth{font-family:var(--mono);font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tgl{display:inline-block;font-size:11px;border-radius:999px;background:var(--line2);color:var(--muted);padding:1px 8px;margin-right:4px}
+  .pill-done{font-size:11.5px;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .modal footer{border-top:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:10px}
+  .modal footer .grow{flex:1;color:var(--muted);font-size:12.5px}
+  .tagchip{border:1px solid var(--line);border-radius:999px;background:#fff;padding:3px 10px;font-size:12.5px;color:var(--muted);cursor:pointer}
+  .tagchip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+  .kind-card{border:1px dashed var(--accent-line);background:#FBFAFF;border-radius:10px;padding:10px 12px;margin-bottom:8px}
+
+  /* Drawer log */
+  .drawer{display:none;position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;z-index:25;
+    border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(15,18,30,.12);flex-direction:column}
+  #app[data-mode="log"] .drawer{display:flex}
+  .drawer header{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .drawer header .row{display:flex;align-items:center;gap:10px}
+  .drawer header h3{margin:0;font-size:15px;font-family:var(--mono)}
+  .drawer header .x{margin-left:auto}
+  .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--accent);font-weight:600}
+  .status .dot{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .drawer .meta{margin-top:6px;color:var(--muted);font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px 14px}
+  .drawer .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .drawer .toolbar2{display:flex;gap:8px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .drawer .toolbar2 label{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-left:auto;cursor:pointer}
+  .drawer .toolbar2 input{accent-color:var(--accent)}
+  .logbody{flex:1;overflow:auto;background:#0F1220;color:#D6DAE6;font-family:var(--mono);font-size:12.5px;padding:12px 14px;min-height:0}
+  .logbody .ln{white-space:pre-wrap;word-break:break-all;line-height:1.5}
+  .logbody .info{color:#93C5FD}
+  .logbody .note{color:#A7F3D0}
+  .logbody .cmd{color:#FDE68A}
+  .logbody .warn{color:#FCD34D}
+  .logbody details{margin:4px 0;border-left:2px solid #3B4152;padding-left:10px}
+  .logbody details summary{cursor:pointer;color:#FCD34D;list-style:none}
+  .logbody details summary::-webkit-details-marker{display:none}
+  .logbody details summary::before{content:"▸ "}
+  .logbody details[open] summary::before{content:"▾ "}
+  .logbody details .ln{color:#9CA3AF;font-size:12px}
+  .logfoot{border-top:1px solid var(--line);padding:10px 18px;color:var(--muted);font-size:12.5px}
+
+  .toast{margin:10px 22px 0;padding:10px 12px;border-radius:9px;background:var(--ok-soft);color:#14532D;font-size:13px}
+
+  @media (max-width: 900px){
+    .app{grid-template-columns:1fr}
+    .rail{display:none}
+    .split{grid-template-columns:1fr}
+    .crow{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="mockbar">
+  <span><b>Mockup v2</b> Toolbox · workspace DxFactory</span>
+  <div class="seg" id="modes">
+    <button data-mode-btn="scripts" class="on">Scripts</button>
+    <button data-mode-btn="pick">Thêm tool</button>
+    <button data-mode-btn="log">Log tác vụ</button>
+  </div>
+  <span class="sep"></span>
+  <button class="ghostbtn" id="privacyBtn">Ẩn đường dẫn</button>
+  <span class="note">Dữ liệu lấy từ package.json và angular.json của DxFactory, đường dẫn đã rút gọn.</span>
+</div>
+
+<div class="app" id="app" data-mode="scripts">
+
+  <aside class="rail">
+    <a href="#"><span>▦</span> Thư viện <span class="n">12</span></a>
+    <a href="#"><span>◎</span> Tổng quan</a>
+    <a href="#"><span>≡</span> Tác vụ <span class="n">1</span></a>
+    <h6>Workspace</h6>
+    <div class="ws-row on"><span class="dot"></span><div>DxFactory<small>Đang chạy 1 tác vụ</small></div></div>
+    <div class="ws-row" style="margin-top:4px"><span class="dot gray"></span><div>Toolbox<small>Không có tác vụ</small></div></div>
+    <a href="#" style="margin-top:8px;color:var(--muted)">+ Thêm workspace</a>
+  </aside>
+
+  <main class="main">
+    <header class="head">
+      <div>
+        <h1>DxFactory <span class="dot"></span></h1>
+        <div class="pathline">npm · Angular · 52 script · 9 project</div>
+      </div>
+      <nav class="tabs">
+        <button class="tab on" data-tab="scripts">Scripts <span class="badge">52</span></button>
+        <button class="tab">.NET</button>
+        <button class="tab">Git</button>
+        <button class="tab">Lệnh riêng</button>
+        <button class="tab">Bộ chạy</button>
+        <button class="tab" data-tab="detail">Chi tiết</button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn primary sm" data-mode-btn="pick" style="margin-bottom:6px">+ Thêm tool</button>
+      </nav>
+    </header>
+
+    <div class="toast" id="toast" style="display:none"></div>
+
+    <section class="content" id="viewScripts">
+      <div class="prov">
+        <div class="src"><span class="dot"></span><b>npm</b> package.json · 52 script</div>
+        <div class="src"><span class="dot"></span><b>Angular</b> angular.json · 9 project</div>
+        <span class="grow"></span>
+        <button class="btn sm ghost" data-tab="detail">Thư mục chạy và thiết lập ›</button>
+      </div>
+
+      <div class="pins">
+        <span class="lbl">Hay dùng</span>
+        <span class="pin"><code>start:dxfac</code><button class="run">Chạy</button></span>
+        <span class="pin"><code>build:staging:dxfac</code><button class="run">Chạy</button></span>
+        <span class="pin"><code>lint:dxfac</code><button class="run">Chạy</button></span>
+      </div>
+
+      <div class="split">
+        <!-- Cột trái: app. Thêm app thì danh sách cuộn và lọc, không tăng cột. -->
+        <aside class="panel">
+          <div class="apps-head"><div class="search"><input id="appQ" placeholder="Tìm app…" autocomplete="off"></div></div>
+          <div class="apps-scroll" id="appList"></div>
+        </aside>
+
+        <!-- Cột phải: lệnh của app đang chọn -->
+        <div class="panel">
+          <div class="cmds-head">
+            <h2 id="appTitle"></h2>
+            <div class="meta" id="appMeta"></div>
+          </div>
+          <div class="toolbar">
+            <div class="search"><input id="cq" placeholder="Tìm lệnh…" autocomplete="off"></div>
+            <div class="fchips" id="verbChips">
+              <button class="fchip on" data-verb="all">Tất cả</button>
+              <button class="fchip" data-verb="start">start</button>
+              <button class="fchip" data-verb="build">build</button>
+              <button class="fchip" data-verb="lint">lint</button>
+              <button class="fchip" data-verb="other">khác</button>
+            </div>
+          </div>
+          <div id="cmdList"></div>
+          <div class="hint">Rê chuột vào nút để xem lệnh npm đầy đủ. Biến thể như production, staging, docker nằm cạnh tên lệnh chính, nên thêm biến thể không làm thêm cột. Cổng được đọc từ output khi chạy.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab Chi tiết -->
+    <section class="content" id="viewDetail" hidden>
+      <div class="section-title"><h2>Chi tiết workspace</h2><span class="meta">Đường dẫn và thiết lập chỉ hiện ở đây</span></div>
+
+      <div class="dcard">
+        <div class="drow">
+          <div class="dtx">
+            <div class="k">Thư mục workspace</div>
+            <div class="v"><span class="chip-path" data-full="~\Work\Repositories\newocenis\DxFactory" data-mask="…\DxFactory">~\Work\Repositories\newocenis\DxFactory</span></div>
+          </div>
+          <div class="acts"><button class="btn sm">Sao chép</button><button class="btn sm">Mở thư mục</button></div>
+        </div>
+        <div class="drow">
+          <div class="dtx"><div class="k">Tên hiển thị</div><div class="v">DxFactory</div></div>
+          <div class="acts"><button class="btn sm">Đổi tên</button></div>
+        </div>
+      </div>
+
+      <div class="dcard">
+        <div class="dhead">Thư mục chạy theo tool <span class="meta">đường dẫn tương đối với workspace</span></div>
+        <div class="drow">
+          <div class="dtx"><div class="k"><b>npm</b> · package.json</div><div class="v">Micro-Frontend</div></div>
+          <div class="acts"><button class="btn sm">Đổi</button></div>
+        </div>
+        <div class="drow">
+          <div class="dtx"><div class="k"><b>Angular</b> · angular.json</div><div class="v">Micro-Frontend</div></div>
+          <div class="acts"><button class="btn sm">Đổi</button></div>
+        </div>
+        <div class="drow">
+          <div class="dtx"><div class="k"><b>Git</b> · .git</div><div class="v">Thư mục gốc</div></div>
+          <div class="acts"><button class="btn sm">Đổi</button></div>
+        </div>
+      </div>
+
+      <div class="dcard">
+        <div class="dhead">Quản lý</div>
+        <div class="drow">
+          <div class="dtx"><div class="k">Worktree</div><div class="v">Tạo worktree mới, chép file local không commit và chạy lệnh cài đặt</div></div>
+          <div class="acts"><button class="btn sm">Worktree…</button></div>
+        </div>
+        <div class="drow">
+          <div class="dtx"><div class="k">Gỡ khỏi Toolbox</div><div class="v">Thư mục trên đĩa không bị xoá</div></div>
+          <div class="acts"><button class="danger-btn">Gỡ workspace</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hộp Thêm tool: tái dùng ô tìm và lọc tag của Thư viện -->
+    <div class="overlay-pick" id="pickOverlay">
+      <div class="modal" role="dialog" aria-label="Thêm tool">
+        <header>
+          <h3>Thêm tool vào DxFactory</h3>
+          <p>Tool vẫn nằm trong thư viện và dùng được ở workspace khác. Tool đã gắn hiện nhãn, không chọn lại được.</p>
+          <div class="seg2" id="pickSeg">
+            <button class="on" data-pick-tab="lib">Từ thư viện</button>
+            <button data-pick-tab="proj">Theo dự án</button>
+          </div>
+        </header>
+
+        <div class="body" id="pickLib">
+          <div class="tools"><div class="search"><input id="pq" placeholder="Tìm theo tên, mô tả, tag…" autocomplete="off"></div></div>
+          <div class="tools" id="pickTags">
+            <button class="tagchip" data-tag="mang">Mạng</button>
+            <button class="tagchip" data-tag="dev">Dev</button>
+            <button class="tagchip" data-tag="tienich">Tiện ích</button>
+            <button class="tagchip" data-tag="mo-phong">Mô phỏng</button>
+          </div>
+          <div id="pickList">
+            <label class="pick" data-name="7-zip file manager" data-tags="tienich">
+              <input type="checkbox">
+              <div class="t"><b>7-Zip File Manager</b><small>Nén và giải nén file</small>
+                <div class="pth" data-full="C:\Program Files\7-Zip\7zFM.exe" data-mask="…\7-Zip\7zFM.exe">C:\Program Files\7-Zip\7zFM.exe</div></div>
+              <span class="tgl">Tiện ích</span>
+            </label>
+            <label class="pick" data-name="agent telemetry" data-tags="dev">
+              <input type="checkbox">
+              <div class="t"><b>Agent Telemetry</b><small>Script đo thời gian chạy agent</small>
+                <div class="pth" data-full="~\AppData\Local\...\Python313\Scripts\agent-telemetry.exe" data-mask="…\Python313\Scripts\agent-telemetry.exe">~\AppData\Local\...\Python313\Scripts\agent-telemetry.exe</div></div>
+              <span class="tgl">Dev</span>
+            </label>
+            <label class="pick sel" data-name="ai autopilot dxfac" data-tags="dev">
+              <input type="checkbox" checked>
+              <div class="t"><b>AI Autopilot (DxFactory)</b><small>Chạy pipeline tự động cho DxFactory</small>
+                <div class="pth" data-full="~\Work\ai-autopilot-dxfac" data-mask="…\ai-autopilot-dxfac">~\Work\ai-autopilot-dxfac</div></div>
+              <span class="tgl">Dev</span>
+            </label>
+            <label class="pick done" data-name="modbus simulator" data-tags="mo-phong mang">
+              <input type="checkbox" disabled>
+              <div class="t"><b>Modbus Simulator</b><small>Giả lập thiết bị Modbus TCP</small>
+                <div class="pth" data-full="~\Work\modbus-sim" data-mask="…\modbus-sim">~\Work\modbus-sim</div></div>
+              <span class="pill-done">Đã gắn</span>
+            </label>
+            <label class="pick" data-name="vspe virtual serial" data-tags="mang mo-phong">
+              <input type="checkbox">
+              <div class="t"><b>VSPE</b><small>Cổng serial ảo · cần cài driver</small>
+                <div class="pth" data-full="C:\Program Files\VSPE\VSPE.exe" data-mask="…\VSPE\VSPE.exe">C:\Program Files\VSPE\VSPE.exe</div></div>
+              <span class="tgl">Mạng</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="body" id="pickProj" style="display:none">
+          <div class="kind-card"><b>npm</b> · package.json <span class="tgl">52 script</span>
+            <div style="color:var(--muted);font-size:12.5px;margin-top:2px">Lệnh lấy từ package.json lúc mở, không cần khai danh sách.</div></div>
+          <div class="kind-card"><b>Angular</b> · angular.json <span class="tgl">9 project</span>
+            <div style="color:var(--muted);font-size:12.5px;margin-top:2px">Đọc project và configuration từ angular.json, không ghi cứng.</div></div>
+          <div class="kind-card"><b>Git</b> · thư mục gốc <span class="tgl">đã gắn</span></div>
+        </div>
+
+        <footer>
+          <span class="grow" id="pickCount">Đã chọn 1 tool</span>
+          <button class="btn" data-close>Huỷ</button>
+          <button class="btn primary" id="pickOk">Thêm 1 tool</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Drawer log: gom cảnh báo lặp lại -->
+    <aside class="drawer" aria-label="Log tác vụ">
+      <header>
+        <div class="row">
+          <h3>npm · build:dxfac</h3>
+          <span class="status"><span class="dot"></span>Đang chạy · 01:48</span>
+          <button class="btn sm ghost x" data-close>Đóng</button>
+        </div>
+        <div class="meta"><span>Chạy ngầm, không mở cửa sổ</span><span>Cổng: không dùng</span></div>
+        <div class="acts">
+          <button class="danger-btn">Dừng</button>
+          <button class="btn">Chạy lại</button>
+          <button class="btn">Mở file log</button>
+          <button class="btn ghost">Sao chép lệnh</button>
+        </div>
+      </header>
+      <div class="toolbar2">
+        <button class="fchip on">Tất cả</button>
+        <button class="fchip">Lỗi 0</button>
+        <button class="fchip">Cảnh báo 47</button>
+        <label><input type="checkbox" checked> Gom cảnh báo lặp lại</label>
+      </div>
+      <div class="logbody">
+        <div class="ln cmd">&gt; dxfac@1.0.0 build:dxfac</div>
+        <div class="ln cmd">&gt; ng cache clean &amp;&amp; ng build dxfac --configuration …</div>
+        <div class="ln"></div>
+        <details open>
+          <summary class="warn">47 cảnh báo [shared-mappings] · lặp lại, đã gom</summary>
+          <div class="ln">WARN  [shared-mappings] Internal lib '@app/core' …</div>
+          <div class="ln">WARN  [shared-mappings] Internal lib '@app/layout' …</div>
+          <div class="ln">WARN  [shared-mappings] Internal lib '@appMpm/core' …</div>
+          <div class="ln">… 44 dòng nữa</div>
+        </details>
+        <div class="ln info">INFO  Building federation artefacts</div>
+        <div class="ln info">INFO  Preparing shared npm packages for the platform …</div>
+        <div class="ln note">NOTE  This only needs to be done once, as results are cached</div>
+        <div class="ln" style="color:#6B7280">— đang chạy, log tự cuộn —</div>
+      </div>
+      <div class="logfoot">Cảnh báo được gom để không che lỗi thật. Bỏ chọn "Gom cảnh báo" để xem đầy đủ.</div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const app = $('#app');
+
+  // Dữ liệu lấy từ package.json của DxFactory (52 script). Tên đầy đủ giữ nguyên, phần app ở cuối bị bỏ khi hiển thị.
+  const APPS = [
+    {id:'dxfac',   group:'app', type:'Angular', ng:true, scripts:['start:dxfac','build:dxfac','build:production:dxfac','build:staging:dxfac','build:docker:dxfac','lint:dxfac']},
+    {id:'dxmpm',   group:'app', type:'Angular', ng:true, scripts:['start:dxmpm','build:dxmpm','build:production:dxmpm','build:staging:dxmpm','build:docker:dxmpm','lint:dxmpm']},
+    {id:'dxiiot',  group:'app', type:'Angular', ng:true, scripts:['start:dxiiot','build:dxiiot','build:production:dxiiot','build:staging:dxiiot','lint:dxiiot']},
+    {id:'dxcmms',  group:'app', type:'Angular', ng:true, scripts:['start:dxcmms','build:dxcmms','build:production:dxcmms','build:staging:dxcmms','build:docker:dxcmms','lint:dxcmms']},
+    {id:'dxai',    group:'app', type:'Angular', ng:true, scripts:['start:dxai','build:dxai','build:production:dxai','build:staging:dxai','build:docker:dxai','lint:dxai']},
+    {id:'dxuikit', group:'lib', type:'Thư viện', ng:false, scripts:['build:dxuikit','lint:dxuikit','guard:dxuikit','check:dxuikit']},
+    {id:'dxconnect', group:'lib', type:'Angular', ng:false, scripts:['start:dxconnect','build:dxconnect','lint:dxconnect']},
+    {id:'dxuikit-catalog', group:'lib', type:'Angular', ng:false, scripts:['start:dxuikit-catalog','build:dxuikit-catalog','preview:dxuikit-catalog','inventory:dxuikit-catalog','smoke:dxuikit-catalog']},
+    {id:'_all', group:'all', type:'Chung', ng:false, label:'Toàn workspace', scripts:['ng','start','start:all','run:all','build','build:production','build:staging','serve:dist','test','lint','e2e']},
+  ];
+  const GROUPS = [['app','Ứng dụng'],['lib','Dự án khác'],['all','Chung']];
+  const ACTION = {start:'Chạy', build:'Build', lint:'Lint', test:'Test'};
+
+  const cat = verb => ['start','build','lint'].includes(verb) ? verb : 'other';
+
+  // Gom script theo lệnh chính (start/build/lint…); phần sau là biến thể (production, staging, docker…)
+  function rowsOf(a){
+    const rows = new Map();
+    a.scripts.forEach(s => {
+      const base = a.id !== '_all' && s.endsWith(':' + a.id) ? s.slice(0, -(a.id.length + 1)) : s;
+      const parts = base.split(':');
+      const verb = parts[0];
+      if (!rows.has(verb)) rows.set(verb, []);
+      rows.get(verb).push({variant: parts.slice(1).join(':'), script: s});
+    });
+    return rows;
+  }
+
+  let activeApp = 'dxfac';
+  let verb = 'all';
+
+  function renderApps(){
+    const q = $('#appQ').value.trim().toLowerCase();
+    let html = '';
+    GROUPS.forEach(([g, title]) => {
+      const items = APPS.filter(a => a.group === g && (!q || a.id.includes(q) || (a.label||'').toLowerCase().includes(q)));
+      if (!items.length) return;
+      html += `<div class="grp">${title} · ${items.length}</div>`;
+      items.forEach(a => {
+        html += `<button class="app-btn ${a.id === activeApp ? 'on' : ''}" data-app="${a.id}">
+          <span class="nm">${a.label || a.id}</span><span class="ct">${a.scripts.length}</span></button>`;
+      });
+    });
+    $('#appList').innerHTML = html || '<div class="empty">Không có app nào</div>';
+    $$('#appList .app-btn').forEach(b => b.addEventListener('click', () => { activeApp = b.dataset.app; renderAll(); }));
+  }
+
+  function renderCmds(){
+    const a = APPS.find(x => x.id === activeApp);
+    $('#appTitle').innerHTML = a.label ? a.label : `<code>${a.id}</code><span class="tg">${a.type}</span>`;
+    $('#appMeta').textContent = `${a.scripts.length} script` + (a.ng ? ' · ng serve lấy từ angular.json' : '') +
+      (a.id === '_all' ? ' · không gắn với app nào' : '');
+    let html = '';
+    rowsOf(a).forEach((items, v) => {
+      const chips = items.map(it => {
+        const label = it.variant || ACTION[v] || 'Chạy';
+        return `<button class="run" title="npm run ${it.script}">${label}</button>`;
+      }).join('');
+      html += `<div class="crow" data-verb="${cat(v)}" data-search="${items.map(i => i.script).join(' ')}">
+        <div class="cl"><code>${v}</code><span class="cat">${cat(v) === 'other' ? 'khác' : cat(v)}</span></div>
+        <div class="cc">${chips}</div></div>`;
+    });
+    if (a.ng) html += `<div class="crow" data-verb="other" data-search="ng serve angular">
+        <div class="cl"><code>ng serve</code><span class="cat">angular.json</span></div>
+        <div class="cc"><button class="run" title="npx ng serve (cổng lấy từ output)">Chạy</button></div></div>`;
+    $('#cmdList').innerHTML = html;
+    applyCmdFilter();
+  }
+
+  function applyCmdFilter(){
+    const q = $('#cq').value.trim().toLowerCase();
+    $$('#cmdList .crow').forEach(r => {
+      const okV = verb === 'all' || r.dataset.verb === verb;
+      const okQ = !q || r.dataset.search.toLowerCase().includes(q);
+      r.classList.toggle('hide', !(okV && okQ));
+    });
+    $$('#verbChips .fchip').forEach(c => c.classList.toggle('on', c.dataset.verb === verb));
+  }
+
+  function renderAll(){ renderApps(); renderCmds(); }
+  $('#appQ').addEventListener('input', renderApps);
+  $('#cq').addEventListener('input', applyCmdFilter);
+  $$('#verbChips .fchip').forEach(c => c.addEventListener('click', () => { verb = c.dataset.verb; applyCmdFilter(); }));
+
+  // Ẩn đường dẫn để chụp màn hình
+  let masked = false;
+  function applyPrivacy(){
+    $$('[data-full]').forEach(el => { el.textContent = masked ? el.dataset.mask : el.dataset.full; });
+    document.body.classList.toggle('masked', masked);
+    const b = $('#privacyBtn');
+    b.textContent = masked ? 'Đang ẩn đường dẫn' : 'Ẩn đường dẫn';
+    b.classList.toggle('on', masked);
+  }
+  $('#privacyBtn').addEventListener('click', () => { masked = !masked; applyPrivacy(); });
+
+  // Chuyển chế độ
+  function setMode(m){
+    app.dataset.mode = m;
+    $$('#modes [data-mode-btn]').forEach(b => b.classList.toggle('on', b.dataset.modeBtn === m));
+  }
+  $$('[data-mode-btn]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.modeBtn)));
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => setMode('scripts')));
+  $('#pickOverlay').addEventListener('click', e => { if (e.target.id === 'pickOverlay') setMode('scripts'); });
+
+  // Chuyển tab Scripts / Chi tiết
+  function showView(v){
+    $('#viewScripts').hidden = v !== 'scripts';
+    $('#viewDetail').hidden = v !== 'detail';
+    $$('.tabs .tab[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === v));
+  }
+  $$('[data-tab]').forEach(t => t.addEventListener('click', () => showView(t.dataset.tab)));
+
+  // Hộp Thêm tool
+  const tags = new Set();
+  function applyPick(){
+    const q = $('#pq').value.trim().toLowerCase();
+    $$('#pickList .pick').forEach(p => {
+      const okQ = !q || p.dataset.name.includes(q);
+      const okT = tags.size === 0 || Array.from(tags).some(t => p.dataset.tags.split(' ').includes(t));
+      p.classList.toggle('hide', !(okQ && okT));
+    });
+    $$('#pickTags .tagchip').forEach(c => c.classList.toggle('on', tags.has(c.dataset.tag)));
+    updatePickCount();
+  }
+  function updatePickCount(){
+    const n = $$('#pickList .pick input[type=checkbox]:checked:not([disabled])').length;
+    $$('#pickList .pick').forEach(p => p.classList.toggle('sel', !!p.querySelector('input:checked') && !p.classList.contains('done')));
+    $('#pickCount').textContent = n ? `Đã chọn ${n} tool` : 'Chưa chọn tool nào';
+    $('#pickOk').textContent = n ? `Thêm ${n} tool` : 'Thêm';
+    $('#pickOk').disabled = n === 0;
+  }
+  $$('#pickTags .tagchip').forEach(c => c.addEventListener('click', () => {
+    const t = c.dataset.tag; tags.has(t) ? tags.delete(t) : tags.add(t); applyPick();
+  }));
+  $('#pq').addEventListener('input', applyPick);
+  $$('#pickList .pick input').forEach(i => i.addEventListener('change', updatePickCount));
+  $$('[data-pick-tab]').forEach(b => b.addEventListener('click', () => {
+    $$('[data-pick-tab]').forEach(x => x.classList.toggle('on', x === b));
+    const proj = b.dataset.pickTab === 'proj';
+    $('#pickLib').style.display = proj ? 'none' : '';
+    $('#pickProj').style.display = proj ? '' : 'none';
+    $('#pickCount').style.visibility = proj ? 'hidden' : '';
+    $('#pickOk').style.display = proj ? 'none' : '';
+  }));
+  $('#pickOk').addEventListener('click', () => {
+    const n = $$('#pickList .pick input:checked:not([disabled])').length;
+    setMode('scripts');
+    const t = $('#toast');
+    t.style.display = 'block';
+    t.textContent = `✓ Đã gắn ${n} tool vào DxFactory. Tool vẫn có trong thư viện.`;
+  });
+
+  renderAll();
+  applyPrivacy();
+  applyPick();
+})();
+</script>
+</body>
+</html>

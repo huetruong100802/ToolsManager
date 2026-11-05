@@ -60,7 +60,7 @@ namespace Toolbox
 
             if (text.Length == 0)
             {
-                SetHint("Toolbox đọc thư mục này để đoán dự án dùng .NET, Git, Angular hay npm.", error: false);
+                SetHint("Toolbox đọc thư mục này để đoán các tool trong catalog.json mà dự án dùng.", error: false);
                 NoDetection.Text = "Chọn thư mục để Toolbox dò tool.";
                 UpdateAddEnabled();
                 return;

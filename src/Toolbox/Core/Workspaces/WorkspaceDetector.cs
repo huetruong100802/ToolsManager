@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Web.Script.Serialization;
 
 namespace Toolbox.Core.Workspaces
 {
@@ -15,7 +14,10 @@ namespace Toolbox.Core.Workspaces
         public string Reason { get; set; }
     }
 
-    /// <summary>Nhìn file đánh dấu trong thư mục để đoán workspace dùng tool nào.</summary>
+    /// <summary>
+    /// Nhìn file đánh dấu trong thư mục để đoán workspace dùng tool nào. Luật (file nào, quét mấy cấp) lấy từ
+    /// <c>detect</c> của từng tool trong catalog, nên tool mới nhận diện được mà không sửa code.
+    /// </summary>
     public static class WorkspaceDetector
     {
         private static readonly HashSet<string> SkipFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -23,51 +25,36 @@ namespace Toolbox.Core.Workspaces
             "node_modules", ".git", "bin", "obj", ".vs", ".idea", "dist", "packages",
         };
 
-        /// <summary>Quét gốc và các thư mục con trực tiếp (không sâu hơn, để nhanh và dễ đoán).</summary>
+        /// <summary>Mỗi tool lấy đúng một lần: thư mục đầu tiên (gốc trước, rồi thư mục con theo tên) có file đánh dấu.</summary>
         public static IReadOnlyList<Detection> Detect(string folder)
         {
             var found = new List<Detection>();
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
                 return found;
 
-            var dotnet = DotNet(folder);
-            if (dotnet != null)
-                found.Add(dotnet);
-
-            if (Directory.Exists(Path.Combine(folder, ".git")) || File.Exists(Path.Combine(folder, ".git")))
-                found.Add(new Detection { Kind = ToolCatalog.Git, Cwd = "", Reason = "Thấy thư mục .git" });
-
-            var angularCwd = (string)null;
-            foreach (var dir in Candidates(folder))
+            foreach (var tool in ToolCatalog.All)
             {
-                var angular = Path.Combine(dir, "angular.json");
-                if (angularCwd == null && File.Exists(angular))
+                if (tool.Detect == null)
+                    continue;
+                foreach (var dir in Candidates(folder, tool.Detect.Depth))
                 {
-                    angularCwd = Relative(folder, dir);
-                    var projects = CountAngularProjects(angular);
+                    var marker = FindMarker(dir, tool.Detect.Patterns);
+                    if (marker == null)
+                        continue;
+                    if (tool.Detect.RequireActions && tool.ActionsFrom != null
+                        && ToolCatalog.ReadSource(dir, tool.ActionsFrom.Source).Count == 0)
+                        continue;
+
+                    var cwd = Relative(folder, dir);
+                    var entries = CountEntries(tool, dir, marker);
                     found.Add(new Detection
                     {
-                        Kind = ToolCatalog.Angular,
-                        Cwd = angularCwd,
-                        Reason = "Thấy angular.json" + (projects > 0 ? $" với {projects} project" : "") + (angularCwd.Length > 0 ? $", thư mục chạy {angularCwd}\\" : ""),
+                        Kind = tool.Kind,
+                        Cwd = cwd,
+                        Reason = "Thấy " + marker + (entries > 0 ? $" với {entries} mục" : "") + (cwd.Length > 0 ? $", thư mục chạy {cwd}\\" : ""),
                     });
+                    break;
                 }
-            }
-
-            foreach (var dir in Candidates(folder))
-            {
-                var package = Path.Combine(dir, "package.json");
-                var scripts = ToolCatalog.ReadNpmScripts(package);
-                if (scripts.Count == 0)
-                    continue;
-                var cwd = Relative(folder, dir);
-                found.Add(new Detection
-                {
-                    Kind = ToolCatalog.Npm,
-                    Cwd = cwd,
-                    Reason = $"Đọc {scripts.Count} script trong package.json" + (cwd.Length > 0 ? $" ({cwd}\\)" : "") + ": " + string.Join(", ", scripts.Take(4)) + (scripts.Count > 4 ? "…" : ""),
-                });
-                break; // một binding npm là đủ; thêm thủ công nếu có package.json khác
             }
 
             return found;
@@ -77,18 +64,45 @@ namespace Toolbox.Core.Workspaces
         public static string SuggestName(string folder) =>
             new DirectoryInfo(Path.GetFullPath(folder)).Name;
 
-        private static Detection DotNet(string folder)
+        /// <summary>Số mục đọc được từ chính file đánh dấu (script trong package.json, project trong angular.json...); 0 nếu không có.</summary>
+        private static int CountEntries(ToolDef tool, string dir, string marker)
         {
-            var sln = Directory.GetFiles(folder, "*.sln").Concat(Directory.GetFiles(folder, "*.slnx")).FirstOrDefault();
-            if (sln != null)
-                return new Detection { Kind = ToolCatalog.DotNet, Cwd = "", Reason = "Thấy " + Path.GetFileName(sln) };
-            var proj = Directory.GetFiles(folder, "*.csproj").FirstOrDefault();
-            return proj == null ? null : new Detection { Kind = ToolCatalog.DotNet, Cwd = "", Reason = "Thấy " + Path.GetFileName(proj) };
+            if (tool.ActionsFrom != null && IsFrom(tool.ActionsFrom.Source, marker))
+                return ToolCatalog.ReadSource(dir, tool.ActionsFrom.Source).Count;
+            var param = tool.Actions.SelectMany(a => a.Variants).SelectMany(v => v.Params)
+                .FirstOrDefault(p => IsFrom(p.Options, marker));
+            return param == null ? 0 : ToolCatalog.OptionsFor(param, dir).Count;
         }
 
-        private static IEnumerable<string> Candidates(string folder)
+        /// <summary>Nguồn đọc từ đúng file đánh dấu vừa tìm thấy.</summary>
+        private static bool IsFrom(ValueSource source, string marker) =>
+            source?.File != null && string.Equals(source.File, marker, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Tên file khớp đầu tiên trong danh sách mẫu (có <c>*</c> thì là glob); null nếu không có.</summary>
+        private static string FindMarker(string dir, IReadOnlyList<string> patterns)
+        {
+            foreach (var pattern in patterns)
+            {
+                if (pattern.IndexOf('*') >= 0)
+                {
+                    var file = Directory.GetFiles(dir, pattern).FirstOrDefault();
+                    if (file != null)
+                        return Path.GetFileName(file);
+                }
+                else if (File.Exists(Path.Combine(dir, pattern)) || Directory.Exists(Path.Combine(dir, pattern)))
+                {
+                    return pattern;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Gốc, và nếu depth là 1 thì thêm các thư mục con trực tiếp (bỏ thư mục rác).</summary>
+        private static IEnumerable<string> Candidates(string folder, int depth)
         {
             yield return folder;
+            if (depth < 1)
+                yield break;
             foreach (var dir in Directory.GetDirectories(folder).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
                 if (!SkipFolders.Contains(Path.GetFileName(dir)))
                     yield return dir;
@@ -98,19 +112,6 @@ namespace Toolbox.Core.Workspaces
         {
             var rel = dir.Substring(root.TrimEnd('\\', '/').Length).TrimStart('\\', '/');
             return rel;
-        }
-
-        private static int CountAngularProjects(string angularJson)
-        {
-            try
-            {
-                var root = new JavaScriptSerializer().DeserializeObject(File.ReadAllText(angularJson)) as Dictionary<string, object>;
-                return root != null && root.TryGetValue("projects", out var projects) && projects is Dictionary<string, object> map ? map.Count : 0;
-            }
-            catch (Exception ex) when (ex is IOException || ex is ArgumentException || ex is InvalidOperationException)
-            {
-                return 0;
-            }
         }
     }
 }

@@ -31,6 +31,7 @@ namespace Toolbox.Mcp
     {
         private AgentContext _agent;
         private bool _proposed;
+        private UndoSnapshot _undoBefore;
 
         private static readonly HashSet<string> RunNames = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -50,8 +51,10 @@ namespace Toolbox.Mcp
         private bool HasAgentContext => _agent != null;
 
         /// <summary>Lỗi trả cho agent nếu nó không được gọi công cụ này; null nếu được. <paramref name="record"/> là bản ghi agent (có thể null).</summary>
-        private string AgentError(string toolName, out AgentRecord record)
+        private string AgentError(string toolName, Dictionary<string, object> arguments, out AgentRecord record)
         {
+            // CallTool gọi hàm này ngay trước Dispatch, nên đây là chỗ chụp "bản trước" cho nhật ký hoàn tác.
+            _undoBefore = _agent != null ? CaptureUndoState(toolName) : null;
             record = null;
             if (_agent == null || string.IsNullOrEmpty(_agent.AgentId))
                 return null;
@@ -61,8 +64,15 @@ namespace Toolbox.Mcp
                 return $"Agent \"{_agent.AgentId}\" chưa đăng ký hoặc đã bị gỡ khỏi Toolbox. Mở Toolbox, trang Agent, để kết nối lại.";
             if (!string.Equals(record.WorkspaceId ?? "", _workspaceId ?? "", StringComparison.OrdinalIgnoreCase))
                 return "Agent này được cấp cho phạm vi khác. Mở Toolbox, trang Agent, để kiểm tra phạm vi.";
-            if (RunNames.Contains(toolName) && RunModes.Normalize(record.RunMode) != RunModes.Auto)
-                return "Agent này không được phép chạy lệnh. Nhờ người dùng bật quyền chạy ở Toolbox, trang Agent, hoặc tự chạy trong Toolbox.";
+            if (RunNames.Contains(toolName))
+            {
+                var mode = RunModes.Normalize(record.RunMode);
+                if (mode == RunModes.None)
+                    return "Agent này không được phép chạy lệnh. Nhờ người dùng bật quyền chạy ở Toolbox, trang Agent, hoặc tự chạy trong Toolbox.";
+                // Hỏi trước mỗi lần chạy: chưa duyệt thì không chạy; đã duyệt thì lần này được chạy (xem RunApprovals).
+                if (mode == RunModes.Ask)
+                    return RunApprovals.Check(_agent.ProposalsPath, record, toolName, arguments);
+            }
             return null;
         }
 
@@ -76,12 +86,19 @@ namespace Toolbox.Mcp
 
         private void RecordActivity(string toolName, Dictionary<string, object> arguments, object result, AgentRecord record, string forcedResult = null)
         {
+            var before = _undoBefore;
+            _undoBefore = null;
             if (_agent == null || !LoggedNames.Contains(toolName))
                 return;
             try
             {
+                // Chỉ thao tác thành công và đã áp dụng (không phải đề xuất chờ duyệt) mới hoàn tác được.
+                var undo = before != null && forcedResult == null && !IsError(result)
+                    ? ActivityUndo.Build(before, CaptureUndoState(toolName))
+                    : null;
                 ActivityLog.Append(_agent.ActivityPath, new ActivityEntry
                 {
+                    Undo = undo,
                     AgentId = _agent.AgentId,
                     AgentName = record?.Name ?? "Agent chưa đăng ký",
                     WorkspaceId = _workspaceId,
@@ -91,6 +108,22 @@ namespace Toolbox.Mcp
                 });
             }
             catch (IOException) { /* nhật ký là phụ */ }
+        }
+
+        /// <summary>Ảnh chụp workspace và kho tool của phiên này nếu công cụ có thể đổi chúng; null nếu không hoặc không đọc được.</summary>
+        private UndoSnapshot CaptureUndoState(string toolName)
+        {
+            if (!ActivityUndo.UndoableActions.Contains(toolName))
+                return null;
+            try
+            {
+                var workspace = Scoped ? _loadWorkspaces?.Invoke().Find(_workspaceId) : null;
+                return ActivityUndo.Capture(workspace, _loadStore?.Invoke());
+            }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private static bool IsError(object result) =>

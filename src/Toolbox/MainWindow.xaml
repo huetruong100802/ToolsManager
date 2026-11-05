@@ -101,6 +101,7 @@
                                             <RadioButton.ContextMenu>
                                                 <ContextMenu>
                                                     <MenuItem Header="{Binding PinMenuText}" Click="OnTogglePin" />
+                                                    <MenuItem Header="{Binding ArchiveMenuText}" Click="OnToggleArchive" />
                                                 </ContextMenu>
                                             </RadioButton.ContextMenu>
                                             <DockPanel>
@@ -127,6 +128,9 @@
                             </ItemsControl>
                             <TextBlock x:Name="NoWorkspaceHint" Style="{StaticResource Hint}" Margin="10,2,6,0"
                                        Text="Chưa có workspace. Thêm một thư mục repo để chạy lệnh ngay tại đó." />
+                            <Button x:Name="ArchivedToggle" Style="{StaticResource GhostButton}" Click="OnToggleArchived" Margin="2,6,2,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Visibility="Collapsed"
+                                    ToolTip="Workspace đã lưu trữ: ẩn khỏi danh sách, không mất dữ liệu" />
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>

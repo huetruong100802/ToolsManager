@@ -55,6 +55,11 @@ namespace Toolbox
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // Đọc danh mục tool lúc mở; catalog.json lỗi thì báo luôn, không để lặng lẽ dùng mặc định.
+            _ = ToolCatalog.All;
+            if (ToolCatalog.LastError != null)
+                Dialogs.Error(this, ToolCatalog.LastError);
+
             try
             {
                 _workspaces = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
@@ -80,6 +85,9 @@ namespace Toolbox
             foreach (var row in _rows)
                 row.Refresh(running.Count(t => string.Equals(t.Spec.WorkspaceId, row.Workspace.Id, StringComparison.OrdinalIgnoreCase)));
             NoWorkspaceHint.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            var archived = _rows.Count(r => r.IsArchived);
+            ArchivedToggle.Visibility = archived > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ArchivedToggle.Content = _showArchived ? "Ẩn workspace đã lưu trữ" : $"Lưu trữ ({archived})";
             WorkspaceSearchBox.Visibility = _rows.Count >= SearchThreshold ? Visibility.Visible : Visibility.Collapsed;
 
             StatusText.Text = TaskBoard.StatusLine(running);
@@ -108,7 +116,28 @@ namespace Toolbox
         private bool MatchesSearch(WorkspaceRow row)
         {
             var query = Core.Text.Fold(WorkspaceSearch?.Text ?? "");
-            return row != null && (query.Length == 0 || Core.Text.Fold(row.Name).Contains(query));
+            return row != null && (_showArchived || !row.IsArchived) && (query.Length == 0 || Core.Text.Fold(row.Name).Contains(query));
+        }
+
+        /// <summary>Có hiện workspace đã lưu trữ trong rail không (bật bằng nút "Lưu trữ (n)").</summary>
+        private bool _showArchived;
+
+        private void OnToggleArchived(object sender, RoutedEventArgs e)
+        {
+            _showArchived = !_showArchived;
+            RefreshRows();
+            _rowsView.Refresh();
+        }
+
+        private void OnToggleArchive(object sender, RoutedEventArgs e)
+        {
+            var row = (sender as FrameworkElement)?.DataContext as WorkspaceRow;
+            if (row == null)
+                return;
+            row.ToggleArchive();
+            TrySave();
+            RefreshRows();
+            _rowsView.Refresh();
         }
 
         private void OnWorkspaceSearch(object sender, TextChangedEventArgs e)

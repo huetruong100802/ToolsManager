@@ -21,9 +21,9 @@ namespace Toolbox.Tests
 
                 Assert.Equal(new[] { "dotnet", "git", "angular", "npm" }.OrderBy(x => x), found.Keys.OrderBy(x => x));
                 Assert.Equal("frontend", found["angular"].Cwd);
-                Assert.Contains("2 project", found["angular"].Reason);
+                Assert.Contains("2 mục", found["angular"].Reason);
                 Assert.Equal("frontend", found["npm"].Cwd);
-                Assert.Contains("3 script", found["npm"].Reason);
+                Assert.Contains("3 mục", found["npm"].Reason);
                 Assert.Contains("app.sln", found["dotnet"].Reason);
             }
         }
@@ -44,16 +44,16 @@ namespace Toolbox.Tests
             Assert.Empty(WorkspaceDetector.Detect(@"C:\khong\ton\tai\toolbox"));
 
         [Fact]
-        public void ReadNpmScripts_BoTenCoKyTuLaVaFileHong()
+        public void ReadKeys_BoTenCoKyTuLaVaFileHong()
         {
             using (var dir = new TempDir())
             {
                 var good = dir.WriteFile("a.json", "{\"scripts\":{\"build\":\"x\",\"evil&calc\":\"y\",\"test:unit\":\"z\"}}");
                 var bad = dir.WriteFile("b.json", "{ hỏng");
 
-                Assert.Equal(new[] { "build", "test:unit" }, ToolCatalog.ReadNpmScripts(good).ToArray());
-                Assert.Empty(ToolCatalog.ReadNpmScripts(bad));
-                Assert.Empty(ToolCatalog.ReadNpmScripts(dir.Combine("khong-co.json")));
+                Assert.Equal(new[] { "build", "test:unit" }, ToolCatalog.ReadKeys(good, "scripts").ToArray());
+                Assert.Empty(ToolCatalog.ReadKeys(bad, "scripts"));
+                Assert.Empty(ToolCatalog.ReadKeys(dir.Combine("khong-co.json"), "scripts"));
             }
         }
 

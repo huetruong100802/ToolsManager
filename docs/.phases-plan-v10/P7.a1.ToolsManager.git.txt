@@ -1,0 +1,23 @@
+ M docs/plan-v10.md
+ M src/Toolbox/Views/TaskRows.cs
+ M src/Toolbox/Views/TasksView.xaml
+ M src/Toolbox/Views/TasksView.xaml.cs
+?? docs/.phases-plan-v10/
+?? docs/.phases-plan-workspace/
+?? docs/mockup/workspace-overhaul-v2.html
+?? docs/mockup/workspace-overhaul-v3.html
+?? docs/mockup/workspace-overhaul-v4.html
+?? docs/mockup/workspace-overhaul-v5.html
+?? docs/mockup/workspace-overhaul.html
+?? docs/mockup/workspace-v6.html
+?? docs/mockup/workspace-v7.html
+?? docs/mockup/workspace-v8-wpf.html
+?? docs/mockup/workspace-v9-wpf.html
+?? docs/plan-workspace.md
+?? docs/ux-capabilities.md
+
+ docs/plan-v10.md                    |  46 +++++++--
+ src/Toolbox/Views/TaskRows.cs       |  60 +++++++++++
+ src/Toolbox/Views/TasksView.xaml    |  83 ++++++++++++---
+ src/Toolbox/Views/TasksView.xaml.cs | 198 +++++++++++++++++++++++++++++++++---
+ 4 files changed, 354 insertions(+), 33 deletions(-)

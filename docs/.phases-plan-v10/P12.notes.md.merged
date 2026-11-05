@@ -1,0 +1,1 @@
+- P12: Proposal.Scope (shared|workspace, EmitDefaultValue=false), ProposalScopes.Normalize, ProposalApplier.CanScopeToWorkspace/ApplyToWorkspace(WorkspaceStore, Proposal), ProposalStore.Decide(id, approved, scope). Thẻ đề xuất có radio phạm vi.

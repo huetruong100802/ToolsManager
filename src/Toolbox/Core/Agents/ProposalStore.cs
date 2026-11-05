@@ -10,6 +10,19 @@ namespace Toolbox.Core.Agents
     {
         public const string UpdateTool = "update_tool";
         public const string DeleteTool = "delete_tool";
+        /// <summary>Duyệt một lần chạy lệnh (chế độ "Hỏi trước mỗi lần chạy"). Xem <see cref="RunApprovals"/>.</summary>
+        public const string Run = "run";
+    }
+
+    public static class ProposalScopes
+    {
+        /// <summary>Sửa thẳng tool dùng chung trong thư viện (mặc định).</summary>
+        public const string Shared = "shared";
+        /// <summary>Chỉ ghi vào tham số của tool đã gắn trong workspace đề xuất; thư viện không đổi.</summary>
+        public const string Workspace = "workspace";
+
+        public static string Normalize(string scope) =>
+            string.Equals(scope, Workspace, StringComparison.OrdinalIgnoreCase) ? Workspace : Shared;
     }
 
     public static class ProposalStates
@@ -17,6 +30,8 @@ namespace Toolbox.Core.Agents
         public const string Pending = "pending";
         public const string Approved = "approved";
         public const string Rejected = "rejected";
+        /// <summary>Đã duyệt và đã dùng cho đúng một lần chạy; không duyệt lại được.</summary>
+        public const string Used = "used";
     }
 
     /// <summary>Một đề xuất của agent sửa hoặc xoá tool dùng chung. Chỉ có hiệu lực sau khi người dùng duyệt.</summary>
@@ -36,8 +51,12 @@ namespace Toolbox.Core.Agents
         [DataMember(Name = "state")] public string State { get; set; }
         [DataMember(Name = "createdAt")] public string CreatedAt { get; set; }
         [DataMember(Name = "decidedAt")] public string DecidedAt { get; set; }
+        /// <summary>Phạm vi áp dụng khi duyệt: <see cref="ProposalScopes.Shared"/> hoặc <see cref="ProposalScopes.Workspace"/>. Thiếu = shared (file cũ).</summary>
+        [DataMember(Name = "scope", EmitDefaultValue = false)] public string Scope { get; set; }
 
         public bool IsPending => State == ProposalStates.Pending;
+
+        public string EffectiveScope => ProposalScopes.Normalize(Scope);
     }
 
     /// <summary>Hộp đề xuất chờ duyệt, lưu trong proposals.json.</summary>
@@ -85,7 +104,7 @@ namespace Toolbox.Core.Agents
         {
             if (string.IsNullOrWhiteSpace(proposal.ToolId))
                 throw new ArgumentException("Đề xuất cần có id tool.");
-            if (proposal.Kind != ProposalKinds.UpdateTool && proposal.Kind != ProposalKinds.DeleteTool)
+            if (proposal.Kind != ProposalKinds.UpdateTool && proposal.Kind != ProposalKinds.DeleteTool && proposal.Kind != ProposalKinds.Run)
                 throw new ArgumentException("Loại đề xuất không hợp lệ: " + proposal.Kind);
 
             var same = Pending.FirstOrDefault(p => p.AgentId == proposal.AgentId && p.Kind == proposal.Kind
@@ -101,7 +120,7 @@ namespace Toolbox.Core.Agents
         }
 
         /// <summary>Đánh dấu đã duyệt hoặc từ chối. Chỉ đề xuất đang chờ mới đổi được. Không ghi file.</summary>
-        public Proposal Decide(string id, bool approved)
+        public Proposal Decide(string id, bool approved, string scope = null)
         {
             var found = Find(id);
             if (found == null)
@@ -110,6 +129,9 @@ namespace Toolbox.Core.Agents
                 throw new InvalidOperationException("Đề xuất này đã được xử lý.");
             found.State = approved ? ProposalStates.Approved : ProposalStates.Rejected;
             found.DecidedAt = ListFile.Now();
+            // Chỉ ghi scope khi khác mặc định, để file không đổi hình dạng với đề xuất thường.
+            if (approved && ProposalScopes.Normalize(scope) == ProposalScopes.Workspace)
+                found.Scope = ProposalScopes.Workspace;
             return found;
         }
 
