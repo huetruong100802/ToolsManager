@@ -49,7 +49,7 @@ namespace Toolbox.Core
         public static PackPreview Preview(ToolEntry tool)
         {
             var preview = new PackPreview { Tool = tool };
-            if (tool.Pack == PackMode.None)
+            if (tool.Pack == PackMode.None || tool.IsCommand)
                 return preview;
             if (tool.Pack == PackMode.Setup)
             {
@@ -118,7 +118,14 @@ namespace Toolbox.Core
                 {
                     var copy = tool.Clone();
                     copy.Setup = null;
-                    if (tool.Pack == PackMode.Setup)
+                    // Tool dạng lệnh: Path là thư mục làm việc (có thể chứa .env, DB) nên chỉ gửi thông tin, không chép file.
+                    if (tool.IsCommand)
+                        copy.Pack = PackMode.None;
+                    if (tool.IsCommand)
+                    {
+                        // không có file nào để kèm
+                    }
+                    else if (tool.Pack == PackMode.Setup)
                     {
                         // Chỉ gửi bộ cài; path giữ nguyên vì app sẽ được cài vào cùng chỗ trên máy nhận.
                         var setup = RequireSetup(tool);

@@ -61,7 +61,7 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "stacks", Order = 3)]
         public List<StackDef> Stacks { get; set; } = new List<StackDef>();
 
-        /// <summary>Kind catalog dựng sẵn (dotnet, git…) mà profile/bộ chạy cần; workspace nhận phải tự gắn.</summary>
+        /// <summary>Tool mà profile/bộ chạy cần nhưng không có trong thư viện nguồn (không kèm được); workspace nhận phải tự gắn.</summary>
         [DataMember(Name = "requiredKinds", Order = 4, EmitDefaultValue = false)]
         public List<string> RequiredKinds { get; set; } = new List<string>();
 
@@ -134,10 +134,14 @@ namespace Toolbox.Core.Workspaces
                         if (profile != null)
                             Add(r.ProfileIds, r, WorkspacePackSelection.ProfileKey, profile.Id, why);
                     }
-                    else if (ProfileKind.IsLibrary(step.Kind) && !string.IsNullOrEmpty(step.ActionId))
-                        Add(r.ToolIds, r, WorkspacePackSelection.ToolKey, step.ActionId, why);
-                    else if (ProfileKind.IsCustom(step.Kind) && ws.Customs.Any(c => Same(c.Id, step.ActionId)))
-                        Add(r.CustomIds, r, WorkspacePackSelection.CustomKey, ws.Customs.Find(c => Same(c.Id, step.ActionId)).Id, why);
+                    else if (ProfileKind.IsCustom(step.Kind))
+                    {
+                        var custom = ws.Customs.Find(c => Same(c.Id, step.ActionId));
+                        if (custom != null)
+                            Add(r.CustomIds, r, WorkspacePackSelection.CustomKey, custom.Id, why);
+                    }
+                    else if (!string.IsNullOrEmpty(step.Kind))
+                        Add(r.ToolIds, r, WorkspacePackSelection.ToolKey, step.Kind, why);
                 }
             }
 
@@ -145,11 +149,11 @@ namespace Toolbox.Core.Workspaces
             foreach (var profileId in r.ProfileIds.ToList())
             {
                 var profile = ws.Profiles.Find(p => Same(p.Id, profileId));
-                if (profile == null || string.IsNullOrEmpty(profile.RefId)) continue;
+                if (profile == null || string.IsNullOrEmpty(profile.Kind)) continue;
                 var why = "Profile \"" + profile.Label + "\" dùng";
-                if (ProfileKind.IsLibrary(profile.Kind))
-                    Add(r.ToolIds, r, WorkspacePackSelection.ToolKey, profile.RefId, why);
-                else if (ProfileKind.IsCustom(profile.Kind))
+                if (!ProfileKind.IsCustom(profile.Kind))
+                    Add(r.ToolIds, r, WorkspacePackSelection.ToolKey, profile.Kind, why);
+                else if (!string.IsNullOrEmpty(profile.RefId))
                 {
                     var custom = ws.Customs.Find(c => Same(c.Id, profile.RefId));
                     if (custom != null)
@@ -185,15 +189,17 @@ namespace Toolbox.Core.Workspaces
             warnings = warnings ?? new List<string>();
             var data = new WorkspacePackData();
 
+            // Tool không có trong thư viện nguồn: không kèm được, ghi vào requiredKinds để máy nhận tự gắn.
+            var kinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var id in resolved.ToolIds)
             {
                 var tool = library?.Find(id);
                 if (tool == null)
                 {
-                    warnings.Add("Tool thư viện \"" + id + "\" không còn trong thư viện, sẽ không có trong gói.");
+                    kinds.Add(id);
                     continue;
                 }
-                var bound = ws.FindLibrary(id);
+                var bound = ws.Binding(id);
                 data.Bindings.Add(new LibraryBinding { ToolId = tool.Id, Name = tool.Name, Args = bound?.Args });
             }
 
@@ -208,24 +214,13 @@ namespace Toolbox.Core.Workspaces
                 data.Customs.Add(copy);
             }
 
-            var kinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var id in resolved.ProfileIds)
             {
                 var src = ws.Profiles.Find(p => Same(p.Id, id));
                 if (src == null) continue;
                 data.Profiles.Add(CloneProfile(src));
-                if (ProfileKind.IsLibrary(src.Kind))
-                {
-                    if (!string.IsNullOrEmpty(src.RefId) && !resolved.ToolIds.Contains(src.RefId, StringComparer.OrdinalIgnoreCase))
-                        warnings.Add("Profile \"" + src.Label + "\" trỏ tool \"" + src.RefId + "\" nhưng tool này không có trong gói.");
-                }
-                else if (ProfileKind.IsCustom(src.Kind))
-                {
-                    if (!resolved.CustomIds.Contains(src.RefId ?? "", StringComparer.OrdinalIgnoreCase))
-                        warnings.Add("Profile \"" + src.Label + "\" trỏ lệnh riêng \"" + src.RefId + "\" không có trong workspace/gói.");
-                }
-                else if (!string.IsNullOrEmpty(src.Kind))
-                    kinds.Add(src.Kind);
+                if (ProfileKind.IsCustom(src.Kind) && !resolved.CustomIds.Contains(src.RefId ?? "", StringComparer.OrdinalIgnoreCase))
+                    warnings.Add("Profile \"" + src.Label + "\" trỏ lệnh riêng \"" + src.RefId + "\" không có trong workspace/gói.");
             }
 
             foreach (var id in resolved.StackIds)
@@ -240,8 +235,6 @@ namespace Toolbox.Core.Workspaces
                         Kind = step.Kind, ActionId = step.ActionId, VariantId = step.VariantId, ProfileId = step.ProfileId,
                         Wait = step.Wait, Port = step.Port, Group = step.Group,
                     });
-                    if (string.IsNullOrEmpty(step.ProfileId) && !ProfileKind.IsRef(step.Kind) && !string.IsNullOrEmpty(step.Kind))
-                        kinds.Add(step.Kind);
                     if (!string.IsNullOrEmpty(step.ProfileId) && !resolved.ProfileIds.Contains(step.ProfileId, StringComparer.OrdinalIgnoreCase))
                         warnings.Add("Bộ chạy \"" + src.Label + "\" có bước trỏ profile không còn trong workspace; bước này sẽ mất profile.");
                 }
@@ -250,7 +243,7 @@ namespace Toolbox.Core.Workspaces
 
             data.RequiredKinds.AddRange(kinds.OrderBy(k => k, StringComparer.OrdinalIgnoreCase));
             if (data.RequiredKinds.Count > 0)
-                warnings.Add("Workspace nhận cần gắn sẵn tool dựng sẵn: " + string.Join(", ", data.RequiredKinds) + ".");
+                warnings.Add("Tool không có trong thư viện nên không kèm được, workspace nhận cần gắn sẵn: " + string.Join(", ", data.RequiredKinds) + ".");
             return data;
         }
 
@@ -282,6 +275,7 @@ namespace Toolbox.Core.Workspaces
         {
             Id = src.Id, Label = src.Label, Kind = src.Kind, ActionId = src.ActionId, VariantId = src.VariantId, RefId = src.RefId,
             Vals = src.Vals == null ? new Dictionary<string, string>() : new Dictionary<string, string>(src.Vals),
+            Pairs = src.HasPairs ? src.Pairs.Select(x => x.Clone()).ToList() : null,
         };
 
         private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

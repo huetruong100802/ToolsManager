@@ -1,6 +1,7 @@
 <Window x:Class="Toolbox.NewProfileWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:Toolbox.Views"
         Title="Profile mới" Width="560" Height="520" MinHeight="460"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
@@ -25,8 +26,11 @@
 
         <Grid Margin="20,12,20,12">
             <!-- Bước 1: tool -->
-            <ListBox x:Name="ToolList" DisplayMemberPath="Display" SelectionChanged="OnToolChanged"
-                     AutomationProperties.Name="Chọn tool" Margin="0,0,0,34" />
+            <DockPanel x:Name="ToolPanel" Margin="0,0,0,34">
+                <v:SearchField x:Name="ToolSearch" DockPanel.Dock="Top" Placeholder="Tìm tool…" Margin="0,0,0,8" />
+                <ListBox x:Name="ToolList" DisplayMemberPath="Display" SelectionChanged="OnToolChanged"
+                         AutomationProperties.Name="Chọn tool" />
+            </DockPanel>
             <Button x:Name="CustomToolLink" Content="Không có trong danh sách? + Tool riêng…" Click="OnCustomTool"
                     Style="{StaticResource GhostButton}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                     ToolTip="Tạo lệnh riêng trong workspace này, rồi quay lại tạo profile cho nó." />
@@ -68,10 +72,9 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <StackPanel x:Name="ExtraPanel" Margin="0,0,0,10">
-                        <TextBlock x:Name="ExtraLabel" Text="Tham số thêm" Style="{StaticResource FieldLabel}" />
-                        <TextBox x:Name="ExtraBox" TextChanged="OnExtraChanged" AutomationProperties.Name="Tham số thêm" />
-                        <TextBlock x:Name="ExtraError" Foreground="{StaticResource Danger}" FontSize="12" Visibility="Collapsed" />
+                    <StackPanel x:Name="PairPanel" Margin="0,0,0,10">
+                        <TextBlock x:Name="PairLabel" Text="Tham số" Style="{StaticResource FieldLabel}" />
+                        <v:PairEditor x:Name="Pairs" Changed="OnPairsChanged" />
                     </StackPanel>
 
                     <TextBlock Text="Lệnh sẽ chạy" Style="{StaticResource FieldLabel}" Margin="0,4,0,0" />

@@ -201,7 +201,7 @@
                             <ToggleButton Template="{StaticResource ComboToggle}" Focusable="False" ClickMode="Press"
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
                             <!-- Ô chọn hiện theo DisplayMemberPath, giống danh sách thả xuống (xem DisplayMemberConverter). -->
-                            <ContentPresenter Margin="{TemplateBinding Padding}" IsHitTestVisible="False"
+                            <ContentPresenter x:Name="SelectionSite" Margin="{TemplateBinding Padding}" IsHitTestVisible="False"
                                               VerticalAlignment="Center" HorizontalAlignment="Left">
                                 <ContentPresenter.Content>
                                     <MultiBinding Converter="{StaticResource DisplayMemberConverter}">
@@ -210,6 +210,18 @@
                                     </MultiBinding>
                                 </ContentPresenter.Content>
                             </ContentPresenter>
+                            <!-- Ô nhập của combo IsEditable: chừa 28px bên phải cho nút thả xuống. Không có phần này thì IsEditable không gõ được. -->
+                            <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="0,0,28,0" Padding="8,6,0,6"
+                                     Background="Transparent" Foreground="{TemplateBinding Foreground}" Cursor="IBeam"
+                                     VerticalContentAlignment="Center" FocusVisualStyle="{x:Null}">
+                                <TextBox.Template>
+                                    <ControlTemplate TargetType="TextBox">
+                                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </TextBox.Template>
+                            </TextBox>
                             <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="10" Foreground="{StaticResource Muted}"
                                        HorizontalAlignment="Right" Margin="0,0,11,0" IsHitTestVisible="False" />
                             <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
@@ -228,6 +240,10 @@
                             </Popup>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="SelectionSite" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource InputLineHover}" />
                             </Trigger>

@@ -28,6 +28,25 @@ namespace Toolbox.Core.Workspaces
         public string Source { get; set; }
         /// <summary>Vai trò do bạn gán: "port" hoặc rỗng. Mỗi action chỉ có một mục giữ vai trò này.</summary>
         public string Role { get; set; }
+        /// <summary>Các giá trị hợp lệ đọc được từ trợ giúp (vd. q, m, n, d, diag); null nếu help không liệt kê.</summary>
+        public List<string> Choices { get; set; }
+    }
+
+    /// <summary>
+    /// Một đối số vị trí của một phạm vi (mục "Arguments:" trong help): tên, mô tả, giá trị cho phép nếu help liệt kê,
+    /// và cờ cho biết nó là đường dẫn (gợi ý file trong thư mục chạy). Đọc từ help, không đoán theo tên tool.
+    /// </summary>
+    public sealed class ArgHint
+    {
+        public string Action { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public List<string> Choices { get; set; }
+        public bool IsPath { get; set; }
+        /// <summary>Chỉ nhận thư mục (tên chứa dir/folder), nên gợi ý không liệt kê file.</summary>
+        public bool DirectoryOnly { get; set; }
+        /// <summary>Nhận nhiều giá trị (<c>&lt;FILE&gt;...</c>).</summary>
+        public bool Variadic { get; set; }
     }
 
     /// <summary>Lần quét gần nhất của một action: lệnh đã chạy, thời điểm, dấu vân tay output, lỗi nếu có.</summary>
@@ -47,6 +66,8 @@ namespace Toolbox.Core.Workspaces
         public string Kind { get; set; }
         public List<ScanRecord> Scans { get; set; } = new List<ScanRecord>();
         public List<CapabilityEntry> Entries { get; set; } = new List<CapabilityEntry>();
+        /// <summary>Đối số vị trí của từng phạm vi, đọc từ mục "Arguments:" của help.</summary>
+        public List<ArgHint> Args { get; set; } = new List<ArgHint>();
     }
 
     /// <summary>Kết quả một lần quét: các mục đọc được, dấu vân tay output, lỗi nếu có.</summary>
@@ -55,6 +76,7 @@ namespace Toolbox.Core.Workspaces
         public string Command { get; set; }
         public string Fingerprint { get; set; }
         public List<CapabilityEntry> Entries { get; set; } = new List<CapabilityEntry>();
+        public List<ArgHint> Args { get; set; } = new List<ArgHint>();
         public string Error { get; set; }
     }
 
@@ -68,7 +90,7 @@ namespace Toolbox.Core.Workspaces
         public static readonly Regex FlagName = new Regex(@"^--?[A-Za-z][A-Za-z0-9_-]*$", RegexOptions.Compiled);
 
         /// <summary>Tên lệnh con hợp lệ: <c>serve</c>, <c>add-package</c>, <c>run:dev</c>. Không bắt đầu bằng dấu gạch.</summary>
-        public static readonly Regex SubcommandName = new Regex(@"^[A-Za-z][A-Za-z0-9_.:@-]*$", RegexOptions.Compiled);
+        public static readonly Regex SubcommandName = new Regex(@"^[A-Za-z][A-Za-z0-9_.:@-]*(?: [A-Za-z][A-Za-z0-9_.:@-]*)*$", RegexOptions.Compiled);
 
         /// <summary>Hậu tố hợp lệ: cờ hoặc lệnh con. Cả hai chỉ là chữ nối vào sau lệnh gốc.</summary>
         public static bool IsSuffix(string name) => name != null && (FlagName.IsMatch(name) || SubcommandName.IsMatch(name));
@@ -98,6 +120,7 @@ namespace Toolbox.Core.Workspaces
                 data.Kind = kind;
                 data.Scans = (data.Scans ?? new List<ScanRecord>()).Where(s => s != null).ToList();
                 data.Entries = (data.Entries ?? new List<CapabilityEntry>()).Where(e => e != null && IsSuffix(e.Name)).ToList();
+                data.Args = (data.Args ?? new List<ArgHint>()).Where(a => a != null && !string.IsNullOrWhiteSpace(a.Name)).ToList();
                 return data;
             }
             catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is IOException)
@@ -132,6 +155,13 @@ namespace Toolbox.Core.Workspaces
             });
             if (outcome.Error != null)
                 return;
+
+            data.Args.RemoveAll(a => SameAction(a.Action, action));
+            foreach (var arg in outcome.Args ?? new List<ArgHint>())
+            {
+                arg.Action = action;
+                data.Args.Add(arg);
+            }
 
             var previous = data.Entries.Where(e => SameAction(e.Action, action) && e.Source == "scan").ToList();
             data.Entries.RemoveAll(e => SameAction(e.Action, action) && e.Source == "scan");
@@ -176,6 +206,24 @@ namespace Toolbox.Core.Workspaces
                 Source = "manual",
                 Role = "",
             });
+        }
+
+        /// <summary>
+        /// Thêm mục nhập từ nguồn khác ngoài quét (file script, danh sách dán). Mục có sẵn hoặc tên sai thì bỏ qua; trả true nếu đã thêm.
+        /// Mục nhập vào có Source "import": giữ nguyên qua các lần quét lại.
+        /// </summary>
+        public static bool AddImported(ToolCapabilities data, string action, string name, bool takesValue, string description)
+        {
+            try
+            {
+                AddManual(data, action, name, takesValue, description);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            data.Entries[data.Entries.Count - 1].Source = "import";
+            return true;
         }
 
         public static void Remove(ToolCapabilities data, string action, string name) =>
@@ -253,14 +301,35 @@ namespace Toolbox.Core.Workspaces
             outcome.Entries = HelpParser.Parse(text);
             if (includeSubcommands)
                 outcome.Entries.AddRange(HelpParser.ParseSubcommands(text));
+            outcome.Args = HelpParser.ParseArguments(text);
             outcome.Fingerprint = Fingerprint(text);
-            if (outcome.Entries.Count == 0)
+            if (outcome.Entries.Count == 0 && outcome.Args.Count == 0)
             {
                 // Kèm đầu output để biết vì sao: lệnh lỗi (thiếu cài đặt, file cấu hình sai) hay tool không có trợ giúp chuẩn.
                 var head = (text ?? "").Trim();
                 if (head.Length > 200)
                     head = head.Substring(0, 200) + "…";
                 outcome.Error = "Không đọc được hậu tố nào." + (head.Length > 0 ? " Đầu ra: " + head.Replace("\r", " ").Replace("\n", " ") : " Lệnh không in gì.");
+            }
+            return outcome;
+        }
+
+        /// <summary>
+        /// Quét lệnh trợ giúp của <paramref name="scope"/> rồi ghi kết quả vào bảng khả năng của <paramref name="kind"/>.
+        /// Chạy được trên luồng nền; bảng hỏng thì trả lỗi trong <see cref="ScanOutcome.Error"/> chứ không ghi đè.
+        /// </summary>
+        public static ScanOutcome ScanAndStore(string directory, string kind, string scope, string command, string workingDirectory, bool includeSubcommands)
+        {
+            var outcome = Run(command, workingDirectory, DefaultTimeoutMs, includeSubcommands);
+            try
+            {
+                var data = CapabilityStore.Load(directory, kind);
+                CapabilityStore.ApplyScan(data, scope ?? "", outcome, DateTime.Now);
+                CapabilityStore.Save(directory, data);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException)
+            {
+                outcome.Error = ex.Message;
             }
             return outcome;
         }
@@ -282,10 +351,10 @@ namespace Toolbox.Core.Workspaces
     /// </summary>
     public static class HelpParser
     {
-        private static readonly Regex FlagLine = new Regex(@"^(\s*)(?:-[A-Za-z],?\s+)?(--?[A-Za-z][A-Za-z0-9_-]*)(.*)$", RegexOptions.Compiled);
+        private static readonly Regex FlagLine = new Regex(@"^(\s*)(?:-[A-Za-z]{1,2}(?:,\s*|\|))?(--?[A-Za-z][A-Za-z0-9_-]*)(.*)$", RegexOptions.Compiled);
 
         /// <summary>Giá trị ngay sau tên: "=x" hoặc một khoảng trắng rồi một từ (không phải hai khoảng trắng, vì sau đó là mô tả).</summary>
-        private static readonly Regex ValueAfter = new Regex(@"^(=|\s(?!\s))(<[^>]*>|\[[^\]]*\]|[A-Za-z0-9][\w.|<>\[\]-]*)(\s|$)", RegexOptions.Compiled);
+        private static readonly Regex ValueAfter = new Regex(@"^(=|\s(?!\s))(<[^>]*>|\[[^\]]*\]|\{[^}]*\}|[A-Za-z0-9][\w.|<>\[\]-]*)(\s|$)", RegexOptions.Compiled);
 
         public static List<CapabilityEntry> Parse(string text)
         {
@@ -332,16 +401,148 @@ namespace Toolbox.Core.Workspaces
                     Excerpt = excerpt,
                     Source = "scan",
                     Role = "",
+                    Choices = value.Success ? ExtractChoices(value.Groups[2].Value + " " + description) : null,
                 });
             }
             return result;
         }
 
-        /// <summary>Dòng tiêu đề nhóm lệnh con: không thụt đầu dòng và nhắc tới "command"/"lệnh", ví dụ "Commands:" hay "SDK commands:".</summary>
-        private static readonly Regex CommandsHeading = new Regex(@"^\S.*\b(commands?|lệnh)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex Braces = new Regex(@"\{([^{}]{3,200})\}", RegexOptions.Compiled);
+        private static readonly Regex AngleList = new Regex(@"[<\[]([^<>\[\]]{3,200})[>\]]", RegexOptions.Compiled);
+        private static readonly Regex Phrase = new Regex(
+            @"(?:allowed|possible|valid|accepted|supported|available)\s+(?:values?|options?|choices?)(?:\s+(?:are|is))?\s*[:=]?\s*(?<list>[^\r\n]+)|(?:one\s+of|choices?)\s*[:=]\s*(?<list>[^\r\n]+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex ChoiceToken = new Regex(@"^[A-Za-z0-9][A-Za-z0-9_.:@+-]*$", RegexOptions.Compiled);
+        private static readonly Regex Abbrev = new Regex(@"^([A-Za-z0-9][A-Za-z0-9_.:@+-]*)\[([A-Za-z0-9_.:@+-]+)\]$", RegexOptions.Compiled);
 
-        /// <summary>Một lệnh con: thụt đầu dòng, một từ, hai khoảng trắng trở lên rồi mô tả.</summary>
-        private static readonly Regex SubcommandLine = new Regex(@"^(\s+)([A-Za-z][A-Za-z0-9_.:@-]*)(?:\s*,\s*[A-Za-z][\w.-]*)*\s{2,}(\S.*)$", RegexOptions.Compiled);
+        /// <summary>
+        /// Giá trị cho phép trong đoạn trợ giúp của một cờ/đối số: <c>{a,b}</c>, <c>&lt;a|b|c&gt;</c>, "Allowed values are …", "one of: …".
+        /// Chỉ nhận danh sách mà MỌI mục đều là một từ hợp lệ (tránh nuốt câu văn); <c>q[uiet]</c> được mở thành <c>quiet</c>.
+        /// Không đủ chắc chắn thì trả null để dropdown không đưa gợi ý sai.
+        /// </summary>
+        public static List<string> ExtractChoices(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+            foreach (Match m in Braces.Matches(text))
+            {
+                var list = CleanChoices(m.Groups[1].Value, requireMixedCase: false);
+                if (list != null)
+                    return list;
+            }
+            foreach (Match m in AngleList.Matches(text))
+            {
+                if (m.Groups[1].Value.IndexOf('|') < 0)
+                    continue;
+                var list = CleanChoices(m.Groups[1].Value, requireMixedCase: true);
+                if (list != null)
+                    return list;
+            }
+            foreach (Match m in Phrase.Matches(text))
+            {
+                var tail = m.Groups["list"].Value;
+                var cut = tail.IndexOf(". ", StringComparison.Ordinal);
+                var list = CleanChoices((cut >= 0 ? tail.Substring(0, cut) : tail).TrimEnd().TrimEnd('.'), requireMixedCase: false);
+                if (list != null)
+                    return list;
+            }
+            return null;
+        }
+
+        private static List<string> CleanChoices(string raw, bool requireMixedCase)
+        {
+            var parts = Regex.Split(raw, @"\s*(?:\||,|;|/|\bor\b|\band\b)\s*", RegexOptions.IgnoreCase)
+                .Select(p => p.Trim().Trim('\'', '"', '`', '.'))
+                .Where(p => p.Length > 0).ToList();
+            if (parts.Count < 2 || parts.Count > 40)
+                return null;
+            var result = new List<string>();
+            foreach (var part in parts)
+            {
+                var abbrev = Abbrev.Match(part);
+                var value = abbrev.Success ? abbrev.Groups[1].Value + abbrev.Groups[2].Value : part;
+                if (!ChoiceToken.IsMatch(value) || value.Length > 40)
+                    return null;
+                if (!result.Contains(value, StringComparer.OrdinalIgnoreCase))
+                    result.Add(value);
+            }
+            // <PROJECT | SOLUTION | FILE> là mô tả kiểu (toàn chữ hoa), không phải giá trị cố định.
+            if (requireMixedCase && result.All(v => v.Equals(v.ToUpperInvariant(), StringComparison.Ordinal)))
+                return null;
+            return result.Count >= 2 ? result : null;
+        }
+
+        private static readonly Regex ArgumentsHeading = new Regex(@"^\s{0,2}(?:arguments?|args|positional\s+arguments?|positionals?)\s*:?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex ArgLine = new Regex(@"^(\s+)(<[^>]+>|\[<[^>]+>\]|\{[^}]+\}|\[[^\]]+\]|[A-Za-z][\w.-]*)(\.\.\.)?(?:\s{2,}(\S.*))?\s*$", RegexOptions.Compiled);
+        private static readonly Regex PathWord = new Regex(@"\b(path|paths|file|files|dir|directory|directories|folder|folders|project|projects|solution|sln)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex DirWord = new Regex(@"\b(dir|directory|directories|folder|folders)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Đọc mục "Arguments:" (hoặc "positional arguments:"): mỗi dòng thụt đầu dòng là một đối số vị trí, các dòng thụt sâu hơn là mô tả tiếp.
+        /// Đối số có tên gợi ý đường dẫn (path/file/dir/project/solution) được đánh dấu để gợi ý file trong thư mục chạy.
+        /// </summary>
+        public static List<ArgHint> ParseArguments(string text)
+        {
+            var result = new List<ArgHint>();
+            var inSection = false;
+            var baseIndent = -1;
+            ArgHint last = null;
+            var tokens = new Dictionary<ArgHint, string>();
+            foreach (var raw in (text ?? "").Replace("\r", "").Split('\n'))
+            {
+                if (raw.Trim().Length == 0)
+                {
+                    last = null;
+                    continue;
+                }
+                if (!char.IsWhiteSpace(raw[0]) || ArgumentsHeading.IsMatch(raw))
+                {
+                    inSection = ArgumentsHeading.IsMatch(raw);
+                    baseIndent = -1;
+                    last = null;
+                    continue;
+                }
+                if (!inSection)
+                    continue;
+
+                var indent = LeadingSpaces(raw);
+                if (last != null && baseIndent >= 0 && indent > baseIndent)
+                {
+                    last.Description = ((last.Description ?? "") + " " + raw.Trim()).Trim();
+                    continue;
+                }
+                var m = ArgLine.Match(raw);
+                if (!m.Success)
+                    continue;
+                if (baseIndent < 0)
+                    baseIndent = indent;
+                var token = m.Groups[2].Value;
+                var name = token.Trim('<', '>', '[', ']', '{', '}').Trim();
+                if (name.Length == 0 || result.Any(a => a.Name == name))
+                    continue;
+                last = new ArgHint
+                {
+                    Name = name,
+                    Description = m.Groups[4].Success ? m.Groups[4].Value.Trim() : null,
+                    Variadic = m.Groups[3].Success,
+                };
+                result.Add(last);
+                tokens[last] = token;
+            }
+            foreach (var arg in result)
+            {
+                arg.Choices = ExtractChoices(tokens[arg] + " " + arg.Description);
+                arg.IsPath = arg.Choices == null && PathWord.IsMatch(arg.Name + " " + arg.Description);
+                arg.DirectoryOnly = arg.IsPath && DirWord.IsMatch(arg.Name) && !Regex.IsMatch(arg.Name, @"\b(file|files|project|projects|solution|sln)\b", RegexOptions.IgnoreCase);
+            }
+            return result;
+        }
+
+        /// <summary>Dòng tiêu đề nhóm lệnh con: không thụt đầu dòng và nhắc tới "command"/"lệnh", ví dụ "Commands:" hay "SDK commands:".</summary>
+        private static readonly Regex CommandsHeading = new Regex(@"^(?=\S).*?\b(commands?|lệnh)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>Một lệnh con: thụt đầu dòng, một từ (có thể kèm &lt;tham số&gt;), hai khoảng trắng trở lên rồi mô tả.</summary>
+        private static readonly Regex SubcommandLine = new Regex(@"^(\s+)([A-Za-z][A-Za-z0-9_.:@-]*)(?:\s*,\s*[A-Za-z][\w.-]*)*(?:\s+(?:<[^>]*>|\[[^\]]*\]))*\s{2,}(\S.*)$", RegexOptions.Compiled);
 
         /// <summary>
         /// Đọc lệnh con từ các nhóm có tiêu đề nhắc tới "commands". Trợ giúp không có nhóm như vậy (ví dụ <c>git --help</c>)

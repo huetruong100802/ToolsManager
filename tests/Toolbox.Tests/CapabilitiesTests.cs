@@ -167,7 +167,7 @@ Options:
         {
             var workspace = new Workspace { Name = "w", Path = Path.GetTempPath() };
 
-            var actions = ToolCatalog.ActionsFor(workspace, new ToolBinding { Kind = "git" });
+            var actions = ToolCatalog.ActionsFor(workspace, new ToolBinding { ToolId = "git" });
 
             Assert.Contains(TestData.GitAction, actions.Select(a => a.Id));
             Assert.Equal(TestData.GitAction, actions.First(a => a.Id == TestData.GitAction).Label);
@@ -179,7 +179,7 @@ Options:
         {
             var workspace = new Workspace { Name = "w", Path = Path.GetTempPath() };
 
-            Assert.Empty(ToolCatalog.ActionsFor(workspace, new ToolBinding { Kind = "chua-co-bang" }));
+            Assert.Empty(ToolCatalog.ActionsFor(workspace, new ToolBinding { ToolId = "chua-co-bang" }));
         }
 
         [Fact]

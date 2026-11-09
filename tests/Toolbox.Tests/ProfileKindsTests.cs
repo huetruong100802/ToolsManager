@@ -49,7 +49,7 @@ namespace Toolbox.Tests
 
         private static Profile LibProfile(string args = null) => new Profile
         {
-            Id = "pl", Label = "Chạy hello", Kind = ProfileKind.Library, RefId = "hello",
+            Id = "pl", Label = "Chạy hello", Kind = "hello",
             Vals = args == null ? new Dictionary<string, string>() : new Dictionary<string, string> { ["args"] = args },
         };
 
@@ -72,8 +72,8 @@ namespace Toolbox.Tests
 
             var loaded = WorkspaceStore.Load(_workspacesPath).Workspaces.Single();
             var lib = loaded.Profiles.Single(p => p.Id == "pl");
-            Assert.Equal(ProfileKind.Library, lib.Kind);
-            Assert.Equal("hello", lib.RefId);
+            Assert.Equal("hello", lib.Kind);   // profile của tool: Kind là toolId, không còn refId
+            Assert.Null(lib.RefId);
             Assert.Equal("--x 1", lib.ExtraArgs);
             Assert.Equal("c1", loaded.Profiles.Single(p => p.Id == "pc").RefId);
         }
@@ -100,7 +100,7 @@ namespace Toolbox.Tests
         {
             var ws = NewWorkspace();
             ws.Profiles.Add(LibProfile("extra"));
-            var r = StackResolver.Resolve(ws, new StackStep { Kind = ProfileKind.Library, ProfileId = "pl" }, 0, _tools);
+            var r = StackResolver.Resolve(ws, new StackStep { Kind = "hello", ProfileId = "pl" }, 0, _tools);
 
             Assert.False(r.IsBroken, r.Problem);
             Assert.Equal("Chạy hello", r.Label);
@@ -112,16 +112,16 @@ namespace Toolbox.Tests
         public void Resolve_Library_ThamSoRiengCuaBindingThayThamSoThuVien()
         {
             var ws = NewWorkspace();
-            ws.FindLibrary("hello").Args = "ws-args";
+            ws.Binding("hello").Args = "ws-args";
             ws.Profiles.Add(LibProfile("more"));
-            var r = StackResolver.Resolve(ws, new StackStep { Kind = ProfileKind.Library, ProfileId = "pl" }, 0, _tools);
+            var r = StackResolver.Resolve(ws, new StackStep { Kind = "hello", ProfileId = "pl" }, 0, _tools);
             Assert.EndsWith(" ws-args more", r.Spec.CommandLine);
         }
 
         [Fact]
         public void Resolve_Library_KhongProfile_DungActionIdLaToolId()
         {
-            var r = StackResolver.Resolve(NewWorkspace(), new StackStep { Kind = ProfileKind.Library, ActionId = "hello" }, 0, _tools);
+            var r = StackResolver.Resolve(NewWorkspace(), new StackStep { Kind = "hello", ActionId = "" }, 0, _tools);
             Assert.False(r.IsBroken, r.Problem);
             Assert.Equal("Hello Tool", r.Label);
             Assert.EndsWith(" base", r.Spec.CommandLine);
@@ -130,14 +130,14 @@ namespace Toolbox.Tests
         [Fact]
         public void Resolve_Library_ChuaGanHoacMatKhoiThuVien_LaHongKhongNem()
         {
-            var unbound = StackResolver.Resolve(NewWorkspace(bindHello: false), new StackStep { Kind = ProfileKind.Library, ActionId = "hello" }, 0, _tools);
+            var unbound = StackResolver.Resolve(NewWorkspace(bindHello: false), new StackStep { Kind = "hello", ActionId = "" }, 0, _tools);
             Assert.True(unbound.IsBroken);
 
             var ws = NewWorkspace();
-            ws.LibraryBindings.Add(new LibraryBinding { ToolId = "da-xoa", Name = "Cũ" });
-            var gone = StackResolver.Resolve(ws, new StackStep { Kind = ProfileKind.Library, ActionId = "da-xoa" }, 0, _tools);
+            ws.Bindings.Add(new ToolBinding { ToolId = "da-xoa" });
+            var gone = StackResolver.Resolve(ws, new StackStep { Kind = "da-xoa", ActionId = "" }, 0, _tools);
             Assert.True(gone.IsBroken);
-            Assert.Contains("Cũ", gone.Problem);
+            Assert.Contains("da-xoa", gone.Problem);
         }
 
         [Fact]
@@ -169,25 +169,116 @@ namespace Toolbox.Tests
             Assert.True(r.IsBroken);
         }
 
-        // ---- Kiểm khi lưu ----
+        // ---- Cặp tham số (pairs) ----
 
         [Fact]
-        public void Editor_LuuProfileLibrary_ChuanHoaVaKiemRefId()
+        public void Pairs_Json_RoundTripVaDuyetDongLenh()
+        {
+            var store = WorkspaceStore.Load(_workspacesPath);
+            var ws = store.Add(NewWorkspace());
+            var profile = LibProfile();
+            profile.Pairs = new List<ParamPair> { new ParamPair("--file", "A B.xlsx"), new ParamPair("--file", "C.xlsx"), new ParamPair("--dry-run") };
+            ws.Profiles.Add(profile);
+            store.Save();
+
+            var loaded = WorkspaceStore.Load(_workspacesPath).Workspaces.Single().Profiles.Single(p => p.Id == "pl");
+            Assert.Equal(3, loaded.Pairs.Count);
+            var r = StackResolver.Resolve(WorkspaceStore.Load(_workspacesPath).Workspaces.Single(), new StackStep { Kind = "hello", ProfileId = "pl" }, 0, _tools);
+            Assert.False(r.IsBroken, r.Problem);
+            Assert.EndsWith(" base --file \"A B.xlsx\" --file C.xlsx --dry-run", r.Spec.CommandLine);
+        }
+
+        [Fact]
+        public void Pairs_HoiLucChay_ChuaCoGiaTriThiHong_CoCauTraLoiThiChay()
+        {
+            var ws = NewWorkspace();
+            var profile = CustomProfile();
+            profile.Pairs = new List<ParamPair> { new ParamPair("", "", ask: true), new ParamPair("--x", "1") };
+            ws.Profiles.Add(profile);
+            var step = new StackStep { Kind = ProfileKind.Custom, ProfileId = "pc" };
+
+            var pending = StackResolver.Resolve(ws, step, 0);
+            Assert.True(pending.IsBroken);
+            Assert.Contains("Cần nhập giá trị", pending.Problem);
+
+            step.Answers = new[] { "ten-moi" };
+            var ok = StackResolver.Resolve(ws, step, 0);
+            Assert.False(ok.IsBroken, ok.Problem);
+            Assert.Equal("echo custom ten-moi --x 1", ok.Spec.CommandLine);
+            // Profile gốc vẫn còn cặp hỏi, không bị ghi đè bởi câu trả lời.
+            Assert.Single(profile.PendingAsks);
+        }
+
+        [Fact]
+        public void Pairs_Editor_TaoSuaXoaVaKiemKeySai()
         {
             var ws = NewWorkspace();
             using (StackResolver.UseLibrary(_tools))
             {
-                var ok = new Profile { Label = "A", Kind = "LIBRARY", RefId = "hello", ActionId = "x", VariantId = "y" };
+                Assert.NotNull(WorkspaceEditor.CreateProfile(ws, new Profile
+                {
+                    Label = "Sai", Kind = "hello", Pairs = new List<ParamPair> { new ParamPair("--ok;calc", "x") },
+                }));
+
+                var good = new Profile { Label = "Tốt", Kind = "hello", Pairs = new List<ParamPair> { new ParamPair("--a", "1") } };
+                Assert.Null(WorkspaceEditor.CreateProfile(ws, good));
+
+                Assert.Null(WorkspaceEditor.UpdateProfile(ws, good.Id, null, null, null, new[] { new ParamPair("--b") }));
+                Assert.Equal("--b", ws.Profiles.Single(p => p.Id == good.Id).ExtraArgs);
+
+                // Không truyền cặp: giữ nguyên. Truyền rỗng: xoá.
+                Assert.Null(WorkspaceEditor.UpdateProfile(ws, good.Id, "Đổi tên", null, null));
+                Assert.Equal("--b", ws.Profiles.Single(p => p.Id == good.Id).ExtraArgs);
+                Assert.Null(WorkspaceEditor.UpdateProfile(ws, good.Id, null, null, null, new ParamPair[0]));
+                Assert.False(ws.Profiles.Single(p => p.Id == good.Id).HasPairs);
+            }
+        }
+
+        [Fact]
+        public void Pairs_GoiVaNhanBan_GiuCap_VaChiaSeKhongDungChung()
+        {
+            var src = LibProfile();
+            src.Pairs = new List<ParamPair> { new ParamPair("--p", "1") };
+            var copy = WorkspacePack.CloneProfile(src);
+            Assert.Equal("--p 1", copy.ExtraArgs);
+            copy.Pairs[0].Value = "2";
+            Assert.Equal("--p 1", src.ExtraArgs);
+        }
+
+        [Fact]
+        public void Pairs_ActivityUndo_ThayDoiCapLamDoiBam()
+        {
+            var a = LibProfile();
+            a.Pairs = new List<ParamPair> { new ParamPair("--p", "1") };
+            var b = LibProfile();
+            b.Pairs = new List<ParamPair> { new ParamPair("--p", "2") };
+            var ws1 = NewWorkspace(); ws1.Profiles.Add(a);
+            var ws2 = NewWorkspace(); ws2.Profiles.Add(b);
+            var data = ActivityUndo.Build(ActivityUndo.Capture(ws1, null), ActivityUndo.Capture(ws2, null));
+            Assert.NotNull(data);   // chỉ cặp đổi mà vẫn nhận ra thay đổi
+            Assert.Equal(ActivityUndo.TypeProfile, data.Type);
+        }
+
+        // ---- Kiểm khi lưu ----
+
+        [Fact]
+        public void Editor_LuuProfileTool_ChuanHoaVaKiemTool()
+        {
+            var ws = NewWorkspace();
+            using (StackResolver.UseLibrary(_tools))
+            {
+                // Profile chạy lệnh gốc của tool (hậu tố rỗng): chuẩn hoá bỏ biến thể và refId lạc.
+                var ok = new Profile { Label = "A", Kind = "hello", RefId = "lac", ActionId = "", VariantId = "y" };
                 Assert.Null(WorkspaceEditor.CreateProfile(ws, ok));
-                Assert.Equal(ProfileKind.Library, ok.Kind);
-                Assert.Null(ok.ActionId);
+                Assert.Equal("hello", ok.Kind);
+                Assert.True(string.IsNullOrEmpty(ok.ActionId));
                 Assert.Null(ok.VariantId);
+                Assert.Null(ok.RefId);
 
-                // Có trong thư viện nhưng chưa gắn: cho phép lưu.
-                Assert.Null(WorkspaceEditor.CreateProfile(ws, new Profile { Label = "B", Kind = ProfileKind.Library, RefId = "free" }));
+                // Có trong thư viện nhưng workspace chưa gắn: tool phải được gắn vào workspace trước khi tạo profile.
+                Assert.NotNull(WorkspaceEditor.CreateProfile(ws, new Profile { Label = "B", Kind = "free" }));
 
-                Assert.Contains("refId", WorkspaceEditor.CreateProfile(ws, new Profile { Label = "C", Kind = ProfileKind.Library }));
-                Assert.Contains("khong-co", WorkspaceEditor.CreateProfile(ws, new Profile { Label = "D", Kind = ProfileKind.Library, RefId = "khong-co" }));
+                Assert.Contains("khong-co", WorkspaceEditor.CreateProfile(ws, new Profile { Label = "D", Kind = "khong-co" }));
             }
         }
 
@@ -220,7 +311,7 @@ namespace Toolbox.Tests
             }
             var p = ws.Profiles.Single();
             Assert.Equal("Mới", p.Label);
-            Assert.Equal("hello", p.RefId);
+            Assert.Equal("hello", p.Kind);
             Assert.Equal("b", p.ExtraArgs);
         }
 
@@ -232,10 +323,10 @@ namespace Toolbox.Tests
             ws.Profiles.Add(CustomProfile());
             using (StackResolver.UseLibrary(_tools))
             {
-                var good = new StackDef { Label = "ok", Steps = { new StackStep { Kind = ProfileKind.Library, ProfileId = "pl" }, new StackStep { Kind = ProfileKind.Custom, ProfileId = "pc" } } };
+                var good = new StackDef { Label = "ok", Steps = { new StackStep { Kind = "hello", ProfileId = "pl" }, new StackStep { Kind = ProfileKind.Custom, ProfileId = "pc" } } };
                 Assert.Null(WorkspaceEditor.CreateStack(ws, good));
 
-                var bad = new StackDef { Label = "hong", Steps = { new StackStep { Kind = ProfileKind.Library, ProfileId = "khong-co" } } };
+                var bad = new StackDef { Label = "hong", Steps = { new StackStep { Kind = "hello", ProfileId = "khong-co" } } };
                 Assert.StartsWith("Bước 1", WorkspaceEditor.CreateStack(ws, bad));
             }
         }
@@ -248,7 +339,7 @@ namespace Toolbox.Tests
             var ws = NewWorkspace();
             ws.Profiles.Add(LibProfile("extra"));
             ws.Profiles.Add(CustomProfile("them"));
-            var stack = new StackDef { Id = "s1", Label = "Bộ", Steps = { new StackStep { Kind = ProfileKind.Library, ProfileId = "pl" }, new StackStep { Kind = ProfileKind.Custom, ProfileId = "pc", Wait = WaitKind.Exit } } };
+            var stack = new StackDef { Id = "s1", Label = "Bộ", Steps = { new StackStep { Kind = "hello", ProfileId = "pl" }, new StackStep { Kind = ProfileKind.Custom, ProfileId = "pc", Wait = WaitKind.Exit } } };
 
             var host = new TaskHost(_dir.Combine("runs"));
             try
@@ -305,13 +396,12 @@ namespace Toolbox.Tests
         public void Mcp_SaveGetProfileLibrary_TraRefIdVaArgs()
         {
             var server = SeededServer();
-            var saved = Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"library\",\"refId\":\"hello\",\"args\":\"--a\"}");
+            var saved = Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"hello\",\"args\":\"--a\"}");
             Assert.False(IsError(saved), Text(saved));
 
             var id = WorkspaceStore.Load(_workspacesPath).Workspaces.Single().Profiles.Single().Id;
             var view = Data(Call(server, "get", "{\"type\":\"profile\",\"id\":\"" + id + "\"}"));
-            Assert.Equal("library", view["kind"]);
-            Assert.Equal("hello", view["refId"]);
+            Assert.Equal("hello", view["kind"]);
             Assert.Equal("--a", view["args"]);
 
             var updated = Call(server, "save", "{\"type\":\"profile\",\"id\":\"" + id + "\",\"args\":\"--b\"}");
@@ -323,12 +413,12 @@ namespace Toolbox.Tests
         public void Mcp_SaveProfileSai_BaoLoiRoKhongGhi()
         {
             var server = SeededServer();
-            var noRef = Call(server, "save", "{\"type\":\"profile\",\"label\":\"A\",\"kind\":\"library\"}");
-            Assert.True(IsError(noRef));
-            Assert.Contains("refId", Text(noRef));
+            var noTool = Call(server, "save", "{\"type\":\"profile\",\"label\":\"A\",\"kind\":\"khong-co\"}");
+            Assert.True(IsError(noTool));
+            Assert.Contains("khong-co", Text(noTool));
 
             Assert.True(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"B\",\"kind\":\"custom\",\"refId\":\"khong-co\"}")));
-            Assert.True(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"C\",\"kind\":\"library\",\"refId\":\"hello\",\"args\":\"x && y\"}")));
+            Assert.True(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"C\",\"kind\":\"hello\",\"args\":\"x && y\"}")));
             Assert.Empty(WorkspaceStore.Load(_workspacesPath).Workspaces.Single().Profiles);
         }
 
@@ -336,13 +426,13 @@ namespace Toolbox.Tests
         public void Mcp_RunProfileLibraryVaCustom_ChayVaCoOutput()
         {
             var server = SeededServer();
-            Assert.False(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"library\",\"refId\":\"hello\",\"args\":\"extra\"}")));
+            Assert.False(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"hello\",\"args\":\"extra\"}")));
             Assert.False(IsError(Call(server, "save", "{\"type\":\"profile\",\"label\":\"Cus\",\"kind\":\"custom\",\"refId\":\"c1\",\"args\":\"them\"}")));
             var profiles = WorkspaceStore.Load(_workspacesPath).Workspaces.Single().Profiles;
 
             try
             {
-                var lib = profiles.Single(p => p.Kind == ProfileKind.Library);
+                var lib = profiles.Single(p => p.Kind == "hello");
                 Assert.Contains("hello base extra", RunAndRead(server, lib.Id));
                 var custom = profiles.Single(p => p.Kind == ProfileKind.Custom);
                 Assert.Contains("custom them", RunAndRead(server, custom.Id));

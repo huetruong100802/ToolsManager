@@ -13,6 +13,9 @@ namespace Toolbox.Core.Workspaces
         public static string ForAction(string workspaceId, string kind, string actionId, string variantId) =>
             string.Join("|", workspaceId, kind, actionId, variantId, "");
 
+        /// <summary>Chạy lệnh gốc của tool (hậu tố rỗng, không profile).</summary>
+        public static string ForTool(string workspaceId, string toolId) => ForAction(workspaceId, toolId, "", "");
+
         public static string ForProfile(string workspaceId, Profile profile) =>
             string.Join("|", workspaceId, profile.Kind, profile.ActionId, profile.VariantId, profile.Id);
 

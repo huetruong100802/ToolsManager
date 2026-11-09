@@ -44,7 +44,7 @@ namespace Toolbox.Tests
             var workspaces = WorkspaceStore.Load(f.WorkspacesPath);
             var ws = workspaces.Add(new Workspace { Name = "Repo A", Path = dir.Combine("repo") });
             ws.BindLibrary(tools.Find("inside"));
-            ws.Bindings.Add(new ToolBinding { Kind = "git" });
+            ws.Bindings.Add(new ToolBinding { ToolId = "git" });
             for (var i = 0; i < extraProfiles; i++)
                 ws.Profiles.Add(new Profile { Id = "p" + i, Label = "profile số " + i, Kind = "git", ActionId = f.GitActionId });
             workspaces.Save();

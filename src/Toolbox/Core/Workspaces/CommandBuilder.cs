@@ -108,6 +108,22 @@ namespace Toolbox.Core.Workspaces
             return line;
         }
 
+        /// <summary>
+        /// Như <see cref="Build"/> nhưng phần tham số thêm đến từ các cặp (key, value) của profile thay cho ô <c>{args}</c>:
+        /// ô <c>args</c> bị bỏ trống rồi cặp được nối sau cùng. Cặp không đi qua luật ký tự của <c>{args}</c> vì value có khoảng trắng được bọc nháy.
+        /// </summary>
+        public static string BuildWithPairs(VariantDef variant, IDictionary<string, string> vals, IEnumerable<ParamPair> pairs)
+        {
+            var error = PairLine.Check(pairs);
+            if (error != null)
+                throw new ArgumentException(error);
+            var copy = new Dictionary<string, string>(vals ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase)
+            {
+                [ProfileKind.ArgsKey] = "",
+            };
+            return JoinArgs(Build(variant, copy), PairLine.Render(pairs));
+        }
+
         /// <summary>Cổng mà lệnh sẽ dùng (tham số cổng đầu tiên); null nếu lệnh không có tham số cổng hoặc cổng sai.</summary>
         public static int? PortOf(VariantDef variant, IDictionary<string, string> vals)
         {
@@ -172,6 +188,45 @@ namespace Toolbox.Core.Workspaces
         {
             var path = System.IO.Path.GetFullPath(tool.ResolvedPath);
             return tool.IsCommand ? path : System.IO.Path.GetDirectoryName(path);
+        }
+
+        // ----- Đường chạy chung của mọi tool (kind = toolId) -----
+
+        /// <summary>Tham số hiệu lực của tool trong workspace: <see cref="ToolBinding.Args"/> (nếu có) thay Args đăng ký của tool.</summary>
+        public static string EffectiveArgs(ToolBinding binding, ToolEntry tool) =>
+            string.IsNullOrWhiteSpace(binding?.Args) ? tool?.Args : binding.Args;
+
+        /// <summary>
+        /// Dòng lệnh chạy lệnh gốc của tool (hậu tố rỗng): <see cref="LibraryCommandLine"/> với <see cref="EffectiveArgs"/>,
+        /// rồi nối <paramref name="extraArgs"/> (Vals["args"] của profile). Ném <see cref="NotSupportedException"/> nếu file không chạy ngầm được.
+        /// </summary>
+        public static string ToolCommandLine(ToolEntry tool, ToolBinding binding, string extraArgs) =>
+            LibraryCommandLine(tool, JoinArgs(EffectiveArgs(binding, tool), extraArgs));
+
+        /// <summary>
+        /// Thư mục chạy thật của tool trong workspace: <see cref="ToolBinding.Cwd"/> (tương đối gốc workspace, khác rỗng/".")
+        /// → <see cref="LibraryCwd"/> nếu tool có Path (tool lệnh: thư mục đăng ký; tool file: thư mục chứa file) → gốc workspace.
+        /// </summary>
+        public static string ToolCwd(Workspace ws, ToolBinding binding, ToolEntry tool)
+        {
+            if (!string.IsNullOrWhiteSpace(binding?.Cwd) && binding.Cwd.Trim() != ".")
+                return ws.ResolveCwd(binding.Cwd);
+            if (tool != null && !string.IsNullOrWhiteSpace(tool.Path))
+                return LibraryCwd(tool);
+            return ws.ResolveCwd(null);
+        }
+
+        /// <summary>null nếu chạy được; ngược lại lý do: tool file thiếu đường dẫn, hoặc Path đã khai mà không còn trên đĩa.</summary>
+        public static string CheckTool(ToolEntry tool)
+        {
+            if (tool == null)
+                return "Tool không còn trong thư viện.";
+            var hasPath = !string.IsNullOrWhiteSpace(tool.Path);
+            if (!tool.IsCommand && !hasPath)
+                return $"\"{tool.Name}\" chưa có lệnh hoặc đường dẫn.";
+            if (hasPath && !tool.PathExists)
+                return $"Không tìm thấy \"{tool.Name}\": {tool.ResolvedPath}";
+            return null;
         }
     }
 }

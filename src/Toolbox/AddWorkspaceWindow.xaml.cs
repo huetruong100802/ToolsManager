@@ -30,7 +30,7 @@ namespace Toolbox
             public DetectionOption(Detection detection)
             {
                 Detection = detection;
-                Title = ToolCatalog.Find(detection.Kind)?.Name ?? detection.Kind;
+                Title = ToolPresets.Find(detection.Kind)?.Name ?? detection.Kind;
                 Reason = detection.Reason;
                 IsChecked = true;
             }
@@ -142,7 +142,7 @@ namespace Toolbox
             if (options != null)
             {
                 foreach (var option in options.Where(o => o.IsChecked))
-                    workspace.Bindings.Add(new ToolBinding { Kind = option.Detection.Kind, Cwd = option.Detection.Cwd });
+                    workspace.Bindings.Add(new ToolBinding { ToolId = option.Detection.Kind, Cwd = option.Detection.Cwd });
             }
             Result = workspace;
             DialogResult = true;

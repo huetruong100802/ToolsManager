@@ -21,6 +21,7 @@ namespace Toolbox
 
             _rows = manifest.Tools.Select(t => new Row(t, store.Find(t.Id) != null)).ToList();
             RowList.ItemsSource = _rows;
+            Search.Attach(_rows, o => ((Row)o).Tool.Name + " " + ((Row)o).Tool.Id + " " + ((Row)o).Info);
             HeaderText.Text = $"Gói có {_rows.Count} tool"
                 + (DateTime.TryParse(manifest.CreatedAt, out var created) ? $", tạo lúc {created:dd/MM/yyyy HH:mm}" : "")
                 + ". Bỏ chọn tool không cần.";

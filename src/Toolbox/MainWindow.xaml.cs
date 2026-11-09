@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using Toolbox.Core;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox
@@ -56,6 +57,9 @@ namespace Toolbox
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             // Đọc danh mục tool lúc mở; catalog.json lỗi thì báo luôn, không để lặng lẽ dùng mặc định.
+            _ = ToolPresets.All;
+            if (ToolPresets.LastError != null)
+                Dialogs.Error(this, ToolPresets.LastError);
             _ = ToolCatalog.All;
             if (ToolCatalog.LastError != null)
                 Dialogs.Error(this, ToolCatalog.LastError);
@@ -247,6 +251,19 @@ namespace Toolbox
             var dialog = new AddWorkspaceWindow(_workspaces.Workspaces.Select(w => w.Path)) { Owner = this };
             if (dialog.ShowDialog() != true)
                 return;
+
+            // Tool nhận diện được là preset: đăng ký vào thư viện để workspace mới dùng được ngay như mọi tool khác.
+            try
+            {
+                var library = ToolStore.Load(ToolStore.DefaultPath);
+                if (ToolPresets.EnsureInLibrary(library, dialog.Result.Bindings.Select(b => b.ToolId)))
+                    library.Save();
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(this, "Không ghi được tool nhận diện vào thư viện: " + ex.Message);
+                return;
+            }
 
             var workspace = _workspaces.Add(dialog.Result);
             if (!TrySave())

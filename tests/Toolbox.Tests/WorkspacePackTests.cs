@@ -27,22 +27,22 @@ namespace Toolbox.Tests
             Directory.CreateDirectory(_dir.Combine("repo", "sub"));
             _ws = new Workspace { Id = "w-src", Name = "Nguồn", Path = _dir.Combine("repo") };
             _ws.BindLibrary(_library.Find("hello"));
-            _ws.LibraryBindings[0].Args = "--bound";
+            _ws.Binding("hello").Args = "--bound";
             _ws.Customs.Add(new CustomCommand { Id = "c1", Label = "Lệnh một", CommandLine = "echo one", Cwd = _dir.Combine("repo", "sub") });
             _ws.Customs.Add(new CustomCommand { Id = "c2", Label = "Lệnh hai", CommandLine = "echo two", Cwd = _dir.Combine("elsewhere") });
-            _ws.Profiles.Add(new Profile { Id = "pl", Label = "Chạy hello", Kind = ProfileKind.Library, RefId = "hello", Vals = new Dictionary<string, string> { ["args"] = "-x" } });
+            _ws.Profiles.Add(new Profile { Id = "pl", Label = "Chạy hello", Kind = "hello", Vals = new Dictionary<string, string> { ["args"] = "-x" } });
             _ws.Profiles.Add(new Profile { Id = "pc", Label = "Chạy một", Kind = ProfileKind.Custom, RefId = "c1" });
             _ws.Profiles.Add(new Profile { Id = "pd", Label = "Build", Kind = "dotnet", ActionId = "build", VariantId = "" });
-            _ws.Profiles.Add(new Profile { Id = "pz", Label = "Không dùng", Kind = ProfileKind.Library, RefId = "other" });
+            _ws.Profiles.Add(new Profile { Id = "pz", Label = "Không dùng", Kind = "other" });
             _ws.Stacks.Add(new StackDef
             {
                 Id = "s1", Label = "Cả bộ",
                 Steps =
                 {
-                    new StackStep { Kind = ProfileKind.Library, ActionId = "hello", ProfileId = "pl", Group = 1 },
+                    new StackStep { Kind = "hello", ActionId = "", ProfileId = "pl", Group = 1 },
                     new StackStep { Kind = ProfileKind.Custom, ActionId = "c1", ProfileId = "pc", Group = 1 },
                     new StackStep { Kind = "custom", ActionId = "c2" },
-                    new StackStep { Kind = ProfileKind.Library, ActionId = "free" },
+                    new StackStep { Kind = "free", ActionId = "" },
                     new StackStep { Kind = "dotnet", ActionId = "build", ProfileId = "pd", Wait = WaitKind.Exit },
                 },
             });
@@ -129,7 +129,7 @@ namespace Toolbox.Tests
             Assert.Equal(3, p.ProfileCount);
             Assert.Equal(2, p.CustomCount);
             Assert.Equal(1, p.ToolCount); // chỉ hello còn trong thư viện
-            Assert.Contains(p.Warnings, w => w.Contains("\"free\"") && w.Contains("thư viện"));
+            Assert.Contains(p.Warnings, w => w.Contains("free") && w.Contains("thư viện"));
             Assert.Contains(p.Warnings, w => w.Contains("dotnet"));
             Assert.Contains(p.Warnings, w => w.Contains("Lệnh hai"));
         }
@@ -252,9 +252,9 @@ namespace Toolbox.Tests
             Assert.Equal(target.Profiles.Single(p => p.Label == "Build").Id, stack.Steps[4].ProfileId);
             Assert.Equal(custom1.Id, customProfile.RefId);
             Assert.Equal(custom2.Id, stack.Steps[2].ActionId);
-            Assert.Equal("hello", libProfile.RefId);
+            Assert.Equal("hello", libProfile.Kind);
             Assert.Equal("-x", libProfile.ExtraArgs);
-            Assert.Equal("free", stack.Steps[3].ActionId);
+            Assert.Equal("free", stack.Steps[3].Kind);   // bước tool: Kind là toolId
             Assert.Equal(1, stack.Steps[0].Group);
             Assert.Equal(WaitKind.Exit, stack.Steps[4].Wait);
             Assert.Equal("sub", custom1.Cwd);
@@ -277,7 +277,7 @@ namespace Toolbox.Tests
 
             Assert.Equal("hello-2", result.ToolMap["hello"]);
             Assert.Equal("Hello có sẵn", targetStore.Find("hello").Name);
-            Assert.Equal("hello-2", target.Profiles.Single(p => p.Label == "Chạy hello").RefId);
+            Assert.Equal("hello-2", target.Profiles.Single(p => p.Label == "Chạy hello").Kind);
             Assert.NotNull(target.FindLibrary("hello-2"));
             Assert.Null(target.FindLibrary("hello"));
         }
@@ -297,7 +297,7 @@ namespace Toolbox.Tests
             var firstStack = target.Stacks.Single();
             var firstStepProfile = firstStack.Steps[0].ProfileId;
             var firstProfile = target.Profiles.Single(p => p.Id == firstStepProfile);
-            var firstSnapshot = firstProfile.Label + "|" + firstProfile.RefId;
+            var firstSnapshot = firstProfile.Label + "|" + firstProfile.Kind;
 
             var second = PackageImporter.ImportIntoWorkspace(targetStore, target, zip, _dir.Combine("inst"), Choices());
 
@@ -311,11 +311,11 @@ namespace Toolbox.Tests
 
             // Lần 1 vẫn nguyên, lần 2 trỏ đúng profile/tool của lần 2.
             Assert.Equal(firstStepProfile, target.Stacks[0].Steps[0].ProfileId);
-            Assert.Equal(firstSnapshot, firstProfile.Label + "|" + firstProfile.RefId);
+            Assert.Equal(firstSnapshot, firstProfile.Label + "|" + firstProfile.Kind);
             var secondStack = target.Stacks.Single(s => s.Label == "Cả bộ (2)");
             var secondProfile = target.Profiles.Single(p => p.Id == secondStack.Steps[0].ProfileId);
             Assert.Equal("Chạy hello (2)", secondProfile.Label);
-            Assert.Equal("hello-2", secondProfile.RefId);
+            Assert.Equal("hello-2", secondProfile.Kind);
             Assert.NotEqual(firstStepProfile, secondProfile.Id);
         }
 

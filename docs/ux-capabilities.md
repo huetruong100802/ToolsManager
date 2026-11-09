@@ -135,7 +135,7 @@ Trạng thái khám phá (hiện bằng badge):
 - Nút "Ẩn đường dẫn" để chụp màn hình.
 
 ### 4.9 Thêm tool
-- Giữ hộp thư viện. Sau khi thêm, nếu tool có adapter thì hỏi "Khám phá ngay?" (mặc định là có).
+- Một hộp **Thêm tool** duy nhất cho workspace: chọn từ thư viện, nhận gợi ý từ thư mục dự án, hoặc **Đăng ký tool mới…** (mở đúng form đăng ký của Thư viện). Mọi tool có nút **Khả năng…** để quét hậu tố từ trợ giúp hoặc nhập tay. "Khám phá ngay?" sau khi thêm chưa làm: người dùng bấm **Khả năng…** khi cần.
 
 ## 5. Thay đổi so với plan (cần duyệt)
 

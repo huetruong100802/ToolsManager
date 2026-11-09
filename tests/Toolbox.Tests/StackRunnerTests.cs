@@ -79,14 +79,14 @@ namespace Toolbox.Tests
             var r = StackResolver.Resolve(Ws(), new StackStep { Kind = "vb6", ActionId = "x" }, 0);
 
             Assert.True(r.IsBroken);
-            Assert.Contains("danh mục", r.Problem);
+            Assert.Contains("thư viện", r.Problem);
         }
 
         [Fact]
         public void Resolve_ProfileDaXoa_LaHong()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
             var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0])[0];
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = action.Id, ProfileId = "ma" }, 0);
@@ -129,9 +129,10 @@ namespace Toolbox.Tests
         public void Resolve_HanhDong_DungKhoaVaNhan()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
             var tool = ToolCatalog.Find(ToolCatalog.DotNet);
-            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0])[0];
+            // Action đầu tiên luôn là lệnh gốc (Id rỗng); lấy hậu tố đầu tiên để kiểm khoá và nhãn của một action có tên.
+            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0]).First(a => a.Id.Length > 0);
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = tool.Kind, ActionId = action.Id }, 0);
 
@@ -144,7 +145,7 @@ namespace Toolbox.Tests
         public void Resolve_Profile_DungBienTheVaThamSoCuaProfile()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
             var profile = new Profile
             {
                 Id = "p1", Label = "Test lọc", Kind = ToolCatalog.DotNet, ActionId = "test", VariantId = "default",

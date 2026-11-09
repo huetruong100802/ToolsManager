@@ -20,13 +20,17 @@ namespace Toolbox.Core.Workspaces
     [DataContract]
     public class ToolBinding
     {
-        /// <summary>dotnet, git, angular, npm (xem <c>ToolCatalog</c>).</summary>
+        /// <summary>Id của tool trong thư viện (xem <c>ToolCatalog</c>). JSON giữ tên cũ "kind" để file cũ đọc đúng.</summary>
         [DataMember(Name = "kind", Order = 0)]
-        public string Kind { get; set; }
+        public string ToolId { get; set; }
 
-        /// <summary>Thư mục chạy, tương đối so với gốc workspace; rỗng hoặc "." là gốc.</summary>
+        /// <summary>Thư mục chạy, tương đối so với gốc workspace; rỗng hoặc "." là gốc. Ghi đè thư mục của tool.</summary>
         [DataMember(Name = "cwd", Order = 1, EmitDefaultValue = false)]
         public string Cwd { get; set; }
+
+        /// <summary>Tham số riêng của workspace cho tool này; rỗng thì dùng tham số đăng ký trong thư viện.</summary>
+        [DataMember(Name = "args", Order = 2, EmitDefaultValue = false)]
+        public string Args { get; set; }
     }
 
     /// <summary>
@@ -122,7 +126,31 @@ namespace Toolbox.Core.Workspaces
 
         /// <summary>Tham số thêm của profile loại library/custom (Vals["args"]); rỗng nếu không có.</summary>
         public string ExtraArgs =>
-            Vals != null && Vals.TryGetValue(ProfileKind.ArgsKey, out var args) ? (args ?? "").Trim() : "";
+            HasPairs ? PairLine.Render(Pairs)
+            : Vals != null && Vals.TryGetValue(ProfileKind.ArgsKey, out var args) ? (args ?? "").Trim() : "";
+
+        /// <summary>
+        /// Tham số dạng cặp (key, value) theo thứ tự; có thì thay cho chuỗi Vals["args"] (profile cũ chưa có thì vẫn chạy y như trước).
+        /// </summary>
+        [DataMember(Name = "pairs", Order = 7, EmitDefaultValue = false)]
+        public List<ParamPair> Pairs { get; set; }
+
+        public bool HasPairs => Pairs != null && Pairs.Count > 0;
+
+        /// <summary>Lỗi của tham số thêm (cặp hoặc chuỗi cũ); null nếu hợp lệ.</summary>
+        public string ArgsError => HasPairs ? PairLine.Check(Pairs) : CommandBuilder.CheckExtraArgs(ExtraArgs);
+
+        /// <summary>Các cặp hỏi lúc chạy mà chưa có giá trị.</summary>
+        public IReadOnlyList<ParamPair> PendingAsks => PairLine.Pending(Pairs);
+
+        /// <summary>Bản sao đã điền các cặp hỏi lúc chạy từ <paramref name="answers"/> (theo thứ tự <see cref="PendingAsks"/>); không ghi vào profile gốc.</summary>
+        public Profile WithAnswers(IList<string> answers)
+        {
+            var copy = (Profile)MemberwiseClone();
+            copy.Vals = new Dictionary<string, string>(Vals ?? new Dictionary<string, string>());
+            copy.Pairs = HasPairs ? PairLine.Resolve(Pairs, answers) : null;
+            return copy;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
@@ -132,7 +160,7 @@ namespace Toolbox.Core.Workspaces
         }
     }
 
-    /// <summary>Hai loại profile ngoài catalog dựng sẵn (dotnet, git, angular, npm): tool thư viện và lệnh riêng.</summary>
+    /// <summary>Kind đặc biệt của profile/bước: custom (lệnh riêng); library chỉ còn để đọc dữ liệu cũ (migration, gói cũ). Kind khác là toolId.</summary>
     public static class ProfileKind
     {
         public const string Library = "library";
@@ -180,6 +208,12 @@ namespace Toolbox.Core.Workspaces
         /// </summary>
         [DataMember(Name = "group", Order = 6, EmitDefaultValue = false)]
         public int Group { get; set; }
+
+        /// <summary>
+        /// Giá trị cho các cặp "hỏi lúc chạy" của profile (theo thứ tự), do người chạy nhập. Chỉ sống trong lần chạy này, không lưu.
+        /// </summary>
+        [IgnoreDataMember]
+        public IList<string> Answers { get; set; }
     }
 
     /// <summary>Chuỗi các bước chạy tuần tự bằng một cú bấm.</summary>
@@ -242,6 +276,9 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "archived", Order = 11, EmitDefaultValue = false)]
         public bool Archived { get; set; }
 
+        /// <summary>
+        /// Chỉ để đọc file schema 1: <see cref="WorkspaceMigration"/> chuyển các mục này vào <see cref="Bindings"/> rồi làm rỗng.
+        /// </summary>
         [DataMember(Name = "libraryBindings", Order = 8)]
         public List<LibraryBinding> LibraryBindings { get; set; } = new List<LibraryBinding>();
 
@@ -249,21 +286,34 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "worktree", Order = 9, EmitDefaultValue = false)]
         public WorktreeSetup Worktree { get; set; } = new WorktreeSetup();
 
-        public LibraryBinding FindLibrary(string toolId) =>
-            LibraryBindings.Find(b => string.Equals(b.ToolId, toolId, StringComparison.OrdinalIgnoreCase));
-
-        /// <summary>Gắn tool thư viện. Đã gắn thì không đổi gì. Trả về true nếu vừa gắn thêm. Không ghi file.</summary>
-        public bool BindLibrary(ToolEntry tool)
+        /// <summary>
+        /// Tương thích cho caller cũ: binding của tool <paramref name="toolId"/> trong <see cref="Bindings"/> dưới dạng
+        /// <see cref="LibraryBinding"/> (bản sao, sửa nó không đổi workspace; sửa qua <see cref="Binding"/>). null nếu chưa gắn.
+        /// </summary>
+        public LibraryBinding FindLibrary(string toolId)
         {
-            if (FindLibrary(tool.Id) != null)
+            var b = Binding(toolId);
+            return b != null
+                ? new LibraryBinding { ToolId = b.ToolId, Args = b.Args }
+                : LibraryBindings.Find(x => string.Equals(x.ToolId, toolId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Gắn tool vào <see cref="Bindings"/>. Đã gắn thì không đổi gì. Trả về true nếu vừa gắn thêm. Không ghi file.</summary>
+        public bool BindLibrary(ToolEntry tool) => BindTool(tool.Id);
+
+        /// <summary>Gắn tool <paramref name="toolId"/> (id trong thư viện). Đã gắn thì không đổi gì. Trả về true nếu vừa gắn thêm.</summary>
+        public bool BindTool(string toolId)
+        {
+            if (string.IsNullOrWhiteSpace(toolId) || Binding(toolId) != null)
                 return false;
-            LibraryBindings.Add(new LibraryBinding { ToolId = tool.Id, Name = tool.Name });
+            Bindings.Add(new ToolBinding { ToolId = toolId });
             return true;
         }
 
-        /// <summary>Bỏ tool thư viện khỏi workspace; file gốc và thư viện không đổi. Trả về true nếu đã bỏ.</summary>
+        /// <summary>Bỏ tool khỏi workspace; file gốc và thư viện không đổi. Trả về true nếu đã bỏ.</summary>
         public bool UnbindLibrary(string toolId) =>
-            LibraryBindings.RemoveAll(b => string.Equals(b.ToolId, toolId, StringComparison.OrdinalIgnoreCase)) > 0;
+            Bindings.RemoveAll(b => string.Equals(b.ToolId, toolId, StringComparison.OrdinalIgnoreCase))
+            + LibraryBindings.RemoveAll(b => string.Equals(b.ToolId, toolId, StringComparison.OrdinalIgnoreCase)) > 0;
 
         [IgnoreDataMember]
         public string ResolvedPath => Environment.ExpandEnvironmentVariables(Path ?? "");
@@ -282,7 +332,7 @@ namespace Toolbox.Core.Workspaces
         }
 
         public ToolBinding Binding(string kind) =>
-            Bindings.Find(b => string.Equals(b.Kind, kind, StringComparison.OrdinalIgnoreCase));
+            Bindings.Find(b => string.Equals(b.ToolId, kind, StringComparison.OrdinalIgnoreCase));
 
         // DataContractJsonSerializer không chạy initializer khi đọc.
         [OnDeserialized]

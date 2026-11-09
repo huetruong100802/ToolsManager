@@ -31,6 +31,7 @@ namespace Toolbox.Views
             _source = stack;
             LabelBox.Text = stack?.Label ?? "";
             Palette.ItemsSource = workspace.Profiles.ToList();
+            PaletteSearch.Attach(Palette.ItemsSource, o => ((Profile)o).Label);
             PaletteHint.Text = workspace.Profiles.Count == 0
                 ? "Workspace chưa có profile. Tạo profile ở tab Chạy trước."
                 : "Kéo profile vào dấu +, hoặc bấm đúp để thêm vào cuối.";
@@ -64,8 +65,8 @@ namespace Toolbox.Views
         private static StackStep NewStep(Profile profile)
         {
             var step = new StackStep { Kind = profile.Kind, ProfileId = profile.Id };
-            // Profile loại thư viện/lệnh riêng không có action/biến thể; chỉ cần ProfileId (hợp đồng P10).
-            if (!ProfileKind.IsRef(profile.Kind))
+            // Profile lệnh riêng không có action/biến thể; chỉ cần ProfileId.
+            if (!ProfileKind.IsCustom(profile.Kind))
             {
                 step.ActionId = profile.ActionId;
                 step.VariantId = profile.VariantId;

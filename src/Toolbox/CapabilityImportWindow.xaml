@@ -1,0 +1,60 @@
+<Window x:Class="Toolbox.CapabilityImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nhập lệnh và cờ" Width="620" Height="560" MinHeight="460"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                BorderThickness="0,1,0,0" Padding="20,12">
+            <DockPanel>
+                <TextBlock x:Name="CountText" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
+                    <Button x:Name="ImportButton" Content="Nhập" Click="OnImport" MinWidth="90" Style="{StaticResource PrimaryButton}" IsEnabled="False" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20,16,20,12">
+                <TextBlock Text="Nhập từ nguồn khác ngoài quét help" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,12"
+                           Text="Dùng khi tool có danh sách lệnh nằm trong file (script của package.json, target của Makefile) hoặc bạn có sẵn danh sách. Mục nhập vào được giữ nguyên khi quét lại." />
+
+                <TextBlock Text="Nguồn" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="ModeBox" SelectedIndex="0" SelectionChanged="OnModeChanged" AutomationProperties.Name="Nguồn">
+                    <ComboBoxItem Content="File JSON (vd. package.json → scripts)" />
+                    <ComboBoxItem Content="File văn bản + regex (vd. Makefile)" />
+                    <ComboBoxItem Content="Dán danh sách hoặc văn bản help" />
+                </ComboBox>
+
+                <StackPanel x:Name="FilePanel" Margin="0,12,0,0">
+                    <TextBlock Text="File (tương đối với thư mục chạy của tool)" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="FileBox" Text="package.json" TextChanged="OnInputChanged" AutomationProperties.Name="File" />
+                    <TextBlock x:Name="KeyLabel" Text="Khoá JSON chứa danh sách" Style="{StaticResource FieldLabel}" Margin="0,10,0,0" />
+                    <TextBox x:Name="KeyBox" Text="scripts" TextChanged="OnInputChanged" FontFamily="Consolas" AutomationProperties.Name="Khoá hoặc regex" />
+                    <TextBlock x:Name="KeyHint" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel x:Name="PastePanel" Margin="0,12,0,0" Visibility="Collapsed">
+                    <TextBlock Text="Nội dung" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="PasteBox" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="110" MaxHeight="180"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas"
+                             TextChanged="OnInputChanged" AutomationProperties.Name="Nội dung dán" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Text="Dán đầu ra của --help, hoặc mỗi dòng một tên (tuỳ chọn thêm mô tả sau tên). Dòng bắt đầu bằng - là cờ." />
+                </StackPanel>
+
+                <TextBlock Text="Lệnh cha / tiền tố" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
+                <TextBox x:Name="ScopeBox" TextChanged="OnInputChanged" FontFamily="Consolas" AutomationProperties.Name="Lệnh cha" />
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                           Text="Để trống: lệnh con thuộc lệnh gốc của tool. Điền run: build thành &quot;run build&quot; (npm run build). Cờ dán vào được gắn cho lệnh này." />
+
+                <TextBlock Text="Sẽ nhập" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
+                <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,8">
+                    <TextBlock x:Name="PreviewText" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

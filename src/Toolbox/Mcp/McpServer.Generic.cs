@@ -42,11 +42,12 @@ namespace Toolbox.Mcp
                     Props(("type", "string", typeDoc), ("id", "string", "Id lấy từ search.")), "type", "id"),
                 Tool("save", "Tạo hoặc sửa một mục trong workspace. Có id: sửa; không có id: tạo. Thêm, sửa, xoá trong workspace là việc agent tự làm được. "
                         + "type=tool mà có id thì chỉ gửi đề xuất sửa tool dùng chung để người dùng duyệt (kèm reason). "
-                        + "Trường theo loại: profile (label, kind, action, variant, vals; kind=library hoặc custom thì dùng refId và args thay cho action/variant), stack (label, steps), custom (label, commandLine, cwd, window), tool (name, path, args, description, tags, notes).",
+                        + "Trường theo loại: profile (label, kind, action, variant, vals; kind = id tool, action rỗng = chạy lệnh gốc kèm args; kind=custom thì dùng refId và args), stack (label, steps), custom (label, commandLine, cwd, window), tool (name, path, args, description, tags, notes).",
                     Props(("type", "string", "profile, stack, custom hoặc tool."), ("id", "string", "Id mục cần sửa. Bỏ trống để tạo mới."),
-                        ("label", "string", "Tên profile, bộ chạy hoặc lệnh riêng."), ("kind", "string", "Profile: loại tool trong catalog.json (ví dụ dotnet, git, angular, npm), hoặc library (tool thư viện) / custom (lệnh riêng)."),
-                        ("refId", "string", "Profile library: id tool đã gắn; profile custom: id lệnh riêng. Tham số thêm gửi ở args."),
-                        ("action", "string", "Profile: id lệnh."), ("variant", "string", "Profile: id biến thể."), ("vals", "object", "Profile: tham số theo key."),
+                        ("label", "string", "Tên profile, bộ chạy hoặc lệnh riêng."), ("kind", "string", "Profile: id tool đã gắn vào workspace (search type=tool), hoặc custom (lệnh riêng)."),
+                        ("refId", "string", "Profile custom: id lệnh riêng. Tham số thêm gửi ở args."),
+                        ("action", "string", "Profile: hậu tố (id lệnh); bỏ trống = chạy lệnh gốc của tool."), ("variant", "string", "Profile: id biến thể."), ("vals", "object", "Profile: tham số theo key."),
+                        ("pairs", "array", "Profile: Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy."),
                         ("steps", "array", "Bộ chạy: các bước (kind, action, variant, profile, wait, port, group). group > 0: các bước liền nhau cùng số chạy song song; bước sau nhóm chờ mọi bước trong nhóm đạt wait."),
                         ("commandLine", "string", "Lệnh riêng: dòng lệnh."), ("cwd", "string", "Thư mục chạy, tương đối so với workspace."), ("window", "boolean", "Lệnh riêng: chạy trong cửa sổ riêng."),
                         ("name", "string", "Tool: tên hiển thị."), ("path", "string", "Tool mới: đường dẫn tuyệt đối."), ("args", "string", "Tool: tham số mặc định."),
@@ -54,13 +55,14 @@ namespace Toolbox.Mcp
                         ("reason", "string", "Khi sửa tool dùng chung: lý do để người dùng quyết định.")), "type"),
                 Tool("delete", "Xoá một mục khỏi workspace. type=tool chỉ gỡ khỏi workspace, tool vẫn còn trong thư viện. Từ chối nếu bộ chạy còn dùng mục đó.",
                     Props(("type", "string", "profile, stack, custom hoặc tool."), ("id", "string", "Id mục cần xoá.")), "type", "id"),
-                Tool("attach", "Gắn vào workspace: một tool có sẵn trong thư viện (id, tìm bằng search type=library), hoặc một loại tool dựng sẵn của dự án (kind). Không đổi tool.",
-                    Props(("id", "string", "Id tool trong thư viện."), ("kind", "string", "Loại tool trong catalog.json, ví dụ dotnet, git, angular, npm."), ("cwd", "string", "Thư mục chạy cho kind, tương đối so với workspace."))),
+                Tool("attach", "Gắn vào workspace một tool có sẵn trong thư viện (id hoặc kind, tìm bằng search type=library). Không đổi tool.",
+                    Props(("id", "string", "Id tool trong thư viện."), ("kind", "string", "Như id, kèm cwd nếu cần thư mục chạy riêng."), ("cwd", "string", "Thư mục chạy cho kind, tương đối so với workspace."))),
                 Tool("run", "Chạy một mục: profile, stack, custom, tool (tool thư viện đã gắn) hoặc action (lệnh của tool dựng sẵn, không cần profile). Trả về id lần chạy; dùng run_status hoặc logs để theo dõi.",
                     Props(("type", "string", "profile, stack, custom, tool hoặc action."), ("id", "string", "Id mục cần chạy (không cần với action)."),
                         ("waitReady", "boolean", "Chờ cổng nghe được rồi mới báo xong."), ("port", "integer", "Cổng, với custom."),
                         ("args", "string", "Tool thư viện: tham số thay cho mặc định."), ("kind", "string", "Action: loại tool."), ("action", "string", "Action: id lệnh."),
-                        ("variant", "string", "Action: id biến thể."), ("vals", "object", "Action: tham số theo key.")), "type"),
+                        ("variant", "string", "Action: id biến thể."), ("vals", "object", "Action: tham số theo key."),
+                        ("answers", "array", "Profile: giá trị cho các tham số hỏi lúc chạy (ask), theo thứ tự.")), "type"),
                 Tool("logs", $"Xem log gần nhất của một lần chạy hoặc tác vụ do phiên này khởi chạy. Mặc định {DefaultLogLines} dòng.",
                     Props(("id", "string", "Id lần chạy hoặc tác vụ."), ("tail", "integer", $"Số dòng. Tối đa {MaxTailLines}.")), "id"),
                 Tool("propose", "Đề xuất sửa hoặc xoá một tool dùng chung trong thư viện. Không có hiệu lực cho tới khi người dùng duyệt trong Toolbox.",
@@ -119,7 +121,7 @@ namespace Toolbox.Mcp
                 ["workspace"] = ws.Name,
                 ["counts"] = new Dictionary<string, object>
                 {
-                    ["tools"] = ws.Bindings.Count + ws.LibraryBindings.Count,
+                    ["tools"] = ws.Bindings.Count,
                     ["profiles"] = ws.Profiles.Count,
                     ["stacks"] = ws.Stacks.Count,
                     ["customs"] = ws.Customs.Count,
@@ -149,7 +151,7 @@ namespace Toolbox.Mcp
             bool Want(string type) => typeText.Length == 0 ? type != "library" : typeText == type;
             if (Want("profile"))
                 foreach (var p in ws.Profiles)
-                    Add("profile", p.Id, p.Label, p.Kind + " " + (ProfileKind.IsRef(p.Kind) ? p.RefId : p.ActionId));
+                    Add("profile", p.Id, p.Label, p.Kind + " " + (ProfileKind.IsCustom(p.Kind) ? p.RefId : p.ActionId));
             if (Want("stack"))
                 foreach (var s in ws.Stacks)
                     Add("stack", s.Id, s.Label, s.Steps.Count + " bước");
@@ -162,9 +164,10 @@ namespace Toolbox.Mcp
                 if (Want("tool"))
                 {
                     foreach (var b in ws.Bindings)
-                        Add("tool", b.Kind, b.Kind, "tool dựng sẵn của dự án");
-                    foreach (var lb in ws.LibraryBindings)
-                        Add("tool", lb.ToolId, store.Find(lb.ToolId)?.Name ?? lb.Name, store.Find(lb.ToolId)?.Description);
+                    {
+                        var t = store.Find(b.ToolId);
+                        Add("tool", b.ToolId, t?.Name ?? b.ToolId, t?.Description ?? "");
+                    }
                 }
                 else
                 {
@@ -191,7 +194,7 @@ namespace Toolbox.Mcp
                 case "profile":
                     var p = ws.Profiles.Find(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
                     if (p != null)
-                        view = new Dictionary<string, object> { ["id"] = p.Id, ["label"] = p.Label, ["kind"] = p.Kind, ["action"] = p.ActionId, ["variant"] = p.VariantId, ["refId"] = p.RefId, ["args"] = p.ExtraArgs, ["vals"] = p.Vals };
+                        view = new Dictionary<string, object> { ["id"] = p.Id, ["label"] = p.Label, ["kind"] = p.Kind, ["action"] = p.ActionId, ["variant"] = p.VariantId, ["refId"] = p.RefId, ["args"] = p.ExtraArgs, ["vals"] = p.Vals, ["pairs"] = (p.Pairs ?? new List<ParamPair>()).Select(x => new Dictionary<string, object> { ["key"] = x.Key, ["value"] = x.Value, ["ask"] = x.Ask }).ToArray() };
                     break;
                 case "stack":
                     var s = ws.Stacks.Find(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
@@ -250,7 +253,7 @@ namespace Toolbox.Mcp
                 return Dispatch("bind_library_tool", a, ws, record);
             if (!string.IsNullOrWhiteSpace(GetString(a, "kind")))
                 return Dispatch("add_tool", a, ws, record);
-            throw new ArgumentException("Truyền id (tool trong thư viện) hoặc kind (loại trong catalog.json, ví dụ dotnet, git, angular, npm).");
+            throw new ArgumentException("Truyền id hoặc kind (id tool trong thư viện).");
         }
 
         private object GRun(Dictionary<string, object> a, Workspace ws, AgentRecord record)

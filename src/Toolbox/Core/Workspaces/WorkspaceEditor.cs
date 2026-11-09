@@ -26,7 +26,7 @@ namespace Toolbox.Core.Workspaces
             var full = ws.ResolveCwd(relative);
             if (!Directory.Exists(full))
                 return "Thư mục chạy không tồn tại: " + full;
-            ws.Bindings.Add(new ToolBinding { Kind = tool.Kind, Cwd = relative });
+            ws.Bindings.Add(new ToolBinding { ToolId = tool.Kind, Cwd = relative });
             return null;
         }
 
@@ -47,7 +47,7 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Gắn một tool có sẵn trong thư viện vào workspace. Không đổi bản thân tool.</summary>
         public static string BindLibrary(Workspace ws, ToolEntry tool)
         {
-            if (ws.FindLibrary(tool.Id) != null)
+            if (ws.Binding(tool.Id) != null)
                 return $"\"{tool.Name}\" đã gắn vào workspace này.";
             ws.BindLibrary(tool);
             return null;
@@ -71,7 +71,8 @@ namespace Toolbox.Core.Workspaces
         }
 
         /// <summary>Sửa tên, biến thể hoặc tham số. Tool và lệnh của profile không đổi; muốn đổi thì xoá rồi tạo lại.</summary>
-        public static string UpdateProfile(Workspace ws, string id, string label, string variantId, IDictionary<string, string> vals)
+        /// <param name="pairs">null: giữ cặp hiện có; danh sách rỗng: xoá cặp; có phần tử: thay toàn bộ.</param>
+        public static string UpdateProfile(Workspace ws, string id, string label, string variantId, IDictionary<string, string> vals, IList<ParamPair> pairs = null)
         {
             var current = ws.Profiles.Find(p => Same(p.Id, id));
             if (current == null)
@@ -83,8 +84,9 @@ namespace Toolbox.Core.Workspaces
                 Kind = current.Kind,
                 ActionId = current.ActionId,
                 RefId = current.RefId,
-                VariantId = ProfileKind.IsRef(current.Kind) ? current.VariantId : (IsBlank(variantId) ? current.VariantId : variantId.Trim()),
+                VariantId = ProfileKind.IsCustom(current.Kind) || IsBlank(current.ActionId) ? current.VariantId : (IsBlank(variantId) ? current.VariantId : variantId.Trim()),
                 Vals = vals == null ? new Dictionary<string, string>(current.Vals) : new Dictionary<string, string>(vals),
+                Pairs = pairs == null ? current.Pairs : (pairs.Count == 0 ? null : pairs.ToList()),
             };
             var problem = CheckProfile(ws, copy);
             if (problem != null)
@@ -92,6 +94,7 @@ namespace Toolbox.Core.Workspaces
             current.Label = copy.Label;
             current.VariantId = copy.VariantId;
             current.Vals = copy.Vals;
+            current.Pairs = copy.Pairs;
             return null;
         }
 
@@ -109,11 +112,34 @@ namespace Toolbox.Core.Workspaces
 
         private static string CheckProfile(Workspace ws, Profile profile)
         {
-            if (ProfileKind.IsRef(profile.Kind))
-                return CheckRefProfile(ws, profile);
+            // Dạng cũ (MCP/gói cũ): kind "library" + refId = toolId → kind = toolId, chạy lệnh gốc.
+            if (ProfileKind.IsLibrary(profile.Kind))
+            {
+                if (IsBlank(profile.RefId))
+                    return "Profile loại library cần refId (id tool).";
+                profile.Kind = profile.RefId.Trim();
+                profile.ActionId = "";
+                profile.VariantId = null;
+                profile.RefId = null;
+            }
+            if (ProfileKind.IsCustom(profile.Kind))
+                return CheckCustomProfile(ws, profile);
             var binding = ws.Binding(profile.Kind);
             if (binding == null)
                 return $"Workspace chưa có tool \"{profile.Kind}\". Thêm tool trước bằng add_tool.";
+            profile.Kind = binding.ToolId;
+            profile.RefId = null;
+            if (IsBlank(profile.ActionId))
+            {
+                // Hậu tố rỗng: chạy lệnh gốc + tham số hiệu lực + Vals["args"].
+                profile.ActionId = "";
+                profile.VariantId = null;
+                if (profile.Vals == null)
+                    profile.Vals = new Dictionary<string, string>();
+                if (StackResolver.FindTool(binding.ToolId) == null)
+                    return $"Tool \"{binding.ToolId}\" không còn trong thư viện.";
+                return profile.ArgsError;
+            }
             var action = ToolCatalog.FindAction(ws, binding, profile.ActionId);
             if (action == null)
                 return $"Không có lệnh \"{profile.ActionId}\" của {profile.Kind}. Dùng list_setup để xem action.";
@@ -122,51 +148,40 @@ namespace Toolbox.Core.Workspaces
                 : action.Variants.FirstOrDefault(v => Same(v.Id, profile.VariantId));
             if (variant == null)
                 return $"Không có biến thể \"{profile.VariantId}\" của lệnh \"{profile.ActionId}\".";
-            profile.Kind = binding.Kind;
+            profile.Kind = binding.ToolId;
             profile.VariantId = variant.Id;
-            var errors = CommandBuilder.Validate(variant, profile.Vals);
+            var vals = profile.Vals;
+            if (profile.HasPairs)
+            {
+                // Cặp thay cho ô {args}: kiểm cặp riêng, các ô còn lại (cổng...) kiểm như thường.
+                if (profile.ArgsError != null)
+                    return profile.ArgsError;
+                vals = new Dictionary<string, string>(vals ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase) { [ProfileKind.ArgsKey] = "" };
+            }
+            var errors = CommandBuilder.Validate(variant, vals);
             return errors.Count == 0 ? null : string.Join(" ", errors.Values);
         }
 
         /// <summary>
-        /// Profile loại library: RefId là tool đã gắn vào workspace hoặc có trong thư viện (<paramref name="library"/>, null thì thư viện mặc định).
-        /// Loại custom: RefId là id một lệnh riêng của workspace. ActionId/VariantId được xoá trống; tham số thêm (args) phải an toàn.
+        /// Profile lệnh riêng: RefId là id một lệnh riêng của workspace. ActionId/VariantId được xoá trống; tham số thêm (args) phải an toàn.
         /// </summary>
-        private static string CheckRefProfile(Workspace ws, Profile profile)
+        private static string CheckCustomProfile(Workspace ws, Profile profile)
         {
-            profile.Kind = ProfileKind.IsLibrary(profile.Kind) ? ProfileKind.Library : ProfileKind.Custom;
+            profile.Kind = ProfileKind.Custom;
             profile.RefId = profile.RefId?.Trim();
             profile.ActionId = null;
             profile.VariantId = null;
             if (IsBlank(profile.RefId))
-                return profile.Kind == ProfileKind.Library
-                    ? "Profile loại library cần refId (id tool trong thư viện)."
-                    : "Profile loại custom cần refId (id lệnh riêng).";
+                return "Profile loại custom cần refId (id lệnh riêng).";
 
-            if (profile.Kind == ProfileKind.Custom)
-            {
-                var command = ws.Customs.Find(c => Same(c.Id, profile.RefId));
-                if (command == null)
-                    return $"Không có lệnh riêng \"{profile.RefId}\" trong workspace. Dùng search type=custom để xem id.";
-                profile.RefId = command.Id;
-            }
-            else
-            {
-                var binding = ws.FindLibrary(profile.RefId);
-                if (binding != null)
-                    profile.RefId = binding.ToolId;
-                else
-                {
-                    var tool = StackResolver.LibraryStore(null)?.Find(profile.RefId);
-                    if (tool == null)
-                        return $"Không có tool \"{profile.RefId}\" trong workspace hay thư viện. Dùng search type=library để xem id.";
-                    profile.RefId = tool.Id;
-                }
-            }
+            var command = ws.Customs.Find(c => Same(c.Id, profile.RefId));
+            if (command == null)
+                return $"Không có lệnh riêng \"{profile.RefId}\" trong workspace. Dùng search type=custom để xem id.";
+            profile.RefId = command.Id;
 
             if (profile.Vals == null)
                 profile.Vals = new Dictionary<string, string>();
-            return CommandBuilder.CheckExtraArgs(profile.ExtraArgs);
+            return profile.ArgsError;
         }
 
         // ----- Lệnh riêng -----

@@ -43,7 +43,7 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 | **AI agent (MCP)** | `Toolbox.exe --mcp` chạy MCP server qua stdio, không mở cửa sổ. Trong workspace agent thấy **12 công cụ cố định** (`overview`, `search`, `get`, `save`, `delete`, `attach`, `run`, `logs`, `propose`…), nên workspace có 5 hay 500 profile vẫn vậy. Agent thêm, sửa, xoá tool riêng, profile, bộ chạy trong workspace tuỳ ý. |
 | | Trang **Agent**: mỗi kết nối là một agent có tên, phạm vi (một workspace hoặc toàn máy) và quyền chạy. Agent muốn sửa hoặc xoá tool dùng chung thì gửi **đề xuất**, bạn duyệt ở tab **Chờ duyệt**. Tab **Nhật ký** ghi mọi việc agent làm. |
 | **Workspace** | **+ Thêm workspace** và chọn một thư mục dự án. Toolbox quét `.sln`, `.git`, `angular.json`, `package.json` rồi gợi ý tool, kèm lý do bằng tiếng Việt. |
-| | Mỗi workspace có tab theo loại tool (.NET, Angular, npm, Git), tab **Lệnh riêng** và tab **Bộ chạy**. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
+| | Mỗi workspace có một tab cho từng tool đã gắn, tab **Lệnh riêng** và tab **Bộ chạy**. Mọi tool là một tool trong **Thư viện** (lệnh gốc hoặc file chạy), nên tool nào cũng có bảng hậu tố (nút **Khả năng…**), chạy được lệnh gốc hoặc một hậu tố, và tạo được profile. Nút **Thêm tool** cho chọn từ thư viện, nhận gợi ý từ thư mục dự án (.NET, git, Angular, npm), hoặc **Đăng ký tool mới…** bằng đúng form của Thư viện. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
 | | Tab đầu tiên **Chạy** gom mọi bộ chạy và profile của workspace, có ô tìm profile, bấm **Chạy** là chạy. Cột trái có ô tìm workspace (từ 6 workspace trở lên) và **Ghim lên đầu** (chuột phải vào workspace). |
 | | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. Tab **Tổng quan** và **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
 | | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
@@ -198,7 +198,7 @@ Agent kết nối theo workspace thấy đúng bộ này trong `tools/list`. Cô
 | `get(type, id)` | Xem đầy đủ một mục. Không trả đường dẫn máy. |
 | `save(type, id?, …)` | Có `id`: sửa; không có: tạo. `type=tool` có `id` thì chỉ gửi đề xuất (kèm `reason`). |
 | `delete(type, id)` | Xoá khỏi workspace. `type=tool` chỉ gỡ khỏi workspace, tool vẫn còn trong thư viện. |
-| `attach(id` hoặc `kind)` | Gắn tool có sẵn trong thư viện (`id`), hoặc loại tool dựng sẵn của dự án (`kind`: dotnet, git, angular, npm). |
+| `attach(id` hoặc `kind)` | Gắn tool trong thư viện vào workspace (`id` hoặc `kind`, cả hai là Id tool). |
 | `run(type, id?, …)` | Chạy profile, bộ chạy, lệnh riêng, tool thư viện hoặc một lệnh (`type=action`). Bị chặn nếu agent không có quyền chạy. |
 | `logs(id, tail?)` | Log gần nhất của lần chạy do phiên này khởi chạy (mặc định 200 dòng). |
 | `propose(change, id, reason?, …)` | Đề xuất `update` hoặc `delete` tool dùng chung. Chỉ có hiệu lực sau khi bạn duyệt. |
@@ -321,7 +321,7 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 - Chưa có tab Lịch sử trên GUI. Xem thay đổi của agent ở `changes.log`.
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
 - Với `.bat` và `.cmd`, `cmd.exe` diễn giải chuỗi `args`. Mô tả tool nên ghi rõ tham số hợp lệ.
-- **Chưa làm so với thiết kế mới** (`docs/plan-v10.md`, `docs/mockup/workspace-v10-wpf.html`): profile cho mọi tool (hiện profile chỉ gắn được với tool dựng sẵn dotnet, git, Angular, npm), hộp thoại **Profile mới** ba bước, sơ đồ bộ chạy sửa trực tiếp (dấu +, kéo thả), tab **Đóng gói** theo workspace, khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent.
+- **Chưa làm so với thiết kế mới** (`docs/plan-v10.md`, `docs/mockup/workspace-v10-wpf.html`): hộp thoại **Profile mới** ba bước, sơ đồ bộ chạy sửa trực tiếp (dấu +, kéo thả), tab **Đóng gói** theo workspace, khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent.
 - Chế độ chạy của agent chỉ có *tự chạy* và *không cho chạy*. Chế độ *hỏi trước mỗi lần* chưa làm vì MCP chưa có cách hỏi người dùng.
 - Duyệt đề xuất chỉ có kiểu sửa hoặc xoá tool dùng chung. Chưa có kiểu "chỉ áp dụng cho workspace này".
 - Cột trái xếp workspace theo ghim rồi theo tên, không còn theo thứ tự thêm.

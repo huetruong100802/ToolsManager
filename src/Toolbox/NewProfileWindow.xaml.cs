@@ -15,7 +15,7 @@ namespace Toolbox
     /// </summary>
     public partial class NewProfileWindow : Window
     {
-        private enum Source { Builtin, Library, Custom }
+        private enum Source { Tool, Custom }
 
         private sealed class Choice
         {
@@ -23,8 +23,6 @@ namespace Toolbox
             public string Display { get; set; }
             public ToolDef Tool;
             public ToolBinding Binding;
-            public LibraryBinding Library;
-            public ToolEntry Entry;
             public CustomCommand Custom;
             /// <summary>Lý do không chọn được (vd. tool đã bị xoá khỏi thư viện).</summary>
             public string Problem;
@@ -38,7 +36,7 @@ namespace Toolbox
         private bool _nameEdited;
         private bool _suppress;
 
-        public NewProfileWindow(Workspace workspace, ToolStore library, Func<IReadOnlyDictionary<int, string>> usedPorts)
+        public NewProfileWindow(Workspace workspace, Func<IReadOnlyDictionary<int, string>> usedPorts)
         {
             _workspace = workspace;
             _usedPorts = usedPorts;
@@ -47,25 +45,19 @@ namespace Toolbox
             var choices = new List<Choice>();
             foreach (var binding in workspace.Bindings)
             {
-                var tool = ToolCatalog.Find(binding.Kind);
-                if (tool != null)
-                    choices.Add(new Choice { Source = Source.Builtin, Tool = tool, Binding = binding, Display = tool.Name + "  ·  dựng sẵn" });
-            }
-            foreach (var lib in workspace.LibraryBindings)
-            {
-                var entry = library?.Find(lib.ToolId);
-                var name = entry?.Name ?? lib.Name ?? lib.ToolId;
+                var tool = ToolCatalog.Find(binding.ToolId);
                 choices.Add(new Choice
                 {
-                    Source = Source.Library, Library = lib, Entry = entry,
-                    Display = name + "  ·  thư viện" + (entry == null ? "  (đã bị xoá khỏi thư viện)" : ""),
-                    Problem = entry == null ? "Tool này không còn trong thư viện nên chưa tạo được profile." : null,
+                    Source = Source.Tool, Tool = tool, Binding = binding,
+                    Display = (tool?.Name ?? binding.ToolId) + (tool == null ? "  (đã bị xoá khỏi thư viện)" : ""),
+                    Problem = tool == null ? "Tool này không còn trong thư viện nên chưa tạo được profile." : null,
                 });
             }
             foreach (var custom in workspace.Customs)
                 choices.Add(new Choice { Source = Source.Custom, Custom = custom, Display = custom.Label + "  ·  lệnh riêng" });
 
             ToolList.ItemsSource = choices;
+            ToolSearch.Attach(choices, o => ((Choice)o).Display);
             ShowStep(0);
         }
 
@@ -80,8 +72,8 @@ namespace Toolbox
         private void ShowStep(int step)
         {
             _step = step;
-            ToolList.Visibility = step == 0 ? Visibility.Visible : Visibility.Collapsed;
-            CustomToolLink.Visibility = ToolList.Visibility;
+            ToolPanel.Visibility = step == 0 ? Visibility.Visible : Visibility.Collapsed;
+            CustomToolLink.Visibility = ToolPanel.Visibility;
             CommandPanel.Visibility = step == 1 ? Visibility.Visible : Visibility.Collapsed;
             ParamsPanel.Visibility = step == 2 ? Visibility.Visible : Visibility.Collapsed;
             BackButton.Visibility = step == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -93,8 +85,8 @@ namespace Toolbox
                 case 0:
                     StepTitle.Text = "1 · Chọn tool";
                     StepHint.Text = ToolList.Items.Count == 0
-                        ? "Workspace chưa có tool nào. Thêm tool dựng sẵn, tool thư viện hoặc lệnh riêng trước."
-                        : "Profile chạy được với tool dựng sẵn, tool thư viện đã gắn và lệnh riêng của workspace.";
+                        ? "Workspace chưa có tool nào. Thêm tool hoặc lệnh riêng trước."
+                        : "Profile chạy được với mọi tool đã gắn (lệnh gốc hoặc một hậu tố) và lệnh riêng của workspace.";
                     NextButton.IsEnabled = _choice != null && _choice.Problem == null;
                     break;
                 case 1:
@@ -142,9 +134,9 @@ namespace Toolbox
             _suppress = true;
             try
             {
-                if (_choice.Source == Source.Builtin)
+                if (_choice.Source == Source.Tool)
                 {
-                    StepHint.Text = "Chọn lệnh của " + _choice.Tool.Name + ".";
+                    StepHint.Text = "Chọn lệnh gốc hoặc một hậu tố của " + _choice.Tool.Name + ".";
                     FixedCommandNote.Visibility = Visibility.Collapsed;
                     ActionBox.Visibility = Visibility.Visible;
                     ActionBox.ItemsSource = ToolCatalog.ActionsFor(_workspace, _choice.Binding);
@@ -156,10 +148,8 @@ namespace Toolbox
                     ActionBox.Visibility = Visibility.Collapsed;
                     VariantPanel.Visibility = Visibility.Collapsed;
                     FixedCommandNote.Visibility = Visibility.Visible;
-                    StepHint.Text = "Lệnh của " + (_choice.Source == Source.Library ? "tool thư viện" : "lệnh riêng") + " đã cố định.";
-                    FixedCommandNote.Text = _choice.Source == Source.Library
-                        ? "Tool thư viện chạy theo cách đăng ký trong thư viện. Bước sau có thể nối thêm tham số."
-                        : "Chạy: " + _choice.Custom.CommandLine + "\nBước sau có thể nối thêm tham số.";
+                    StepHint.Text = "Lệnh riêng đã cố định.";
+                    FixedCommandNote.Text = "Chạy: " + _choice.Custom.CommandLine + "\nBước sau có thể nối thêm tham số.";
                 }
             }
             finally
@@ -180,7 +170,7 @@ namespace Toolbox
             if (action == null)
                 return;
             _row = new ActionRow(_choice.Tool, _choice.Binding, action, _usedPorts,
-                _choice.Binding == null ? null : _workspace.ResolveCwd(_choice.Binding.Cwd));
+                _choice.Binding == null ? null : CommandBuilder.ToolCwd(_workspace, _choice.Binding, ToolCatalog.FindEntry(_choice.Binding.ToolId)));
             VariantBox.ItemsSource = action.Variants;
             VariantBox.SelectedItem = _row.Variant;
             VariantPanel.Visibility = action.Variants.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -200,24 +190,23 @@ namespace Toolbox
             try
             {
                 _nameEdited = false;
-                ExtraBox.Text = "";
-                ExtraError.Visibility = Visibility.Collapsed;
-                if (_choice.Source == Source.Builtin)
+                if (_choice.Source == Source.Tool)
                 {
-                    ParamList.ItemsSource = _row.Params;
-                    ExtraPanel.Visibility = Visibility.Collapsed;
+                    // Ô {args} dạng chuỗi nhường chỗ cho trình sửa cặp bên dưới.
+                    ParamList.ItemsSource = _row.Params.Where(p => !string.Equals(p.Key, ProfileKind.ArgsKey, StringComparison.OrdinalIgnoreCase)).ToList();
                     foreach (var p in _row.Params)
                         p.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ParamRow.Value)) Refresh(); };
                     _row.Revalidate();
+                    Pairs.SetSuggestions(Suggestions());
+                    PairLabel.Text = "Tham số (nối sau lệnh)";
                 }
                 else
                 {
                     ParamList.ItemsSource = null;
-                    ExtraPanel.Visibility = Visibility.Visible;
-                    ExtraLabel.Text = _choice.Source == Source.Library
-                        ? "Tham số thêm (nối sau tham số của tool)"
-                        : "Tham số thêm (nối sau lệnh)";
+                    Pairs.SetSuggestions(null);
+                    PairLabel.Text = "Tham số thêm (nối sau lệnh)";
                 }
+                Pairs.Load(null);
                 NameBox.Text = SuggestName();
             }
             finally
@@ -227,7 +216,23 @@ namespace Toolbox
             Refresh();
         }
 
-        private void OnExtraChanged(object sender, TextChangedEventArgs e) => Refresh();
+        private void OnPairsChanged(object sender, EventArgs e)
+        {
+            if (!_suppress)
+                Refresh();
+        }
+
+        /// <summary>Cờ đã quét của action đang chọn; rỗng nếu chưa quét.</summary>
+        private IEnumerable<CapabilityEntry> Suggestions() => PairEditor.SuggestionsFor(_choice.Tool.Kind, _row.Action.Id);
+
+        /// <summary>Dòng lệnh đầy đủ: lệnh của action (hoặc lệnh riêng) nối với các cặp.</summary>
+        private string BuildLine()
+        {
+            var pairs = Pairs.GetPairs();
+            if (_choice.Source == Source.Tool)
+                return pairs.Count > 0 ? CommandBuilder.BuildWithPairs(_row.Variant, _row.Values(), pairs) : _row.Preview;
+            return CommandBuilder.JoinArgs(_choice.Custom.CommandLine, PairLine.Render(pairs));
+        }
 
         private void OnNameChanged(object sender, TextChangedEventArgs e)
         {
@@ -240,14 +245,12 @@ namespace Toolbox
         {
             switch (_choice.Source)
             {
-                case Source.Builtin:
+                case Source.Tool:
                     var name = $"{_choice.Tool.Name} · {_row.Action.Label}";
                     if (_row.Action.Variants.Count > 1)
                         name += " · " + _row.Variant.Label;
                     var port = CommandBuilder.PortOf(_row.Variant, CommandBuilder.Effective(_row.Variant, _row.Values()));
                     return port.HasValue ? name + " · :" + port.Value : name;
-                case Source.Library:
-                    return _choice.Entry.Name;
                 default:
                     return _choice.Custom.Label;
             }
@@ -258,35 +261,21 @@ namespace Toolbox
         {
             if (_choice == null || _step != 2)
                 return;
+            if (_choice.Source == Source.Tool)
+                _row.Revalidate();
             string preview;
-            string problem = null;
-            switch (_choice.Source)
+            try
             {
-                case Source.Builtin:
-                    _row.Revalidate();
-                    preview = _row.Preview;
-                    break;
-                default:
-                    var extra = ExtraBox.Text.Trim();
-                    problem = CommandBuilder.CheckExtraArgs(extra);
-                    try
-                    {
-                        preview = _choice.Source == Source.Library
-                            ? CommandBuilder.LibraryCommandLine(_choice.Entry,
-                                CommandBuilder.JoinArgs(_choice.Library.EffectiveArgs(_choice.Entry), extra))
-                            : CommandBuilder.CustomLine(_choice.Custom, extra);
-                    }
-                    catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
-                    {
-                        preview = "(chưa dựng được lệnh: " + ex.Message + ")";
-                    }
-                    break;
+                preview = BuildLine();
             }
-            PreviewText.Text = preview;
-            ExtraError.Text = problem;
-            ExtraError.Visibility = problem == null ? Visibility.Collapsed : Visibility.Visible;
+            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+            {
+                preview = "(chưa dựng được lệnh: " + ex.Message + ")";
+            }
+            var asks = PairLine.Pending(Pairs.GetPairs()).Count;
+            PreviewText.Text = asks > 0 ? preview + $"   [+{asks} giá trị hỏi lúc chạy]" : preview;
             // Tên gợi ý đi theo tham số (vd. cổng) cho tới khi người dùng tự sửa tên.
-            if (!_nameEdited && _choice.Source == Source.Builtin)
+            if (!_nameEdited && _choice.Source == Source.Tool)
             {
                 _suppress = true;
                 NameBox.Text = SuggestName();
@@ -299,9 +288,9 @@ namespace Toolbox
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
                 return false;
-            if (_choice.Source == Source.Builtin)
-                return !CommandBuilder.Validate(_row.Variant, _row.Values()).Any();
-            return CommandBuilder.CheckExtraArgs(ExtraBox.Text.Trim()) == null;
+            if (Pairs.Error != null)
+                return false;
+            return _choice.Source != Source.Tool || !CommandBuilder.Validate(_row.Variant, _row.Values()).Any();
         }
 
         private void UpdateButtons()
@@ -326,35 +315,24 @@ namespace Toolbox
             var profile = new Profile { Id = WorkspaceStore.NewId(), Label = NameBox.Text.Trim() };
             switch (_choice.Source)
             {
-                case Source.Builtin:
+                case Source.Tool:
                     profile.Kind = _choice.Tool.Kind;
                     profile.ActionId = _row.Action.Id;
-                    profile.VariantId = _row.Variant.Id;
+                    // Lệnh gốc (ActionId rỗng) không có biến thể riêng.
+                    profile.VariantId = _row.Action.Id.Length == 0 ? null : _row.Variant.Id;
                     profile.Vals = new Dictionary<string, string>(CommandBuilder.Effective(_row.Variant, _row.Values()));
-                    break;
-                case Source.Library:
-                    profile.Kind = ProfileKind.Library;
-                    profile.RefId = _choice.Library.ToolId;
-                    profile.Vals = ExtraVals();
                     break;
                 default:
                     profile.Kind = ProfileKind.Custom;
                     profile.RefId = _choice.Custom.Id;
-                    profile.Vals = ExtraVals();
+                    profile.Vals = new Dictionary<string, string>();
                     break;
             }
+            var pairs = Pairs.GetPairs();
+            profile.Pairs = pairs.Count > 0 ? pairs : null;
             Result = profile;
             RunAfter = run;
             DialogResult = true;
-        }
-
-        private Dictionary<string, string> ExtraVals()
-        {
-            var vals = new Dictionary<string, string>();
-            var extra = ExtraBox.Text.Trim();
-            if (extra.Length > 0)
-                vals[ProfileKind.ArgsKey] = extra;
-            return vals;
         }
     }
 }

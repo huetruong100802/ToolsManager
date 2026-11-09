@@ -37,7 +37,7 @@ namespace Toolbox.Tests
             var store = WorkspaceStore.Load(_workspacesPath);
             var ws = store.Add(new Workspace { Name = "Thử", Path = _dir.Combine("repo") });
             ws.BindLibrary(tools.Find("hello"));
-            ws.Profiles.Add(new Profile { Id = "p1", Label = "Gốc", Kind = ProfileKind.Library, RefId = "hello" });
+            ws.Profiles.Add(new Profile { Id = "p1", Label = "Gốc", Kind = "hello" });
             store.Save();
             _wsId = ws.Id;
         }
@@ -131,7 +131,7 @@ namespace Toolbox.Tests
 
             // Id đã bị dùng lại: từ chối.
             var store = WorkspaceStore.Load(_workspacesPath);
-            store.Find(_wsId).Profiles.Add(new Profile { Id = "p1", Label = "Dùng lại", Kind = ProfileKind.Library, RefId = "hello" });
+            store.Find(_wsId).Profiles.Add(new Profile { Id = "p1", Label = "Dùng lại", Kind = "hello" });
             store.Save();
             Assert.False(Can(entry, out _));
 
@@ -144,7 +144,7 @@ namespace Toolbox.Tests
             var restored = LoadWs().Profiles.Find(p => p.Id == "p1");
             Assert.NotNull(restored);
             Assert.Equal("Gốc", restored.Label);
-            Assert.Equal("hello", restored.RefId);
+            Assert.Equal("hello", restored.Kind);
         }
 
         [Fact]
@@ -164,7 +164,7 @@ namespace Toolbox.Tests
         [Fact]
         public void BoChayVaLenhRieng_HoanTacDuoc()
         {
-            var stack = AgentDoes("create_stack", "S", ws => ws.Stacks.Add(new StackDef { Id = "s1", Label = "S", Steps = { new StackStep { Kind = ProfileKind.Library, ProfileId = "p1" } } }));
+            var stack = AgentDoes("create_stack", "S", ws => ws.Stacks.Add(new StackDef { Id = "s1", Label = "S", Steps = { new StackStep { Kind = "hello", ProfileId = "p1" } } }));
             Assert.Equal("stack", stack.Undo.Type);
             var edit = AgentDoes("update_stack", "s1", ws => ws.Stacks.Find(s => s.Id == "s1").Label = "S2");
             Undo(edit);
@@ -192,7 +192,7 @@ namespace Toolbox.Tests
             ActivityLog.Append(_activityPath, entry);
 
             Assert.Single(undo.Also);
-            Assert.Equal(new[] { "binding", "tool" }, new[] { undo.Type }.Concat(undo.Also.Select(a => a.Type)).OrderBy(x => x).ToArray());
+            Assert.Equal(new[] { "builtin", "tool" }, new[] { undo.Type }.Concat(undo.Also.Select(a => a.Type)).OrderBy(x => x).ToArray());
 
             // Chạy tool qua MCP chỉ tăng RunCount/LastUsedAt: không được làm lệch băm.
             var t = ToolStore.Load(_toolsPath);
@@ -315,7 +315,7 @@ namespace Toolbox.Tests
         public void Mcp_SaveProfile_GhiUndo_VaHoanTacXoaProfile()
         {
             var server = Server();
-            var saved = Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"library\",\"refId\":\"hello\",\"args\":\"--a\"}");
+            var saved = Call(server, "save", "{\"type\":\"profile\",\"label\":\"Hello\",\"kind\":\"hello\",\"args\":\"--a\"}");
             Assert.False(IsError(saved), Text(saved));
 
             var entry = ActivityLog.Read(_activityPath).Single(e => e.Action == "save");

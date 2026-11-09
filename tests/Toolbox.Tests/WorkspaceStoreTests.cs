@@ -22,7 +22,7 @@ namespace Toolbox.Tests
                 var file = dir.Combine("workspaces.json");
                 var store = WorkspaceStore.Load(file);
                 var ws = store.Add(new Workspace { Name = "dxwms", Path = dir.Path });
-                ws.Bindings.Add(new ToolBinding { Kind = "angular", Cwd = "frontend" });
+                ws.Bindings.Add(new ToolBinding { ToolId = "angular", Cwd = "frontend" });
                 ws.Customs.Add(new CustomCommand { Id = "c1", Label = "Nạp dữ liệu", CommandLine = "pwsh seed.ps1", Window = true });
                 ws.Profiles.Add(new Profile { Id = "p1", Label = "FE Đối tác", Kind = "angular", ActionId = "serve", VariantId = "dev", Vals = { ["port"] = "4201" } });
                 ws.Stacks.Add(new StackDef

@@ -16,7 +16,8 @@ namespace Toolbox.Core.Workspaces
 
     /// <summary>
     /// Nhìn file đánh dấu trong thư mục để đoán workspace dùng tool nào. Luật (file nào, quét mấy cấp) lấy từ
-    /// <c>detect</c> của từng tool trong catalog, nên tool mới nhận diện được mà không sửa code.
+    /// <c>detect</c> của từng preset trong <see cref="ToolPresets"/>, nên tool mới nhận diện được mà không sửa code.
+    /// <see cref="Detection.Kind"/> là kind của preset (cũng là Id của tool thư viện sinh từ preset).
     /// </summary>
     public static class WorkspaceDetector
     {
@@ -32,7 +33,7 @@ namespace Toolbox.Core.Workspaces
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
                 return found;
 
-            foreach (var tool in ToolCatalog.All)
+            foreach (var tool in ToolPresets.All)
             {
                 if (tool.Detect == null)
                     continue;

@@ -64,9 +64,10 @@ namespace Toolbox.Tests
             {
                 dir.WriteFile(@"web\package.json", "{\"scripts\":{\"start\":\"a\",\"lint\":\"b\"}}");
                 var ws = new Workspace { Name = "w", Path = dir.Path };
-                var binding = new ToolBinding { Kind = "npm", Cwd = "web" };
+                var binding = new ToolBinding { ToolId = "npm", Cwd = "web" };
 
-                var actions = ToolCatalog.ActionsFor(ws, binding);
+                // Bỏ action gốc (Id rỗng): mọi tool đều có, đây chỉ kiểm script đọc từ package.json.
+                var actions = ToolCatalog.ActionsFor(ws, binding).Where(a => a.Id.Length > 0).ToList();
 
                 Assert.Equal(new[] { "start", "lint" }, actions.Select(a => a.Id).ToArray());
                 Assert.Equal("npm run start", actions[0].Default.Template);

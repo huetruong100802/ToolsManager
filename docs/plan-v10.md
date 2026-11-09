@@ -4,8 +4,8 @@ Nguồn thiết kế: `docs/mockup/workspace-v10-wpf.html`. Mô hình workspace 
 
 ## Hiện trạng đã kiểm chứng trong code (khác với mockup)
 
-- `Workspace` có `Bindings` (loại tool dựng sẵn dotnet/git/angular/npm từ `ToolCatalog`), `LibraryBindings` (tool thư viện gắn vào), `Customs`, `Profiles`, `Stacks`.
-  Profile chỉ gắn được với tool dựng sẵn, chưa gắn được với tool thư viện hay tool riêng. Mockup muốn mọi tool đều có profile, đây là thay đổi mô hình lớn, **chưa làm** (mục Backlog).
+- `Workspace` có `Bindings` (mọi tool, theo toolId trong thư viện), `Customs`, `Profiles`, `Stacks`. `LibraryBindings` chỉ còn để đọc file cũ (xem `docs/plan-unify-tools.md`, đã hợp nhất 2026-11-06).
+  Profile gắn được với mọi tool (đã làm trong `docs/plan-unify-tools.md`: mọi tool là `ToolEntry`, bảng hậu tố và profile khoá theo toolId); lệnh riêng vẫn là loại riêng.
 - MCP: `McpServer.cs` (lõi) + `McpServer.Setup.cs` (công cụ workspace). Chế độ workspace bật bằng `--workspace <id>`. Hiện có ~28 công cụ, tăng theo số loại thao tác chứ không theo số profile. `list_setup` trả cả cấu hình một lần.
 - `register_tool` và `update_tool` trong chế độ workspace sửa trực tiếp tool dùng chung. Chưa có danh tính agent, chưa có duyệt, chưa có nhật ký theo agent.
 

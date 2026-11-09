@@ -16,16 +16,24 @@ namespace Toolbox.Core.Workspaces
         [DataContract]
         private class WorkspaceFile
         {
+            /// <summary>Phiên bản schema; file cũ không có trường này (0) được coi là 1.</summary>
+            [DataMember(Name = "schemaVersion", EmitDefaultValue = false)]
+            public int SchemaVersion { get; set; }
+
             [DataMember(Name = "workspaces")]
             public List<Workspace> Workspaces { get; set; }
         }
 
         private readonly List<Workspace> _items;
 
-        private WorkspaceStore(string filePath, List<Workspace> items)
+        /// <summary>Schema của dữ liệu trong bộ nhớ; chỉ lên <see cref="WorkspaceMigration.CurrentSchema"/> khi đã nâng xong.</summary>
+        private int _schema;
+
+        private WorkspaceStore(string filePath, List<Workspace> items, int schema)
         {
             FilePath = filePath;
             _items = items;
+            _schema = schema;
         }
 
         public static string DefaultPath =>
@@ -35,28 +43,85 @@ namespace Toolbox.Core.Workspaces
 
         public IReadOnlyList<Workspace> Workspaces => _items;
 
-        /// <summary>File chưa tồn tại → danh sách rỗng. File hỏng → ném lỗi, không ghi đè.</summary>
-        public static WorkspaceStore Load(string filePath)
+        /// <summary>
+        /// File chưa tồn tại → danh sách rỗng. File hỏng → ném lỗi, không ghi đè.
+        /// File schema cũ được nâng bằng <see cref="WorkspaceMigration"/>, thư viện là tools.json cùng thư mục.
+        /// </summary>
+        public static WorkspaceStore Load(string filePath) => Load(filePath, null);
+
+        /// <summary>
+        /// Như <see cref="Load(string)"/>, với <paramref name="toolsPath"/> là tools.json dùng khi nâng schema (null: cùng thư mục với
+        /// <paramref name="filePath"/>). Có thay đổi thì sao lưu <c>workspaces.json.v{n}.bak</c> (n = schema cũ) rồi mới ghi;
+        /// thư viện chỉ ghi khi vừa seed tool. Nâng lỗi (IO/dữ liệu) → <see cref="InvalidDataException"/>, file gốc giữ nguyên.
+        /// </summary>
+        public static WorkspaceStore Load(string filePath, string toolsPath)
         {
+            WorkspaceStore store;
             using (Lock())
-            {
-                if (!File.Exists(filePath))
-                    return new WorkspaceStore(filePath, new List<Workspace>());
-                try
-                {
-                    using (var stream = File.OpenRead(filePath))
-                    {
-                        var file = Json.Read<WorkspaceFile>(stream);
-                        return new WorkspaceStore(filePath, file?.Workspaces ?? new List<Workspace>());
-                    }
-                }
-                catch (SerializationException ex)
-                {
-                    throw new InvalidDataException($"Không đọc được {filePath}: {ex.Message}", ex);
-                }
-            }
+                store = Read(filePath);
+            if (store._schema >= WorkspaceMigration.CurrentSchema)
+                return store;
+            // Nâng schema chạm cả tools.json: làm NGOÀI khoá workspaces để không đảo thứ tự khoá với nơi giữ khoá tools rồi ghi workspace
+            // (vd. MCP đăng ký tool), nếu không hai bên chờ nhau tới hết thời hạn khoá.
+            return store.Migrate(toolsPath ?? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(filePath)), "tools.json"));
         }
 
+        /// <summary>Đọc file workspace, chưa nâng schema. Gọi trong khoá.</summary>
+        private static WorkspaceStore Read(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return new WorkspaceStore(filePath, new List<Workspace>(), WorkspaceMigration.CurrentSchema);
+            WorkspaceFile file;
+            try
+            {
+                using (var stream = File.OpenRead(filePath))
+                    file = Json.Read<WorkspaceFile>(stream);
+            }
+            catch (SerializationException ex)
+            {
+                throw new InvalidDataException($"Không đọc được {filePath}: {ex.Message}", ex);
+            }
+            return new WorkspaceStore(filePath, file?.Workspaces ?? new List<Workspace>(), Math.Max(1, file?.SchemaVersion ?? 1));
+        }
+
+        /// <summary>
+        /// Nâng schema: seed thư viện (khoá tools), rồi mới lấy khoá workspaces để sao lưu và ghi. Trong lúc chờ khoá, tiến trình khác
+        /// có thể đã nâng xong: đọc lại và dùng bản đó. Không đổi gì thì không ghi file workspace nào.
+        /// </summary>
+        private WorkspaceStore Migrate(string toolsPath)
+        {
+            var from = _schema;
+            try
+            {
+                var library = ToolStore.Load(toolsPath);
+                var toolCount = library.Tools.Count;
+                var changed = WorkspaceMigration.Upgrade(_items, library);
+                if (library.Tools.Count != toolCount)
+                    library.Save();
+
+                using (Lock())
+                {
+                    var current = Read(FilePath);
+                    if (current._schema >= WorkspaceMigration.CurrentSchema)
+                        return current;
+                    if (changed)
+                    {
+                        var backup = $"{FilePath}.v{from}.bak";
+                        if (!File.Exists(backup))
+                            File.Copy(FilePath, backup);
+                    }
+                    _schema = WorkspaceMigration.CurrentSchema;
+                    if (changed)
+                        Save();
+                    return this;
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException)
+            {
+                throw new InvalidDataException(
+                    $"Không nâng cấp được {FilePath} lên định dạng mới (file gốc giữ nguyên): {ex.Message}", ex);
+            }
+        }
         /// <summary>Ghi ra file tạm rồi thay thế để file không hỏng nếu ghi dở.</summary>
         /// <summary>
         /// Đọc-sửa-ghi trong một khoá liên tiến trình: đọc file mới nhất, để <paramref name="change"/> sửa, rồi ghi nếu nó trả về true.
@@ -79,7 +144,7 @@ namespace Toolbox.Core.Workspaces
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(FilePath)));
                 var temp = FilePath + ".tmp";
                 using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write))
-                    Json.Write(stream, new WorkspaceFile { Workspaces = _items });
+                    Json.Write(stream, new WorkspaceFile { SchemaVersion = _schema, Workspaces = _items });
                 if (File.Exists(FilePath))
                     File.Replace(temp, FilePath, destinationBackupFileName: null);
                 else
@@ -149,33 +214,47 @@ namespace Toolbox.Core.Workspaces
             return Array.IndexOf(counts, counts.Min());
         }
 
+        /// <summary>
+        /// Khoá workspaces.json. Thứ tự khoá toàn cục là tools.json rồi workspaces.json: mỗi lần lấy khoá này đều lấy khoá tools trước
+        /// (đệ quy trong cùng luồng nên không phiền ai đã giữ sẵn). Nhờ vậy không thể có hai bên giữ khoá ngược thứ tự và chờ nhau,
+        /// kể cả giữa GUI và MCP: mọi tool đều nằm trong thư viện nên chỗ ghi workspace thường phải tra tools.json trong lúc đang giữ khoá.
+        /// </summary>
         private static IDisposable Lock()
         {
-            var mutex = new Mutex(initiallyOwned: false, name: LockName);
+            var tools = ToolStore.Lock();
+            Mutex mutex = null;
             try
             {
-                if (!mutex.WaitOne(LockTimeout))
+                mutex = new Mutex(initiallyOwned: false, name: LockName);
+                try
                 {
-                    mutex.Dispose();
-                    throw new IOException("workspaces.json đang được tiến trình khác ghi, thử lại sau.");
+                    if (!mutex.WaitOne(LockTimeout))
+                        throw new IOException("workspaces.json đang được tiến trình khác ghi, thử lại sau.");
                 }
+                catch (AbandonedMutexException)
+                {
+                    // Tiến trình trước chết khi đang giữ khoá; khoá vẫn được cấp cho ta.
+                }
+                return new Releaser(mutex, tools);
             }
-            catch (AbandonedMutexException)
+            catch
             {
-                // Tiến trình trước chết khi đang giữ khoá; khoá vẫn được cấp cho ta.
+                mutex?.Dispose();
+                tools.Dispose();
+                throw;
             }
-            return new Releaser(mutex);
         }
 
         private sealed class Releaser : IDisposable
         {
             private readonly Mutex _mutex;
-            public Releaser(Mutex mutex) { _mutex = mutex; }
+            private readonly IDisposable _tools;
+            public Releaser(Mutex mutex, IDisposable tools) { _mutex = mutex; _tools = tools; }
             public void Dispose()
             {
                 _mutex.ReleaseMutex();
                 _mutex.Dispose();
+                _tools.Dispose();
             }
-        }
-    }
+        }    }
 }

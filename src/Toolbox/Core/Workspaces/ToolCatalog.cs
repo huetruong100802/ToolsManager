@@ -47,6 +47,46 @@ namespace Toolbox.Core.Workspaces
         public static ValueSource FromValues(IReadOnlyList<string> values) =>
             new ValueSource(SourceKind.Values, null, null, null, values);
 
+        /// <summary>
+        /// Dựng nguồn từ các trường đã khai báo và kiểm cấu trúc: <paramref name="values"/> (khác null) thắng, rồi
+        /// <paramref name="file"/> + <paramref name="pattern"/>, rồi <paramref name="file"/> + <paramref name="jsonPath"/>.
+        /// Ném <see cref="InvalidDataException"/> (thông báo mở đầu bằng <paramref name="owner"/>) nếu sai.
+        /// </summary>
+        internal static ValueSource Create(string file, string jsonPath, string pattern, IEnumerable<string> values, string owner)
+        {
+            if (values != null)
+            {
+                var items = values.Select(v => (v ?? "").Trim()).ToList();
+                if (items.Any(i => !ToolCatalog.IsSafe(i)))
+                    throw new InvalidDataException($"\"{owner}\": values có mục không hợp lệ (chỉ chữ, số và : _ . - @).");
+                return FromValues(items);
+            }
+
+            if (string.IsNullOrWhiteSpace(file) || file.Contains("..") || System.IO.Path.IsPathRooted(file))
+                throw new InvalidDataException($"\"{owner}\": nguồn cần file tương đối, không ra ngoài thư mục chạy.");
+
+            if (pattern != null)
+            {
+                Regex regex;
+                try
+                {
+                    regex = new Regex(pattern, RegexOptions.Multiline, ToolCatalog.RegexTimeout);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidDataException($"\"{owner}\": pattern không hợp lệ: {ex.Message}");
+                }
+                // GetGroupNumbers luôn có 0; cần thêm ít nhất một nhóm (...) để lấy tên.
+                if (regex.GetGroupNumbers().Length < 2)
+                    throw new InvalidDataException($"\"{owner}\": pattern cần một nhóm (...) để lấy tên.");
+                return FromPattern(file, pattern);
+            }
+
+            if (jsonPath == null)
+                throw new InvalidDataException($"\"{owner}\": nguồn cần jsonPath, pattern hoặc values.");
+            return FromJson(file, jsonPath);
+        }
+
         public SourceKind Kind { get; }
         /// <summary>File tương đối với thư mục chạy; null với nguồn <see cref="SourceKind.Values"/>.</summary>
         public string File { get; }
@@ -125,6 +165,31 @@ namespace Toolbox.Core.Workspaces
         public ValueSource Source { get; }
         public string Template { get; }
         public string VariantId { get; }
+
+        /// <summary>
+        /// Hậu tố từ nguồn khai báo trên tool. Template trống thì là <paramref name="baseCommand"/> cộng <c>{id}</c>.
+        /// Nguồn sai cấu trúc (file ra ngoài thư mục chạy, pattern không có nhóm, template thiếu <c>{id}</c>...) thì null:
+        /// tool vẫn chạy được, chỉ là không có hậu tố từ nguồn.
+        /// </summary>
+        public static ActionsFromDef From(SuffixSource source, string baseCommand, string owner)
+        {
+            if (source == null)
+                return null;
+            var template = string.IsNullOrWhiteSpace(source.Template)
+                ? (string.IsNullOrEmpty(baseCommand) ? null : baseCommand + " {id}")
+                : source.Template.Trim();
+            if (template == null || !template.Contains("{id}"))
+                return null;
+            try
+            {
+                var values = source.Values != null && source.Values.Count > 0 ? source.Values : null;
+                return new ActionsFromDef(ValueSource.Create(source.File, source.JsonPath, source.Pattern, values, owner), template, "run");
+            }
+            catch (InvalidDataException)
+            {
+                return null;
+            }
+        }
     }
 
     /// <summary>
@@ -151,8 +216,9 @@ namespace Toolbox.Core.Workspaces
     /// </summary>
     public sealed class ToolDef
     {
-        public ToolDef(string kind, string name, string rule, DetectRule detect, ActionsFromDef actionsFrom, string command = null)
+        public ToolDef(string kind, string name, string rule, DetectRule detect, ActionsFromDef actionsFrom, string command = null, string helpTemplate = null)
         {
+            HelpTemplate = helpTemplate;
             Kind = kind;
             Name = name;
             Rule = rule;
@@ -172,55 +238,105 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Lệnh gốc, ví dụ <c>npx ng</c>; null nếu tool chỉ có hậu tố từ <see cref="ActionsFrom"/>.</summary>
         public string Command { get; }
 
-        /// <summary>Lệnh trợ giúp để quét hậu tố: của chính tool (<paramref name="suffix"/> rỗng) hoặc của một lệnh con.</summary>
-        public string HelpCommand(string suffix) =>
-            string.IsNullOrEmpty(Command) ? null : Command + (string.IsNullOrEmpty(suffix) ? "" : " " + suffix) + " --help";
+        /// <summary>Lệnh trợ giúp đToolIuét hậu tố: của chính tool (<paramref name="suffix"/> rỗng) hoặc của một lệnh con.</summary>
+        public string HelpCommand(string suffix)
+        {
+            if (string.IsNullOrEmpty(Command))
+                return null;
+            var template = string.IsNullOrWhiteSpace(HelpTemplate) ? "{base} {tokens} --help" : HelpTemplate.Trim();
+            return Regex.Replace(template.Replace("{base}", Command).Replace("{tokens}", suffix ?? ""), @"\s{2,}", " ").Trim();
+        }
+
+        /// <summary>Mẫu lệnh trợ giúp của tool (trống = mặc định <c>{base} {tokens} --help</c>).</summary>
+        public string HelpTemplate { get; }
+
+        /// <summary>
+        /// View trong bộ nhớ của một tool thư viện: kind = Id, lệnh gốc = <see cref="ToolEntry.BaseCommand"/>,
+        /// hậu tố từ <see cref="ToolEntry.SuffixSource"/>; không tự nhận diện (nhận diện là việc của <see cref="ToolPresets"/>).
+        /// </summary>
+        public static ToolDef From(ToolEntry entry)
+        {
+            if (entry == null)
+                throw new ArgumentNullException(nameof(entry));
+            var command = entry.BaseCommand;
+            return new ToolDef(
+                entry.Id,
+                string.IsNullOrWhiteSpace(entry.Name) ? entry.Id : entry.Name,
+                entry.Description ?? "",
+                null,
+                ActionsFromDef.From(entry.SuffixSource, command, entry.Id),
+                command,
+                entry.HelpTemplate);
+        }
     }
 
     /// <summary>
-    /// Danh mục tool và lệnh, đọc từ <c>catalog.json</c> trong thư mục dữ liệu, nên thêm tool mới chỉ cần sửa file,
-    /// không build lại app. Lần đầu chạy file được chép từ mặc định nhúng sẵn. File đổi thì đọc lại ở lần gọi sau.
-    /// File lỗi: giữ danh mục đọc được lần trước (hoặc mặc định nếu chưa có) và ghi lỗi vào <see cref="LastError"/>.
+    /// Tool dùng được trong workspace: mọi tool trong thư viện (<c>tools.json</c>), kind là <see cref="ToolEntry.Id"/>.
+    /// Mỗi lần gọi đọc qua <see cref="Source"/>; mặc định đọc <see cref="ToolStore.DefaultPath"/>, giữ bản đọc được theo
+    /// dấu thời gian và độ dài file. File lỗi: giữ danh sách đọc được lần trước và ghi lỗi vào <see cref="LastError"/>.
+    /// Preset trong <c>catalog.json</c> (nhận diện thư mục, mẫu tool) nằm ở <see cref="ToolPresets"/>.
     /// </summary>
     public static class ToolCatalog
     {
-        /// <summary>Tên tool dựng sẵn mà test và bộ chạy dùng làm mẫu. Không có gì khác trong code gắn với tool cụ thể.</summary>
+        /// <summary>Tên tool dựng sẵn mà test dùng làm mẫu. Không có gì khác trong code gắn với tool cụ thể.</summary>
         public const string DotNet = "dotnet";
         public const string Git = "git";
-
-        public const string FileName = "catalog.json";
-        private const string EmbeddedName = "catalog.default.json";
 
         /// <summary>Tên action, khoá, tên file... hợp lệ để ghép vào dòng lệnh.</summary>
         private static readonly Regex SafeKey = new Regex(@"^[A-Za-z0-9][A-Za-z0-9:_.\-@]*$", RegexOptions.Compiled);
 
-        /// <summary>Giới hạn thời gian của regex do catalog khai báo, để một pattern xấu không treo app.</summary>
-        private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+        /// <summary>Giới hạn thời gian của regex do nguồn khai báo, để một pattern xấu không treo app.</summary>
+        internal static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
 
         private static readonly object Gate = new object();
-        private static IReadOnlyList<ToolDef> _tools;
+        private static Func<IReadOnlyList<ToolEntry>> _source;
+        private static IReadOnlyList<ToolEntry> _entries;
+        private static string _path;
         private static DateTime _stamp;
         private static long _length = -1;
 
-        /// <summary>Lỗi đọc <c>catalog.json</c> lần gần nhất; null nếu ổn.</summary>
+        /// <summary>Lỗi đọc thư viện tool lần gần nhất; null nếu ổn.</summary>
         public static string LastError { get; private set; }
 
-        public static string FilePath => Path.Combine(DataDir.Root, FileName);
-
-        public static IReadOnlyList<ToolDef> All
+        /// <summary>
+        /// Nơi lấy danh sách tool. Mặc định đọc thư viện trên đĩa; test gán một hàm trả danh sách giả.
+        /// Gán null để quay về mặc định.
+        /// </summary>
+        public static Func<IReadOnlyList<ToolEntry>> Source
         {
-            get
-            {
-                lock (Gate)
-                {
-                    Reload();
-                    return _tools;
-                }
-            }
+            get => _source ?? ReadLibrary;
+            set => _source = value;
         }
 
-        public static ToolDef Find(string kind) =>
-            All.FirstOrDefault(t => string.Equals(t.Kind, kind, StringComparison.OrdinalIgnoreCase));
+        /// <summary>Mọi tool trong thư viện (bỏ mục không có Id); tool nào cũng có thể có hậu tố.</summary>
+        public static IReadOnlyList<ToolDef> All =>
+            (Source() ?? new ToolEntry[0])
+                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Id))
+                .Select(ToolDef.From)
+                .ToList();
+
+        public static ToolDef Find(string kind)
+        {
+            var entry = FindEntry(kind);
+            return entry == null ? null : ToolDef.From(entry);
+        }
+
+        /// <summary>Tool trong thư viện theo Id (kind); null nếu không có.</summary>
+        public static ToolEntry FindEntry(string kind)
+        {
+            if (string.IsNullOrEmpty(kind))
+                return null;
+            return (Source() ?? new ToolEntry[0])
+                .FirstOrDefault(e => e != null && string.Equals(e.Id, kind, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Action gốc của tool: chạy lệnh gốc không hậu tố (Id rỗng, biến thể Id rỗng), chỗ gõ thêm là <c>{args}</c>.
+        /// Mọi tool đều có action này, nên tool chưa có bảng khả năng vẫn chạy và tạo profile được.
+        /// </summary>
+        public static ActionDef BaseAction(ToolDef tool, string defaultArgs) =>
+            new ActionDef("", tool.Name, new VariantDef("", tool.Name, tool.Command + " {args}",
+                new ParamDef("args", "Tham số", defaultArgs ?? "")));
 
         /// <summary>
         /// Các action của một binding. Mỗi action là một hậu tố của lệnh gốc, nhãn là chính chữ đó. Nguồn: script đọc từ file
@@ -228,23 +344,29 @@ namespace Toolbox.Core.Workspaces
         /// </summary>
         public static IReadOnlyList<ActionDef> ActionsFor(Workspace workspace, ToolBinding binding)
         {
-            var tool = Find(binding.Kind);
-            if (tool == null)
+            var entry = FindEntry(binding.ToolId);
+            if (entry == null)
                 return new ActionDef[0];
+            var tool = ToolDef.From(entry);
+
+            var actions = new List<ActionDef>();
+            if (!string.IsNullOrEmpty(tool.Command))
+                actions.Add(BaseAction(tool, null));
+
             if (tool.ActionsFrom != null)
             {
                 var from = tool.ActionsFrom;
-                return ReadSource(workspace.ResolveCwd(binding.Cwd), from.Source)
-                    .Select(name => new ActionDef(name, name, new VariantDef(from.VariantId, name, from.Template.Replace("{id}", name))))
-                    .ToArray();
+                actions.AddRange(ReadSource(CommandBuilder.ToolCwd(workspace, binding, entry), from.Source)
+                    .Select(name => new ActionDef(name, name, new VariantDef(from.VariantId, name, from.Template.Replace("{id}", name)))));
+                return actions;
             }
             if (string.IsNullOrEmpty(tool.Command))
-                return new ActionDef[0];
+                return actions;
 
             var capabilities = LoadCapabilities(tool.Kind);
-            return capabilities == null
-                ? new ActionDef[0]
-                : CapabilityStore.Subcommands(capabilities).Select(sub => FromSubcommand(tool, capabilities, sub.Name)).ToArray();
+            if (capabilities != null)
+                actions.AddRange(CapabilityStore.Subcommands(capabilities).Select(sub => FromSubcommand(tool, capabilities, sub.Name)));
+            return actions;
         }
 
         /// <summary>
@@ -315,43 +437,6 @@ namespace Toolbox.Core.Workspaces
             }
         }
 
-        /// <summary>Đọc catalog từ JSON. Ném <see cref="InvalidDataException"/> nếu cấu trúc sai.</summary>
-        public static IReadOnlyList<ToolDef> Parse(string json)
-        {
-            var root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
-            var items = root == null ? null : Get(root, "tools") as object[];
-            if (items == null)
-                throw new InvalidDataException("catalog.json phải có mảng \"tools\".");
-
-            var tools = new List<ToolDef>();
-            foreach (var item in items)
-            {
-                var tool = item as Dictionary<string, object>;
-                if (tool == null)
-                    throw new InvalidDataException("Mỗi phần tử của \"tools\" phải là một object.");
-                var kind = Text(tool, "kind");
-                if (kind == null || !SafeKey.IsMatch(kind))
-                    throw new InvalidDataException($"Tool có kind không hợp lệ: \"{kind}\".");
-                if (tools.Any(t => string.Equals(t.Kind, kind, StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidDataException($"Trùng kind \"{kind}\" trong catalog.json.");
-
-                var command = Text(tool, "command")?.Trim();
-                var actionsFrom = ParseActionsFrom(Get(tool, "actionsFrom") as Dictionary<string, object>, kind);
-                if (string.IsNullOrEmpty(command) && actionsFrom == null)
-                    throw new InvalidDataException($"\"{kind}\": cần \"command\" (lệnh gốc) hoặc \"actionsFrom\".");
-                if (command != null && command.Any(c => "&|<>^\"%\r\n".IndexOf(c) >= 0))
-                    throw new InvalidDataException($"\"{kind}\": command không được có các ký tự & | < > ^ \" % hoặc xuống dòng.");
-                tools.Add(new ToolDef(
-                    kind,
-                    Text(tool, "name") ?? kind,
-                    Text(tool, "rule") ?? "",
-                    ParseDetect(Get(tool, "detect") as Dictionary<string, object>, kind),
-                    actionsFrom,
-                    string.IsNullOrEmpty(command) ? null : command));
-            }
-            return tools;
-        }
-
         /// <summary>Bảng khả năng của tool; file hỏng thì null (tool coi như chưa có hậu tố nào).</summary>
         private static ToolCapabilities LoadCapabilities(string kind)
         {
@@ -365,7 +450,7 @@ namespace Toolbox.Core.Workspaces
             }
         }
 
-        private static bool IsSafe(string name) => name != null && SafeKey.IsMatch(name);
+        internal static bool IsSafe(string name) => name != null && SafeKey.IsMatch(name);
 
         /// <summary>Nhóm 1 của mỗi dòng khớp, chỉ giữ tên an toàn và không trùng. File thiếu, regex lỗi hoặc quá hạn thì rỗng.</summary>
         private static IReadOnlyList<string> ReadPattern(string file, string pattern)
@@ -387,157 +472,41 @@ namespace Toolbox.Core.Workspaces
             }
         }
 
-        private static void Reload()
+        /// <summary>Nguồn mặc định: thư viện trên đĩa. File chưa có thì rỗng; file lỗi thì giữ bản đọc được lần trước.</summary>
+        private static IReadOnlyList<ToolEntry> ReadLibrary()
         {
-            var path = FilePath;
-            try
+            lock (Gate)
             {
-                if (!File.Exists(path))
-                {
-                    Directory.CreateDirectory(DataDir.Root);
-                    File.WriteAllText(path, DefaultJson(), new UTF8Encoding(false));
-                }
-
-                var info = new FileInfo(path);
-                if (_tools != null && info.LastWriteTimeUtc == _stamp && info.Length == _length)
-                    return;
-                // Ghi nhớ trước khi đọc: file lỗi thì không đọc lại liên tục cho tới khi nó đổi.
-                _stamp = info.LastWriteTimeUtc;
-                _length = info.Length;
-                var text = File.ReadAllText(path, Encoding.UTF8);
-                var upgraded = UpgradeOutdated(path, text);
-                if (!ReferenceEquals(upgraded, text))
-                {
-                    text = upgraded;
-                    info = new FileInfo(path);
-                    _stamp = info.LastWriteTimeUtc;
-                    _length = info.Length;
-                }
-                _tools = Parse(text);
-                LastError = null;
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException || ex is ArgumentException || ex is InvalidOperationException)
-            {
-                LastError = $"Không đọc được {path}: {ex.Message}\nTạm dùng danh mục trước đó hoặc mặc định.";
-                if (_tools == null)
-                    _tools = Parse(DefaultJson());
-            }
-        }
-
-        /// <summary>
-        /// Catalog cũ (schemaVersion thấp hơn bản mặc định) khai báo action và biến thể ngay trong file, mô hình đã bỏ.
-        /// Sao lưu thành <c>catalog.json.v{n}.bak</c> rồi ghi lại bản mặc định; trả về văn bản mới, hoặc đúng chuỗi cũ nếu không cần.
-        /// File không có schemaVersion được coi là do bạn tự viết theo định dạng hiện tại, không đụng tới.
-        /// </summary>
-        internal static string UpgradeOutdated(string path, string text)
-        {
-            var found = SchemaOf(text);
-            var fresh = DefaultJson();
-            if (found <= 0 || found >= SchemaOf(fresh))
-                return text;
-            File.Copy(path, path + ".v" + found + ".bak", true);
-            File.WriteAllText(path, fresh, new UTF8Encoding(false));
-            return fresh;
-        }
-
-        /// <summary>schemaVersion của catalog; 0 nếu thiếu hoặc không đọc được.</summary>
-        private static int SchemaOf(string json)
-        {
-            try
-            {
-                var root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
-                return root != null && root.TryGetValue("schemaVersion", out var v) ? Convert.ToInt32(v, CultureInfo.InvariantCulture) : 0;
-            }
-            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException || ex is FormatException || ex is InvalidCastException || ex is OverflowException)
-            {
-                return 0;
-            }
-        }
-
-        private static string DefaultJson()
-        {
-            using (var stream = typeof(ToolCatalog).GetTypeInfo().Assembly.GetManifestResourceStream(EmbeddedName))
-            {
-                if (stream == null)
-                    throw new InvalidDataException("Thiếu tài nguyên mặc định của danh mục tool.");
-                using (var reader = new StreamReader(stream, Encoding.UTF8))
-                    return reader.ReadToEnd();
-            }
-        }
-
-        private static DetectRule ParseDetect(Dictionary<string, object> detect, string kind)
-        {
-            if (detect == null)
-                return null;
-            var patterns = (Get(detect, "patterns") as object[] ?? new object[0]).Select(p => p as string).ToArray();
-            if (patterns.Length == 0 || patterns.Any(p => string.IsNullOrWhiteSpace(p) || p.Contains("..") || Path.IsPathRooted(p)))
-                throw new InvalidDataException($"\"{kind}\": detect.patterns phải là tên file tương đối, không rỗng.");
-            var depth = Get(detect, "depth") == null ? 0 : Convert.ToInt32(Get(detect, "depth"), CultureInfo.InvariantCulture);
-            if (depth < 0 || depth > 1)
-                throw new InvalidDataException($"\"{kind}\": detect.depth chỉ nhận 0 hoặc 1.");
-            return new DetectRule(patterns, depth, Get(detect, "requireActions") is bool require && require);
-        }
-
-        private static ActionsFromDef ParseActionsFrom(Dictionary<string, object> from, string kind)
-        {
-            if (from == null)
-                return null;
-            var template = Text(from, "template");
-            if (template == null || !template.Contains("{id}"))
-                throw new InvalidDataException($"\"{kind}\": actionsFrom.template phải có {{id}}.");
-            return new ActionsFromDef(ParseSource(from, kind), template, Text(from, "variant") ?? "run");
-        }
-
-        /// <summary>
-        /// Một nguồn: <c>values</c> (danh sách ghi sẵn), hoặc <c>file</c> + <c>pattern</c> (nhóm 1 của regex),
-        /// hoặc <c>file</c> + <c>jsonPath</c>. Kiểm cấu trúc ngay khi đọc catalog để lỗi hiện một lần, không rơi vào lúc chạy.
-        /// </summary>
-        private static ValueSource ParseSource(Dictionary<string, object> source, string kind)
-        {
-            var values = Get(source, "values") as object[];
-            if (values != null)
-            {
-                var items = values.Select(v => (Convert.ToString(v, CultureInfo.InvariantCulture) ?? "").Trim()).ToList();
-                if (items.Any(i => !IsSafe(i)))
-                    throw new InvalidDataException($"\"{kind}\": values có mục không hợp lệ (chỉ chữ, số và : _ . - @).");
-                return ValueSource.FromValues(items);
-            }
-
-            var file = Text(source, "file");
-            if (string.IsNullOrWhiteSpace(file) || file.Contains("..") || Path.IsPathRooted(file))
-                throw new InvalidDataException($"\"{kind}\": nguồn cần file tương đối, không ra ngoài thư mục chạy.");
-
-            var pattern = Text(source, "pattern");
-            if (pattern != null)
-            {
-                Regex regex;
+                var path = ToolStore.DefaultPath;
                 try
                 {
-                    regex = new Regex(pattern, RegexOptions.Multiline, RegexTimeout);
+                    if (!File.Exists(path))
+                    {
+                        _entries = new ToolEntry[0];
+                        _path = path;
+                        _length = -1;
+                        LastError = null;
+                        return _entries;
+                    }
+
+                    var info = new FileInfo(path);
+                    if (_entries != null && path == _path && info.LastWriteTimeUtc == _stamp && info.Length == _length)
+                        return _entries;
+                    // Ghi nhớ trước khi đọc: file lỗi thì không đọc lại liên tục cho tới khi nó đổi.
+                    _path = path;
+                    _stamp = info.LastWriteTimeUtc;
+                    _length = info.Length;
+                    _entries = ToolStore.Peek(path).Tools.ToList();   // chỉ đọc: không lấy khoá tools, vì có thể đang chạy trong khoá workspaces
+                    LastError = null;
                 }
-                catch (ArgumentException ex)
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException)
                 {
-                    throw new InvalidDataException($"\"{kind}\": pattern không hợp lệ: {ex.Message}");
+                    LastError = $"Không đọc được {path}: {ex.Message}\nTạm dùng danh sách tool đọc được trước đó.";
+                    if (_entries == null)
+                        _entries = new ToolEntry[0];
                 }
-                // GetGroupNumbers luôn có 0; cần thêm ít nhất một nhóm (...) để lấy tên.
-                if (regex.GetGroupNumbers().Length < 2)
-                    throw new InvalidDataException($"\"{kind}\": pattern cần một nhóm (...) để lấy tên.");
-                return ValueSource.FromPattern(file, pattern);
+                return _entries;
             }
-
-            var jsonPath = Text(source, "jsonPath");
-            if (jsonPath == null)
-                throw new InvalidDataException($"\"{kind}\": nguồn cần jsonPath, pattern hoặc values.");
-            return ValueSource.FromJson(file, jsonPath);
-        }
-
-        private static object Get(Dictionary<string, object> map, string key) =>
-            map.TryGetValue(key, out var value) ? value : null;
-
-        private static string Text(Dictionary<string, object> map, string key)
-        {
-            var value = Get(map, key);
-            return value == null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
         }
     }
 }

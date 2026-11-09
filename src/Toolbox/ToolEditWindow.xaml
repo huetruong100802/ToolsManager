@@ -13,7 +13,7 @@
         </Border>
 
         <StackPanel Margin="20,18,20,8">
-            <TextBlock Text="Đường dẫn *" Style="{StaticResource FieldLabel}" />
+            <TextBlock Text="Đường dẫn" Style="{StaticResource FieldLabel}" />
             <DockPanel Margin="0,0,0,14">
                 <Button DockPanel.Dock="Right" Content="Thư mục…" Click="OnBrowseFolder" Margin="6,0,0,0" />
                 <Button DockPanel.Dock="Right" Content="File…" Click="OnBrowseFile" Margin="8,0,0,0" />
@@ -22,7 +22,7 @@
 
             <TextBlock Text="Lệnh (tuỳ chọn)" Style="{StaticResource FieldLabel}" />
             <TextBox x:Name="CommandBox" TextChanged="OnCommandChanged" ToolTip="vd: python -m ai_autopilot" />
-            <TextBlock Text="Có lệnh thì đường dẫn ở trên là thư mục chạy lệnh. Tool không được chép hay đóng gói." Style="{StaticResource Hint}"
+            <TextBlock Text="Có lệnh thì đường dẫn ở trên là thư mục chạy lệnh (để trống: chạy tại thư mục workspace). Không có lệnh thì đường dẫn là file chạy, bắt buộc. Tool lệnh không được chép hay đóng gói." Style="{StaticResource Hint}" TextWrapping="Wrap"
                        Margin="0,4,0,14" />
 
             <Grid Margin="0,0,0,14">
@@ -50,6 +50,28 @@
             <TextBlock Text="Tag" Style="{StaticResource FieldLabel}" />
             <TextBox x:Name="TagsBox" />
             <TextBlock Text="Cách nhau bởi dấu phẩy, vd: modbus, plc" Style="{StaticResource Hint}" Margin="0,4,0,14" />
+
+            <Expander Header="Hậu tố đọc từ file (tuỳ chọn)" Margin="0,0,0,14">
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock Text="File (tương đối với thư mục chạy)" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="SuffixFileBox" ToolTip="vd: package.json" />
+                    <TextBlock Text="Khoá JSON chứa danh sách" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                    <TextBox x:Name="SuffixPathBox" ToolTip="vd: scripts" />
+                    <TextBlock Text="Mẫu lệnh (dùng {id} cho tên)" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                    <TextBox x:Name="SuffixTemplateBox" ToolTip="vd: npm run {id}; để trống thì dùng: lệnh gốc {id}" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Text="Mỗi khoá trong file thành một lệnh của tool. Để trống nếu hậu tố lấy từ trợ giúp hoặc nhập tay ở nút Khả năng… của trang tool." />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="Lệnh lấy trợ giúp (tuỳ chọn)" Margin="0,0,0,14">
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock Text="Mẫu lệnh" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="HelpTemplateBox" ToolTip="vd: {base} help {tokens}" AutomationProperties.Name="Mẫu lệnh lấy trợ giúp" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Text="Toolbox chạy lệnh này để đọc danh sách lệnh con và cờ. {base} là lệnh gốc, {tokens} là hậu tố đang quét (vd. ef migrations add). Để trống thì dùng: {base} {tokens} --help." />
+                </StackPanel>
+            </Expander>
 
             <TextBlock Text="Khi đóng gói" Style="{StaticResource FieldLabel}" />
             <ComboBox x:Name="PackCombo" Margin="0,0,0,8" SelectionChanged="OnPackChanged">

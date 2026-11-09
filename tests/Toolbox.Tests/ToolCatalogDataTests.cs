@@ -23,7 +23,7 @@ namespace Toolbox.Tests
         [Fact]
         public void Parse_ToolMoi_DocDuocDetectVaLenhGoc()
         {
-            var tool = ToolCatalog.Parse(Flutter).Single();
+            var tool = ToolPresets.Parse(Flutter).Single();
 
             Assert.Equal("flutter", tool.Kind);
             Assert.Equal("flutter", tool.Command);
@@ -36,7 +36,7 @@ namespace Toolbox.Tests
         {
             const string json = @"{ ""tools"": [ { ""kind"": ""x"", ""name"": ""X"" } ] }";
 
-            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
+            Assert.Throws<InvalidDataException>(() => ToolPresets.Parse(json));
         }
 
         [Fact]
@@ -44,7 +44,7 @@ namespace Toolbox.Tests
         {
             const string json = @"{ ""tools"": [ { ""kind"": ""x"", ""name"": ""X"", ""command"": ""x & calc"" } ] }";
 
-            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
+            Assert.Throws<InvalidDataException>(() => ToolPresets.Parse(json));
         }
 
         [Fact]
@@ -54,7 +54,7 @@ namespace Toolbox.Tests
   { ""kind"": ""flutter"", ""name"": ""A"", ""command"": ""flutter"" },
   { ""kind"": ""FLUTTER"", ""name"": ""B"", ""command"": ""flutter"" } ] }";
 
-            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
+            Assert.Throws<InvalidDataException>(() => ToolPresets.Parse(json));
         }
 
         [Fact]
@@ -63,13 +63,13 @@ namespace Toolbox.Tests
             const string json = @"{ ""tools"": [
   { ""kind"": ""x"", ""name"": ""X"", ""detect"": { ""patterns"": [ ""..\\secret.txt"" ] } } ] }";
 
-            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse(json));
+            Assert.Throws<InvalidDataException>(() => ToolPresets.Parse(json));
         }
 
         [Fact]
         public void Parse_KhongCoMangTools_BiTuChoi()
         {
-            Assert.Throws<InvalidDataException>(() => ToolCatalog.Parse("{\"khac\": 1}"));
+            Assert.Throws<InvalidDataException>(() => ToolPresets.Parse("{\"khac\": 1}"));
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Toolbox.Tests
         private static ValueSource MakeSource(string source)
         {
             var json = Make.Replace("\"file\": \"Makefile\", \"pattern\": \"^([A-Za-z0-9_.-]+):\"", source);
-            return ToolCatalog.Parse(json).Single().ActionsFrom.Source;
+            return ToolPresets.Parse(json).Single().ActionsFrom.Source;
         }
 
         [Fact]
@@ -161,12 +161,12 @@ namespace Toolbox.Tests
                 const string old = "{ \"schemaVersion\": 2, \"tools\": [ { \"kind\": \"x\", \"name\": \"X\", \"actions\": [] } ] }";
                 var path = dir.WriteFile("catalog.json", old);
 
-                var text = ToolCatalog.UpgradeOutdated(path, old);
+                var text = ToolPresets.UpgradeOutdated(path, old);
 
                 Assert.NotEqual(old, text);
                 Assert.Equal(text, File.ReadAllText(path));
                 Assert.Equal(old, File.ReadAllText(path + ".v2.bak"));
-                Assert.Contains(ToolCatalog.Parse(text), t => t.Kind == "dotnet" && t.Command == "dotnet");
+                Assert.Contains(ToolPresets.Parse(text), t => t.Kind == "dotnet" && t.Command == "dotnet");
             }
         }
 
@@ -178,10 +178,51 @@ namespace Toolbox.Tests
                 const string mine = "{ \"tools\": [ { \"kind\": \"x\", \"name\": \"X\", \"command\": \"x\" } ] }";
                 var path = dir.WriteFile("catalog.json", mine);
 
-                Assert.Same(mine, ToolCatalog.UpgradeOutdated(path, mine));
+                Assert.Same(mine, ToolPresets.UpgradeOutdated(path, mine));
                 Assert.Equal(mine, File.ReadAllText(path));
                 Assert.False(File.Exists(path + ".v0.bak"));
             }
+        }
+
+        [Fact]
+        public void ToEntry_PresetCoNguon_SinhToolThuVienCoSuffixSource()
+        {
+            var preset = ToolPresets.Parse(Make).Single();
+
+            var entry = ToolPresets.ToEntry(preset);
+            var view = ToolDef.From(entry);
+
+            Assert.Equal("make", entry.Id);
+            Assert.Equal("", entry.Path);
+            Assert.Equal(Toolbox.Core.PackMode.None, entry.Pack);
+            Assert.Equal("Makefile", entry.SuffixSource.File);
+            Assert.Equal("make {id}", entry.SuffixSource.Template);
+            Assert.Equal("make", view.Kind);
+            Assert.Null(view.Detect);
+            Assert.Equal(SourceKind.Pattern, view.ActionsFrom.Source.Kind);
+        }
+
+        [Fact]
+        public void From_NguonRaNgoaiThuMuc_BoQuaNguon()
+        {
+            var entry = new Toolbox.Core.ToolEntry
+            {
+                Id = "x", Name = "X", Command = "x",
+                SuffixSource = new Toolbox.Core.SuffixSource { File = "..\\a.json", JsonPath = "scripts" },
+            };
+
+            var view = ToolDef.From(entry);
+
+            Assert.Null(view.ActionsFrom);
+            Assert.Equal("x", view.Command);
+        }
+
+        [Fact]
+        public void BaseCommand_ToolFile_LaDuongDanTrongNgoacKep()
+        {
+            var entry = new Toolbox.Core.ToolEntry { Id = "x", Path = @"C:\tools\x.exe" };
+
+            Assert.Equal("\"C:\\tools\\x.exe\"", entry.BaseCommand);
         }
 
         [Fact]

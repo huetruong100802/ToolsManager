@@ -75,12 +75,12 @@ namespace Toolbox.Core.Agents
                 throw new InvalidOperationException(reason);
             var workspace = workspaces.Find(proposal.WorkspaceId)
                 ?? throw new System.IO.InvalidDataException($"Workspace \"{proposal.WorkspaceId}\" không còn.");
-            var binding = workspace.FindLibrary(proposal.ToolId)
+            var binding = workspace.Binding(proposal.ToolId)
                 ?? throw new System.IO.InvalidDataException(
                     $"Workspace \"{workspace.Name}\" không còn gắn tool \"{proposal.ToolName ?? proposal.ToolId}\".");
 
             var key = proposal.Fields.Keys.First();
-            // Tham số rỗng nghĩa là "dùng tham số của thư viện" (LibraryBinding.EffectiveArgs).
+            // Tham số rỗng nghĩa là "dùng tham số của thư viện" (CommandBuilder.EffectiveArgs).
             binding.Args = proposal.Fields[key];
             return $"Đã đổi tham số của \"{proposal.ToolName ?? proposal.ToolId}\" chỉ trong workspace \"{workspace.Name}\".";
         }

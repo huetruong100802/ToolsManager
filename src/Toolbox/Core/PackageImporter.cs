@@ -69,13 +69,28 @@ namespace Toolbox.Core
 
             result.Tools.AddRange(ImportTools(store, zipPath, destRoot, toolChoices ?? new Dictionary<string, ConflictResolution>(), result.ToolMap));
 
-            // Gắn tool vào workspace; Args của gói chỉ áp khi workspace chưa gắn tool đó.
-            foreach (var pair in result.ToolMap)
+            // Id tool trong gói → id trong thư viện đích (đổi khi KeepBoth); không có trong map thì giữ nguyên.
+            string MapTool(string id) => id != null && result.ToolMap.TryGetValue(id, out var mappedId) ? mappedId : id;
+
+            // Gắn tool vào workspace (tool vừa nhập, tool trong bindings/requiredKinds đã có sẵn ở thư viện đích);
+            // Args của gói chỉ áp khi workspace chưa gắn tool đó.
+            var wanted = result.ToolMap.Keys
+                .Concat(data.Bindings.Select(b => b?.ToolId))
+                .Concat(data.RequiredKinds)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            foreach (var packedId in wanted)
             {
-                var tool = store.Find(pair.Value);
-                if (tool == null || ws.FindLibrary(tool.Id) != null) continue;
-                var packed = data.Bindings.Find(b => string.Equals(b.ToolId, pair.Key, StringComparison.OrdinalIgnoreCase));
-                ws.LibraryBindings.Add(new LibraryBinding { ToolId = tool.Id, Name = tool.Name, Args = packed?.Args });
+                var tool = store.Find(MapTool(packedId));
+                if (tool == null)
+                {
+                    result.Warnings.Add("Tool \"" + packedId + "\" chưa có trong thư viện (chưa nhập), chưa gắn được vào workspace.");
+                    continue;
+                }
+                if (ws.Binding(tool.Id) != null) continue;
+                var packed = data.Bindings.Find(b => string.Equals(b?.ToolId, packedId, StringComparison.OrdinalIgnoreCase));
+                ws.Bindings.Add(new ToolBinding { ToolId = tool.Id, Args = packed?.Args });
                 result.BindingsAdded++;
             }
 
@@ -106,15 +121,24 @@ namespace Toolbox.Core
             }
 
             var profileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var profileKind = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var src in data.Profiles)
             {
                 var mapped = WorkspacePack.CloneProfile(src);
+                // Gói cũ: kind "library" + refId = toolId → kind = toolId, chạy lệnh gốc.
                 if (ProfileKind.IsLibrary(mapped.Kind) && !string.IsNullOrEmpty(mapped.RefId))
                 {
-                    if (result.ToolMap.TryGetValue(mapped.RefId, out var toolId))
-                        mapped.RefId = toolId;
-                    else if (store.Find(mapped.RefId) == null)
-                        result.Warnings.Add("Profile \"" + src.Label + "\" trỏ tool \"" + src.RefId + "\" chưa có trong thư viện (chưa nhập).");
+                    mapped.Kind = mapped.RefId;
+                    mapped.ActionId = "";
+                    mapped.VariantId = null;
+                    mapped.RefId = null;
+                }
+                if (!ProfileKind.IsCustom(mapped.Kind) && !string.IsNullOrEmpty(mapped.Kind))
+                {
+                    var toolKind = mapped.Kind;
+                    mapped.Kind = MapTool(toolKind);
+                    if (store.Find(mapped.Kind) == null)
+                        result.Warnings.Add("Profile \"" + src.Label + "\" trỏ tool \"" + toolKind + "\" chưa có trong thư viện (chưa nhập).");
                 }
                 else if (ProfileKind.IsCustom(mapped.Kind) && !string.IsNullOrEmpty(mapped.RefId))
                 {
@@ -131,7 +155,7 @@ namespace Toolbox.Core
                     if (itemConflict == ConflictResolution.Replace)
                     {
                         existing.Kind = mapped.Kind; existing.ActionId = mapped.ActionId; existing.VariantId = mapped.VariantId;
-                        existing.RefId = mapped.RefId; existing.Vals = mapped.Vals;
+                        existing.RefId = mapped.RefId; existing.Vals = mapped.Vals; existing.Pairs = mapped.Pairs;
                     }
                     continue;
                 }
@@ -139,6 +163,7 @@ namespace Toolbox.Core
                 mapped.Label = UniqueLabel(src.Label, ws.Profiles.Select(p => p.Label));
                 ws.Profiles.Add(mapped);
                 profileMap[src.Id] = mapped.Id;
+                profileKind[src.Id] = mapped.Kind;
                 result.ProfilesAdded++;
             }
 
@@ -152,10 +177,21 @@ namespace Toolbox.Core
                         Kind = step.Kind, ActionId = step.ActionId, VariantId = step.VariantId, ProfileId = step.ProfileId,
                         Wait = step.Wait, Port = step.Port, Group = step.Group,
                     };
+                    var legacyTool = ProfileKind.IsLibrary(copy.Kind);
                     if (!string.IsNullOrEmpty(copy.ProfileId))
                     {
-                        if (profileMap.TryGetValue(copy.ProfileId, out var pid))
+                        var srcProfileId = copy.ProfileId;
+                        if (profileMap.TryGetValue(srcProfileId, out var pid))
+                        {
                             copy.ProfileId = pid;
+                            // Bước cũ loại "library" có profile: tool lấy theo profile (đã map về toolId).
+                            if (legacyTool && profileKind.TryGetValue(srcProfileId, out var pkind))
+                            {
+                                copy.Kind = pkind;
+                                copy.ActionId = "";
+                                copy.VariantId = null;
+                            }
+                        }
                         else
                         {
                             result.Warnings.Add("Bộ chạy \"" + src.Label + "\" có bước trỏ profile không có trong gói; bước này mất profile.");
@@ -164,8 +200,15 @@ namespace Toolbox.Core
                     }
                     else if (ProfileKind.IsCustom(copy.Kind) && customMap.TryGetValue(copy.ActionId ?? "", out var cid))
                         copy.ActionId = cid;
-                    else if (ProfileKind.IsLibrary(copy.Kind) && result.ToolMap.TryGetValue(copy.ActionId ?? "", out var tid))
-                        copy.ActionId = tid;
+                    else if (legacyTool && !string.IsNullOrEmpty(copy.ActionId))
+                    {
+                        // Bước cũ loại "library" không profile: ActionId là toolId.
+                        copy.Kind = MapTool(copy.ActionId);
+                        copy.ActionId = "";
+                        copy.VariantId = null;
+                    }
+                    if (!ProfileKind.IsCustom(copy.Kind) && !ProfileKind.IsLibrary(copy.Kind))
+                        copy.Kind = MapTool(copy.Kind);
                     steps.Add(copy);
                 }
 

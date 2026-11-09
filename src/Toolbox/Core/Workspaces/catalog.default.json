@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "tools": [
     {
       "kind": "dotnet",
@@ -26,6 +26,7 @@
       "kind": "npm",
       "name": "npm",
       "rule": "package.json",
+      "command": "npm",
       "detect": { "patterns": [ "package.json" ], "depth": 1, "requireActions": true },
       "actionsFrom": { "file": "package.json", "jsonPath": "scripts", "template": "npm run {id}" }
     }

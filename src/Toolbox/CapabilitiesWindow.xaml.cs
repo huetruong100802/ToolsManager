@@ -34,6 +34,7 @@ namespace Toolbox
             _cwd = workingDirectory;
             _changed = changed;
             _directory = CapabilityStore.DefaultDirectory;
+            Search.TextChanged += OnSearchChanged;
             TitleText.Text = "Khả năng · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
             AddLabel.Text = tool.Command == null ? "" : "Thêm hậu tố sau " + tool.Command;
 
@@ -51,6 +52,7 @@ namespace Toolbox
                 if (_data != null)
                     StatusText.Text = "Lệnh của tool này lấy từ file (ví dụ script trong package.json), không có gì để quét.";
                 RescanButton.IsEnabled = false;
+                ImportButton.IsEnabled = false;
                 NameBox.IsEnabled = false;
                 TakesBox.IsEnabled = false;
                 DescBox.IsEnabled = false;
@@ -83,13 +85,32 @@ namespace Toolbox
                 return;
             }
 
+            // Có chữ tìm: lệnh hiện nếu chính nó hoặc cờ riêng của nó khớp; lệnh chỉ khớp qua cờ thì tự mở để thấy cờ đó.
+            var query = Core.Text.Fold((Search.Text ?? "").Trim());
+            var shown = 0;
             RowsPanel.Children.Add(HeaderRow());
             foreach (var entry in entries)
             {
+                var self = Matches(entry, query);
+                var viaFlag = !self && !CapabilityStore.IsFlag(entry.Name) && EntriesOf(entry.Name).Any(f => Matches(f, query));
+                if (!self && !viaFlag)
+                    continue;
+                shown++;
                 RowsPanel.Children.Add(EntryRow("", entry));
-                if (!CapabilityStore.IsFlag(entry.Name) && _open.Contains(entry.Name))
-                    RowsPanel.Children.Add(SubcommandBlock(entry));
+                if (!CapabilityStore.IsFlag(entry.Name) && (_open.Contains(entry.Name) || viaFlag))
+                    RowsPanel.Children.Add(SubcommandBlock(entry, self ? "" : query));
             }
+            if (shown == 0)
+                RowsPanel.Children.Add(Note("Không có mục nào khớp \"" + Search.Text.Trim() + "\"."));
+        }
+
+        private static bool Matches(CapabilityEntry entry, string foldedQuery) =>
+            foldedQuery.Length == 0 || Core.Text.Fold((entry.Name ?? "") + " " + (entry.Description ?? "")).Contains(foldedQuery);
+
+        private void OnSearchChanged(object sender, EventArgs e)
+        {
+            if (_data != null)
+                RenderRows();
         }
 
         /// <summary>Hậu tố của một phạm vi: lệnh con trước, cờ sau.</summary>
@@ -187,7 +208,7 @@ namespace Toolbox
         }
 
         /// <summary>Cờ riêng của một lệnh con: trạng thái quét, nút quét, các cờ, và chỗ thêm cờ tay.</summary>
-        private UIElement SubcommandBlock(CapabilityEntry sub)
+        private UIElement SubcommandBlock(CapabilityEntry sub, string flagQuery = "")
         {
             var scope = sub.Name;
             var panel = new StackPanel { Margin = new Thickness(28, 4, 0, 10) };
@@ -202,7 +223,7 @@ namespace Toolbox
                 TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center });
             panel.Children.Add(head);
 
-            var flags = EntriesOf(scope);
+            var flags = EntriesOf(scope).Where(f => Matches(f, flagQuery)).ToList();
             if (flags.Count == 0)
                 panel.Children.Add(Note("Chưa có cờ nào của " + scope + "."));
             foreach (var flag in flags)
@@ -258,6 +279,24 @@ namespace Toolbox
         }
 
         private async void OnRescan(object sender, RoutedEventArgs e) => await ScanAsync("");
+
+        /// <summary>Nhập lệnh và cờ từ file hoặc danh sách dán; mục đã có thì bỏ qua, mục nhập được giữ qua các lần quét lại.</summary>
+        private void OnImportClick(object sender, RoutedEventArgs e)
+        {
+            if (_data == null)
+                return;
+            var dialog = new CapabilityImportWindow(_cwd) { Owner = this };
+            if (dialog.ShowDialog() != true)
+                return;
+            var added = 0;
+            Persist(() =>
+            {
+                foreach (var item in dialog.Imported)
+                    if (CapabilityStore.AddImported(_data, item.Action ?? "", item.Name, item.TakesValue, item.Description))
+                        added++;
+            });
+            StatusText.Text = $"Đã nhập {added} mục" + (dialog.Imported.Count > added ? $", {dialog.Imported.Count - added} mục đã có nên bỏ qua." : ".");
+        }
 
         private void OnAdd(object sender, RoutedEventArgs e)
         {

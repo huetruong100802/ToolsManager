@@ -66,8 +66,7 @@ namespace Toolbox.Core.Agents
                 foreach (var p in workspace.Profiles) snap.Add(TypeProfile, p.Id, Normalize(p));
                 foreach (var s in workspace.Stacks) snap.Add(TypeStack, s.Id, Normalize(s));
                 foreach (var c in workspace.Customs) snap.Add(TypeCustom, c.Id, Normalize(c));
-                foreach (var b in workspace.LibraryBindings) snap.Add(TypeBinding, b.ToolId, Normalize(b));
-                foreach (var b in workspace.Bindings) snap.Add(TypeBuiltin, b.Kind, Normalize(b));
+                foreach (var b in workspace.Bindings) snap.Add(TypeBuiltin, b.ToolId, Normalize(b));
             }
             if (tools != null)
                 foreach (var t in tools.Tools) snap.Add(TypeTool, t.Id, Normalize(t));
@@ -233,8 +232,9 @@ namespace Toolbox.Core.Agents
                     case TypeProfile: Put(workspace.Profiles, x => x.Id, item.Id, (Profile)p.Value); break;
                     case TypeStack: Put(workspace.Stacks, x => x.Id, item.Id, (StackDef)p.Value); break;
                     case TypeCustom: Put(workspace.Customs, x => x.Id, item.Id, (CustomCommand)p.Value); break;
-                    case TypeBinding: Put(workspace.LibraryBindings, x => x.ToolId, item.Id, (LibraryBinding)p.Value); break;
-                    case TypeBuiltin: Put(workspace.Bindings, x => x.Kind, item.Id, (ToolBinding)p.Value); break;
+                    // Dữ liệu hoàn tác cũ (tool thư viện gắn riêng): nay là binding thường trong Bindings.
+                    case TypeBinding: Put(workspace.Bindings, x => x.ToolId, item.Id, ToBinding((LibraryBinding)p.Value)); break;
+                    case TypeBuiltin: Put(workspace.Bindings, x => x.ToolId, item.Id, (ToolBinding)p.Value); break;
                     default: throw new InvalidOperationException("Không biết loại đối tượng \"" + item.Type + "\".");
                 }
             }
@@ -242,6 +242,12 @@ namespace Toolbox.Core.Agents
             var text = string.Join("; ", notes);
             return "Đã hoàn tác: " + text + ".";
         }
+
+        private static ToolBinding ToBinding(LibraryBinding legacy) =>
+            legacy == null ? null : new ToolBinding { ToolId = legacy.ToolId, Args = legacy.Args };
+
+        private static LibraryBinding ToLegacy(ToolBinding binding) =>
+            binding == null ? null : new LibraryBinding { ToolId = binding.ToolId, Args = binding.Args };
 
         private static void Put<T>(List<T> list, Func<T, string> key, string id, T value) where T : class
         {
@@ -289,8 +295,8 @@ namespace Toolbox.Core.Agents
                 case TypeProfile: return NormalizeOrNull(workspace?.Profiles.Find(x => Same(x.Id)));
                 case TypeStack: return NormalizeOrNull(workspace?.Stacks.Find(x => Same(x.Id)));
                 case TypeCustom: return NormalizeOrNull(workspace?.Customs.Find(x => Same(x.Id)));
-                case TypeBinding: return NormalizeOrNull(workspace?.LibraryBindings.Find(x => Same(x.ToolId)));
-                case TypeBuiltin: return NormalizeOrNull(workspace?.Bindings.Find(x => Same(x.Kind)));
+                case TypeBinding: return NormalizeOrNull(ToLegacy(workspace?.Bindings.Find(x => Same(x.ToolId))));
+                case TypeBuiltin: return NormalizeOrNull(workspace?.Bindings.Find(x => Same(x.ToolId)));
                 case TypeTool: return NormalizeOrNull(tools?.Find(id));
                 default: return null;
             }
@@ -310,6 +316,7 @@ namespace Toolbox.Core.Agents
                     Id = p.Id, Label = p.Label, Kind = p.Kind, ActionId = p.ActionId, VariantId = p.VariantId, RefId = p.RefId,
                     Vals = new SortedDictionary<string, string>(p.Vals ?? new Dictionary<string, string>(), StringComparer.Ordinal)
                         .ToDictionary(kv => kv.Key, kv => kv.Value),
+                    Pairs = p.HasPairs ? p.Pairs.Select(x => x.Clone()).ToList() : null,
                 };
             else if (value is ToolEntry t)
             {

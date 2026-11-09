@@ -34,6 +34,11 @@ namespace Toolbox.Tests
             Root = Path.Combine(Path.GetTempPath(), "toolbox-tests-" + Guid.NewGuid().ToString("N"));
             Environment.SetEnvironmentVariable(DataDir.EnvironmentVariable, Root);
 
+            // Thư viện tool giả: mỗi preset mặc định sinh một tool (Id = kind), giống thư viện sau khi seed.
+            // Gán một lần cho cả lần chạy để các test song song không giẫm lên nhau.
+            var library = ToolPresets.Parse(ToolPresets.DefaultJson()).Select(ToolPresets.ToEntry).ToList();
+            ToolCatalog.Source = () => library;
+
             Seed("dotnet", "build", "test", "run", "restore", "publish");
             Seed("git", "status", "log", "pull", "diff", "fetch");
             var angular = Seed("angular", "serve", "build", "test");

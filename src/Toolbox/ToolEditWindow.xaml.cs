@@ -29,6 +29,10 @@ namespace Toolbox
             TagsBox.Text = string.Join(", ", entry.Tags);
             SetupBox.Text = entry.Setup ?? "";
             PackCombo.SelectedIndex = (int)entry.Pack;
+            SuffixFileBox.Text = entry.SuffixSource?.File ?? "";
+            SuffixPathBox.Text = entry.SuffixSource?.JsonPath ?? "";
+            SuffixTemplateBox.Text = entry.SuffixSource?.Template ?? "";
+            HelpTemplateBox.Text = entry.HelpTemplate ?? "";
 
             Loaded += (s, e) => (string.IsNullOrEmpty(PathBox.Text) ? PathBox : NameBox).Focus();
         }
@@ -117,22 +121,31 @@ namespace Toolbox
         {
             var path = PathBox.Text.Trim().Trim('"');
             var name = NameBox.Text.Trim();
-            if (path.Length == 0 || name.Length == 0)
+            var command = NullIfEmpty(CommandBox.Text);
+            if (name.Length == 0 || (path.Length == 0 && command == null))
             {
-                Dialogs.Error(this, "Cần nhập đường dẫn và tên.");
+                Dialogs.Error(this, "Cần nhập tên, và đường dẫn hoặc lệnh.");
                 return;
             }
 
-            var resolved = Environment.ExpandEnvironmentVariables(path);
-            if (!File.Exists(resolved) && !Directory.Exists(resolved)
-                && !Dialogs.Confirm(this, $"Không tìm thấy:\n{resolved}\n\nVẫn lưu?", warning: true))
-                return;
-
-            var command = NullIfEmpty(CommandBox.Text);
-            if (command != null && !Directory.Exists(resolved))
+            if (HelpTemplateBox.Text.IndexOf(Environment.NewLine, StringComparison.Ordinal) >= 0 || HelpTemplateBox.Text.IndexOf((char)10) >= 0)
             {
-                Dialogs.Error(this, "Với lệnh, đường dẫn phải là thư mục chạy lệnh.");
+                Dialogs.Error(this, "Mẫu lệnh lấy trợ giúp phải nằm trên một dòng.");
                 return;
+            }
+
+            // Tool lệnh có thể không có đường dẫn: chạy tại thư mục workspace.
+            var resolved = Environment.ExpandEnvironmentVariables(path);
+            if (path.Length > 0)
+            {
+                if (!File.Exists(resolved) && !Directory.Exists(resolved)
+                    && !Dialogs.Confirm(this, $"Không tìm thấy:\n{resolved}\n\nVẫn lưu?", warning: true))
+                    return;
+                if (command != null && !Directory.Exists(resolved))
+                {
+                    Dialogs.Error(this, "Với lệnh, đường dẫn phải là thư mục chạy lệnh.");
+                    return;
+                }
             }
 
             var pack = command == null ? (PackMode)Math.Max(0, PackCombo.SelectedIndex) : PackMode.None;
@@ -162,9 +175,25 @@ namespace Toolbox
             _entry.Pack = pack;
             _entry.Setup = setup.Length == 0 ? null : setup;
             _entry.Command = command;
+            _entry.SuffixSource = BuildSuffixSource();
+            _entry.HelpTemplate = NullIfEmpty(HelpTemplateBox.Text);
             if (command != null)
                 _entry.Store = StoreMode.Link;
             DialogResult = true;
+        }
+
+        /// <summary>Nguồn hậu tố từ ô nhập; giữ nguyên nguồn dạng pattern/values (chỉnh trong tools.json) nếu có.</summary>
+        private SuffixSource BuildSuffixSource()
+        {
+            var current = _entry.SuffixSource;
+            var advanced = current != null && (!string.IsNullOrEmpty(current.Pattern) || (current.Values != null && current.Values.Count > 0));
+            if (advanced)
+                return current;
+            var file = NullIfEmpty(SuffixFileBox.Text);
+            var jsonPath = NullIfEmpty(SuffixPathBox.Text);
+            if (file == null || jsonPath == null)
+                return null;
+            return new SuffixSource { File = file, JsonPath = jsonPath, Template = NullIfEmpty(SuffixTemplateBox.Text) };
         }
 
         private static string NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

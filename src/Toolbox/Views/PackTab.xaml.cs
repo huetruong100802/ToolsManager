@@ -68,8 +68,16 @@ namespace Toolbox.Views
                 _items.Add(new Item { Kind = "stack", Id = s.Id, Label = s.Label });
             foreach (var p in _workspace.Profiles)
                 _items.Add(new Item { Kind = "profile", Id = p.Id, Label = p.Label });
-            foreach (var b in _workspace.LibraryBindings)
-                _items.Add(new Item { Kind = "tool", Id = b.ToolId, Label = libraryStore?.Find(b.ToolId)?.Name ?? b.Name ?? b.ToolId });
+            // Mọi tool đã đăng ký trong thư viện đều đóng gói được, kể cả chưa gắn vào workspace này (sau gộp "một loại tool"
+            // tool gắn nằm trong Bindings; LibraryBindings chỉ còn cho file cũ). Tool gắn mà thư viện không có: vẫn hiện để biết nó thiếu.
+            var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in _workspace.Bindings)
+                if (!string.IsNullOrWhiteSpace(b.ToolId) && listed.Add(b.ToolId))
+                    _items.Add(new Item { Kind = "tool", Id = b.ToolId, Label = ToolLabel(libraryStore?.Find(b.ToolId), b.ToolId, bound: true) });
+            if (libraryStore != null)
+                foreach (var t in libraryStore.Tools.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase))
+                    if (listed.Add(t.Id))
+                        _items.Add(new Item { Kind = "tool", Id = t.Id, Label = ToolLabel(t, t.Id, bound: false) });
             foreach (var c in _workspace.Customs)
                 _items.Add(new Item { Kind = "custom", Id = c.Id, Label = c.Label });
 
@@ -81,6 +89,13 @@ namespace Toolbox.Views
             }
             Render();
             Recalculate();
+        }
+
+        private static string ToolLabel(ToolEntry tool, string id, bool bound)
+        {
+            var name = tool?.Name ?? ToolCatalog.Find(id)?.Name ?? id;
+            var kind = tool == null ? " (không có trong thư viện)" : tool.IsCommand ? " · lệnh, chỉ gửi thông tin" : "";
+            return name + kind + (bound ? "" : " · chưa gắn vào workspace");
         }
 
         private void Render()

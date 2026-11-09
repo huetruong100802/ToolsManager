@@ -427,7 +427,7 @@ namespace Toolbox.Mcp
         }
 
         private bool IsBound(Workspace workspace, string toolId) =>
-            !string.IsNullOrEmpty(toolId) && workspace.FindLibrary(toolId) != null;
+            !string.IsNullOrEmpty(toolId) && workspace.Binding(toolId) != null;
 
         private static object NotInWorkspace(string id) =>
             ToolResult($"Tool \"{id}\" không thuộc workspace này nên không thao tác được. Dùng list_tools để xem tool của workspace.", isError: true);
@@ -470,7 +470,7 @@ namespace Toolbox.Mcp
         {
             var tag = GetString(arguments, "tag");
             var tools = store.Search(GetString(arguments, "query"), tag == null ? null : new[] { tag })
-                .Where(t => workspace == null || workspace.FindLibrary(t.Id) != null)
+                .Where(t => workspace == null || workspace.Binding(t.Id) != null)
                 .Select(t => new Dictionary<string, object>
                 {
                     ["id"] = t.Id,
@@ -501,7 +501,7 @@ namespace Toolbox.Mcp
             if (tool == null)
                 return ToolResult($"Không có tool \"{id}\". Dùng list_tools để xem id.", isError: true);
 
-            var binding = workspace?.FindLibrary(id);
+            var binding = workspace?.Binding(id);
             if (workspace != null && binding == null)
                 return NotInWorkspace(id);
 
