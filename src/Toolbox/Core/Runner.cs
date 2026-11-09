@@ -131,8 +131,10 @@ namespace Toolbox.Core
             using (var process = Process.Start(info))
             {
                 process.StandardInput.Close();
-                var output = process.StandardOutput.ReadToEndAsync();
-                var error = process.StandardError.ReadToEndAsync();
+                // Đọc trên luồng riêng thay vì ReadToEndAsync: continuation của nó phụ thuộc thread pool.
+                // Khi pool bận (test song song, Task.Run(KillTree)) WaitAll bên dưới hết 5 s và output bị ghi rỗng.
+                var output = Task.Factory.StartNew(() => process.StandardOutput.ReadToEnd(), TaskCreationOptions.LongRunning);
+                var error = Task.Factory.StartNew(() => process.StandardError.ReadToEnd(), TaskCreationOptions.LongRunning);
 
                 var exited = process.WaitForExit((int)Math.Min(timeout.TotalMilliseconds, int.MaxValue));
                 if (!exited)

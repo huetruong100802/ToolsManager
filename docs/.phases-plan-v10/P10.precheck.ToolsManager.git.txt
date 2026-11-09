@@ -1,0 +1,42 @@
+ M docs/plan-v10.md
+ M src/Toolbox/Core/Workspaces/CommandBuilder.cs
+ M src/Toolbox/Core/Workspaces/StackRunner.cs
+ M src/Toolbox/Core/Workspaces/Workspace.cs
+ M src/Toolbox/Core/Workspaces/WorkspaceEditor.cs
+ M src/Toolbox/Mcp/McpServer.Generic.cs
+ M src/Toolbox/Mcp/McpServer.Setup.cs
+ M src/Toolbox/StackEditWindow.xaml.cs
+ M src/Toolbox/Views/CommandRows.cs
+ M src/Toolbox/Views/TaskRows.cs
+ M src/Toolbox/Views/TasksView.xaml
+ M src/Toolbox/Views/TasksView.xaml.cs
+ M src/Toolbox/Views/WorkspaceView.xaml.cs
+?? docs/.phases-plan-v10/
+?? docs/.phases-plan-workspace/
+?? docs/mockup/workspace-overhaul-v2.html
+?? docs/mockup/workspace-overhaul-v3.html
+?? docs/mockup/workspace-overhaul-v4.html
+?? docs/mockup/workspace-overhaul-v5.html
+?? docs/mockup/workspace-overhaul.html
+?? docs/mockup/workspace-v6.html
+?? docs/mockup/workspace-v7.html
+?? docs/mockup/workspace-v8-wpf.html
+?? docs/mockup/workspace-v9-wpf.html
+?? docs/plan-workspace.md
+?? docs/ux-capabilities.md
+?? tests/Toolbox.Tests/ProfileKindsTests.cs
+
+ docs/plan-v10.md                               |  48 ++++--
+ src/Toolbox/Core/Workspaces/CommandBuilder.cs  |  56 +++++++
+ src/Toolbox/Core/Workspaces/StackRunner.cs     | 152 ++++++++++++++++++-
+ src/Toolbox/Core/Workspaces/Workspace.cs       |  27 ++++
+ src/Toolbox/Core/Workspaces/WorkspaceEditor.cs |  49 +++++-
+ src/Toolbox/Mcp/McpServer.Generic.cs           |   9 +-
+ src/Toolbox/Mcp/McpServer.Setup.cs             |  45 +++++-
+ src/Toolbox/StackEditWindow.xaml.cs            |  22 ++-
+ src/Toolbox/Views/CommandRows.cs               |  18 +++
+ src/Toolbox/Views/TaskRows.cs                  |  60 ++++++++
+ src/Toolbox/Views/TasksView.xaml               |  83 +++++++++--
+ src/Toolbox/Views/TasksView.xaml.cs            | 198 +++++++++++++++++++++++--
+ src/Toolbox/Views/WorkspaceView.xaml.cs        |  17 +++
+ 13 files changed, 736 insertions(+), 48 deletions(-)

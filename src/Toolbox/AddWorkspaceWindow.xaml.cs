@@ -30,7 +30,7 @@ namespace Toolbox
             public DetectionOption(Detection detection)
             {
                 Detection = detection;
-                Title = ToolCatalog.Find(detection.Kind)?.Name ?? detection.Kind;
+                Title = ToolPresets.Find(detection.Kind)?.Name ?? detection.Kind;
                 Reason = detection.Reason;
                 IsChecked = true;
             }
@@ -60,7 +60,7 @@ namespace Toolbox
 
             if (text.Length == 0)
             {
-                SetHint("Toolbox đọc thư mục này để đoán dự án dùng .NET, Git, Angular hay npm.", error: false);
+                SetHint("Toolbox đọc thư mục này để đoán các tool trong catalog.json mà dự án dùng.", error: false);
                 NoDetection.Text = "Chọn thư mục để Toolbox dò tool.";
                 UpdateAddEnabled();
                 return;
@@ -142,7 +142,7 @@ namespace Toolbox
             if (options != null)
             {
                 foreach (var option in options.Where(o => o.IsChecked))
-                    workspace.Bindings.Add(new ToolBinding { Kind = option.Detection.Kind, Cwd = option.Detection.Cwd });
+                    workspace.Bindings.Add(new ToolBinding { ToolId = option.Detection.Kind, Cwd = option.Detection.Cwd });
             }
             Result = workspace;
             DialogResult = true;

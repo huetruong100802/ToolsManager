@@ -1,0 +1,54 @@
+  Toolbox -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\bin\Debug\net48\Toolbox.exe
+  Toolbox.Tests -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll
+Test run for C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll (.NETFramework,Version=v4.8)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:18.89]     Toolbox.Tests.WorkspaceRunTests.RunCustom_ChayLenhVaDocDuocLog [FAIL]
+[xUnit.net 00:00:18.91]     Toolbox.Tests.McpAgentTests.ProposalApplier_DuyetDeXuatSua_GhiVaoToolDungChung [FAIL]
+  Failed Toolbox.Tests.WorkspaceRunTests.RunCustom_ChayLenhVaDocDuocLog [11 s]
+  Error Message:
+   System.ArgumentException : Invalid JSON primitive: Không.
+  Stack Trace:
+     at System.Web.Script.Serialization.JavaScriptObjectDeserializer.DeserializePrimitiveObject()
+   at System.Web.Script.Serialization.JavaScriptObjectDeserializer.DeserializeInternal(Int32 depth)
+   at System.Web.Script.Serialization.JavaScriptObjectDeserializer.BasicDeserialize(String input, Int32 depthLimit, JavaScriptSerializer serializer)
+   at System.Web.Script.Serialization.JavaScriptSerializer.Deserialize(JavaScriptSerializer serializer, String input, Type type, Int32 depthLimit)
+   at System.Web.Script.Serialization.JavaScriptSerializer.Deserialize[T](String input)
+   at Toolbox.Tests.WorkspaceRunTests.Payload(Dictionary`2 response) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspaceRunTests.cs:line 64
+   at Toolbox.Tests.WorkspaceRunTests.<>c__DisplayClass12_0.<RunCustom_ChayLenhVaDocDuocLog>b__0() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspaceRunTests.cs:line 131
+   at Toolbox.Tests.WorkspaceRunTests.WaitUntil(Func`1 condition, Int32 seconds) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspaceRunTests.cs:line 69
+   at Toolbox.Tests.WorkspaceRunTests.RunCustom_ChayLenhVaDocDuocLog() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspaceRunTests.cs:line 129
+  Failed Toolbox.Tests.McpAgentTests.ProposalApplier_DuyetDeXuatSua_GhiVaoToolDungChung [10 s]
+  Error Message:
+   System.IO.IOException : tools.json đang được tiến trình khác ghi, thử lại sau.
+  Stack Trace:
+     at Toolbox.Core.ToolStore.Lock() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 92
+   at Toolbox.Core.ToolStore.Load(String filePath) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 58
+   at Toolbox.Tests.McpAgentTests.ProposalApplier_DuyetDeXuatSua_GhiVaoToolDungChung() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\McpAgentTests.cs:line 298
+[xUnit.net 00:00:30.77]     Toolbox.Tests.WorkspaceScopeTests.Unregister_TrongWorkspace_ChiGoKhoiWorkspaceKhongXoaKhoiThuVien [FAIL]
+  Failed Toolbox.Tests.WorkspaceScopeTests.Unregister_TrongWorkspace_ChiGoKhoiWorkspaceKhongXoaKhoiThuVien [10 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at Toolbox.Tests.WorkspaceScopeTests.Unregister_TrongWorkspace_ChiGoKhoiWorkspaceKhongXoaKhoiThuVien() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspaceScopeTests.cs:line 106
+[xUnit.net 00:00:41.15]     Toolbox.Tests.WorkspacePackTests.Import_HaiLan_KhongGhiDeThamLang [FAIL]
+  Failed Toolbox.Tests.WorkspacePackTests.Import_HaiLan_KhongGhiDeThamLang [10 s]
+  Error Message:
+   System.IO.IOException : tools.json đang được tiến trình khác ghi, thử lại sau.
+  Stack Trace:
+     at Toolbox.Core.ToolStore.Lock() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 92
+   at Toolbox.Core.ToolStore.Load(String filePath) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 58
+   at Toolbox.Tests.WorkspacePackTests.Import_HaiLan_KhongGhiDeThamLang() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\WorkspacePackTests.cs:line 289
+[xUnit.net 00:00:41.16]     Toolbox.Tests.McpGenericTests.ToolsList_TrongWorkspaceCoNguCanh_MuoiHaiCongCuCoDinh [FAIL]
+  Failed Toolbox.Tests.McpGenericTests.ToolsList_TrongWorkspaceCoNguCanh_MuoiHaiCongCuCoDinh [10 s]
+  Error Message:
+   System.IO.IOException : tools.json đang được tiến trình khác ghi, thử lại sau.
+  Stack Trace:
+     at Toolbox.Core.ToolStore.Lock() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 92
+   at Toolbox.Core.ToolStore.Load(String filePath) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Core\ToolStore.cs:line 58
+   at Toolbox.Tests.McpGenericTests.Create(TempDir dir, Int32 extraProfiles) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\McpGenericTests.cs:line 39
+   at Toolbox.Tests.McpGenericTests.ToolsList_TrongWorkspaceCoNguCanh_MuoiHaiCongCuCoDinh() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\McpGenericTests.cs:line 86
+
+Failed!  - Failed:     5, Passed:   338, Skipped:     0, Total:   343, Duration: 38 s - Toolbox.Tests.dll (net48)
+

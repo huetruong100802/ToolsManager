@@ -1,0 +1,18 @@
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(789,37): error CS1010: Newline in constant [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(789,60): error CS1003: Syntax error, ',' expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,1): error CS1010: Newline in constant [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,14): error CS1026: ) expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,14): error CS1002: ; expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+
+Build FAILED.
+
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(789,37): error CS1010: Newline in constant [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(789,60): error CS1003: Syntax error, ',' expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,1): error CS1010: Newline in constant [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,14): error CS1026: ) expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Views\WorkspaceView.xaml.cs(790,14): error CS1002: ; expected [C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\Toolbox_rps1tldk_wpftmp.csproj]
+    0 Warning(s)
+    5 Error(s)
+
+Time Elapsed 00:00:01.94
+

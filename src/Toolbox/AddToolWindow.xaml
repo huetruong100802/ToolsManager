@@ -1,32 +1,51 @@
 <Window x:Class="Toolbox.AddToolWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Thêm tool vào workspace" Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        xmlns:v="clr-namespace:Toolbox.Views"
+        Title="Thêm tool vào workspace" Width="560" Height="500" MinWidth="440" MinHeight="320"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
-                BorderThickness="0,1,0,0" Padding="20,12">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
-                <Button x:Name="OkButton" Content="Thêm" IsDefault="True" Click="OnOk" MinWidth="90"
-                        Style="{StaticResource PrimaryButton}" />
-            </StackPanel>
-        </Border>
-
-        <StackPanel Margin="20,18,20,8">
-            <TextBlock Text="Tool *" Style="{StaticResource FieldLabel}" />
-            <ComboBox x:Name="KindCombo" DisplayMemberPath="Name" SelectionChanged="OnKindChanged"
-                      AutomationProperties.Name="Tool" />
-            <TextBlock x:Name="KindHint" Style="{StaticResource Hint}" Margin="0,4,0,14" />
-
-            <TextBlock Text="Thư mục chạy" Style="{StaticResource FieldLabel}" />
-            <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Chọn thư mục…" Click="OnBrowse" Margin="8,0,0,0" />
-                <TextBox x:Name="CwdBox" TextChanged="OnCwdChanged" AutomationProperties.Name="Thư mục chạy"
-                         ToolTip="Tương đối so với thư mục workspace; để trống là chính thư mục gốc" />
-            </DockPanel>
-            <TextBlock x:Name="CwdHint" Style="{StaticResource Hint}" Margin="0,4,0,14"
-                       Text="Tương đối so với thư mục workspace; để trống là thư mục gốc." />
+    <DockPanel Margin="20,16,20,16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Thêm tool vào workspace" FontWeight="SemiBold" FontSize="15" />
+            <TextBlock x:Name="HintText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="Tick tool cần dùng. Tool nào cũng có bảng hậu tố (lệnh con, cờ) và tạo được profile sau khi thêm." />
         </StackPanel>
+
+        <v:SearchField x:Name="Search" DockPanel.Dock="Top" Placeholder="Tìm tool…" Margin="0,0,0,8" />
+
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Left" Content="Đăng ký tool mới…" Click="OnNewTool" MinWidth="130"
+                    ToolTip="Mở đúng form đăng ký của Thư viện; tool mới vào thư viện và được tick sẵn ở đây" />
+            <Button DockPanel.Dock="Right" Content="Huỷ" IsCancel="True" MinWidth="90" Margin="8,0,0,0" />
+            <Button x:Name="OkButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" MinWidth="110"
+                    IsDefault="True" Click="OnOk" Content="Thêm" IsEnabled="False" />
+            <Border />
+        </DockPanel>
+
+        <TextBlock x:Name="EmptyText" Style="{StaticResource Hint}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextWrapping="Wrap" TextAlignment="Center" Visibility="Collapsed"
+                   Text="Không còn tool nào để thêm. Bấm &quot;Đăng ký tool mới…&quot; để tạo." />
+
+        <ListBox x:Name="OptionList" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Muted}" Margin="2,10,0,2" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding IsChecked}" Margin="2,6" VerticalContentAlignment="Center">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </CheckBox>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </DockPanel>
 </Window>

@@ -1,6 +1,7 @@
 <Window x:Class="Toolbox.ImportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:Toolbox.Views"
         Title="Nhập gói" Width="700" Height="500" MinHeight="320"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
@@ -23,6 +24,8 @@
                                Text="Gói có file chạy được (exe/script). Chỉ nhập gói từ người bạn tin cậy." />
                 </DockPanel>
             </Border>
+
+            <v:SearchField x:Name="Search" DockPanel.Dock="Top" Placeholder="Tìm tool trong gói…" Margin="0,0,0,8" />
 
             <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                 <TextBlock Text="Giải nén vào" Style="{StaticResource FieldLabel}" />

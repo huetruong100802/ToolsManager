@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toolbox — mockup v5 (khả năng, profile, bộ chạy)</title>
+<style>
+  :root{
+    --bg:#F4F5FA; --card:#FFFFFF; --line:#E4E6EF; --line2:#EEF0F6;
+    --text:#1F2330; --muted:#6B7280; --faint:#9CA3AF;
+    --accent:#5046E5; --accent-soft:#EEEDFD; --accent-line:#C9C5F7;
+    --ok:#15803D; --ok-soft:#E8F6EE; --warn:#B45309; --warn-soft:#FDF3E4;
+    --danger:#B91C1C; --danger-soft:#FBEAEA;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#E9EBF3;color:var(--text);font:14px/1.45 var(--sans)}
+  button,input,select{font:inherit;color:inherit}
+  code{font-family:var(--mono);font-size:12.5px}
+
+  .mockbar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#1F2330;color:#E5E7EB;font-size:13px}
+  .mockbar b{color:#fff;margin-right:4px}
+  .mockbar .sep{flex:1}
+  .mockbar .note{color:#9CA3AF;font-size:12px;max-width:520px}
+  .seg{display:inline-flex;border:1px solid #3B4152;border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;border:0;padding:6px 11px;color:#D1D5DB;cursor:pointer}
+  .seg button.on{background:#5046E5;color:#fff}
+  .ghostbtn{background:transparent;border:1px solid #3B4152;border-radius:8px;padding:6px 12px;color:#E5E7EB;cursor:pointer}
+
+  .app{position:relative;display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 44px);margin:0 auto;max-width:1280px;background:var(--bg);border:1px solid #D5D8E4;border-top:0;overflow:hidden}
+  .rail{background:#FBFBFD;border-right:1px solid var(--line);padding:14px 10px;font-size:13px}
+  .rail h6{margin:14px 8px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .rail .it{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px}
+  .rail .it.on{background:#fff;box-shadow:0 0 0 1px var(--line);font-weight:600}
+  .dot{width:8px;height:8px;border-radius:50%;background:#5046E5;display:inline-block;flex:none}
+  .dot.gray{background:#C4C7D4}
+
+  .main{min-width:0;display:flex;flex-direction:column;position:relative}
+  .head{background:var(--card);padding:14px 22px 0;border-bottom:1px solid var(--line)}
+  .head h1{margin:0;font-size:19px;font-weight:650;display:flex;gap:10px;align-items:center}
+  .sub{margin-top:3px;color:var(--muted);font-size:12.5px}
+  .tabs{display:flex;gap:4px;margin-top:12px;align-items:flex-end;flex-wrap:wrap}
+  .tab{padding:9px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .chip-path{font-family:var(--mono);font-size:12px;background:var(--line2);border-radius:6px;padding:2px 8px;color:#374151}
+
+  .content{padding:16px 22px 40px}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;font-size:13px}
+  .btn:hover{border-color:#CFd3E2}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.primary[disabled]{background:#B9B5F0;border-color:#B9B5F0;cursor:default}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  .btn.sm{padding:3px 9px;font-size:12.5px;border-radius:7px}
+  .btn.danger{border-color:#F3C7C7;color:var(--danger)}
+  .link{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0 2px;font-weight:600}
+  .run{border:1px solid var(--accent-line);background:#fff;color:var(--accent);border-radius:7px;padding:3px 10px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .run:hover{background:var(--accent-soft)}
+
+  /* Chip khả năng */
+  .cap{font-size:11.5px;border-radius:6px;padding:2px 7px;background:var(--line2);color:var(--muted);white-space:nowrap;border:1px solid transparent;cursor:pointer;background-clip:padding-box}
+  .cap.help{background:var(--accent-soft);color:var(--accent)}
+  .cap.script{background:var(--warn-soft);color:var(--warn)}
+  .cap.config{background:var(--ok-soft);color:var(--ok)}
+  .cap.none{background:#fff;color:var(--faint);border:1px dashed #D5D8E4}
+  .cap.free{background:var(--danger-soft);color:var(--danger)}
+  .src{font-size:11px;color:var(--faint);margin-left:4px}
+
+  .tree{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .tnode{border-bottom:1px solid var(--line2)}
+  .tnode:last-child{border-bottom:0}
+  .tnode > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:11px 16px;flex-wrap:wrap}
+  .tnode > summary::-webkit-details-marker{display:none}
+  .tnode > summary::before{content:"▸";color:var(--faint);width:10px}
+  .tnode[open] > summary::before{content:"▾"}
+  .tnode > summary .nm{font-family:var(--mono);font-weight:600;font-size:13.5px}
+  .tnode > summary .cnt{margin-left:auto;font-size:12px;color:var(--muted)}
+  .tbody{padding:2px 16px 14px 36px}
+  .grp{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:8px 0 4px}
+  .caps{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px}
+  .prof{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:#FCFCFE}
+  .prof .pt{flex:1;min-width:0}
+  .prof .ps{color:var(--muted);font-size:12px;font-family:var(--mono);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prof .acts{display:flex;gap:6px}
+  .tgl{display:inline-block;font-size:11px;border-radius:999px;background:var(--line2);color:var(--muted);padding:1px 8px;margin-left:4px}
+  .warnbadge{display:inline-block;font-size:11px;border-radius:999px;background:var(--warn-soft);color:var(--warn);padding:1px 8px;margin-left:4px;font-weight:600}
+  .readrow{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);padding:6px 0 10px}
+  .note-tree{padding:10px 16px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line2)}
+
+  /* Lớp phủ và side sheet */
+  .dim{display:none;position:absolute;inset:0;background:rgba(20,22,35,.16);z-index:20}
+  .sheet{display:none;position:absolute;top:0;right:0;bottom:0;width:min(500px,100%);background:#fff;z-index:25;border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(15,18,30,.14);flex-direction:column}
+  #app[data-mode="profile"] .dim,#app[data-mode="cap"] .dim{display:block}
+  #app[data-mode="profile"] #profSheet,#app[data-mode="cap"] #capSheet{display:flex}
+  .sheet header{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .sheet header h3{margin:0;font-size:15px}
+  .sheet header .sb{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .sheet header .x{float:right;border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--muted);line-height:1}
+  .sheet .body{flex:1;overflow:auto;padding:4px 18px 10px;min-height:0}
+  .sheet footer{border-top:1px solid var(--line);padding:12px 18px;display:flex;gap:10px;align-items:center;background:#FCFCFD}
+  .sheet footer .grow{flex:1;color:var(--muted);font-size:12px}
+
+  .field{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--line2);align-items:start}
+  .field:first-child{border-top:0}
+  .field .fl b{font-size:13px;font-weight:600}
+  .field .fl code{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+  .field .fl .s{display:block;font-size:11.5px;color:var(--faint);margin-top:3px}
+  .field input[type=text],.field input[type=number],.field select{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .field input.ok{border-color:#9ED9B5}
+  .field .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .field .hint.good{color:var(--ok)}
+  .field .hint.bad{color:var(--danger)}
+  .sect{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:14px 0 2px}
+  details.more{border-top:1px solid var(--line2);padding:8px 0}
+  details.more > summary{cursor:pointer;font-size:13px;font-weight:600;list-style:none;color:var(--text)}
+  details.more > summary::before{content:"▸ ";color:var(--faint)}
+  details.more[open] > summary::before{content:"▾ "}
+  .frow{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line2);font-size:12.5px}
+  .frow code{color:var(--text)}
+  .frow small{display:block;color:var(--muted);font-size:11.5px}
+  .absent{font-size:12.5px;color:var(--muted);background:var(--line2);border-radius:8px;padding:8px 10px;margin:10px 0}
+  .preview{font-family:var(--mono);background:#0F1220;color:#E5E7EB;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.6}
+  .preview .chg{color:#86EFAC;background:rgba(134,239,172,.12);border-radius:4px;padding:0 3px}
+  .preview .old{color:#9CA3AF;text-decoration:line-through}
+  .stale{background:var(--warn-soft);color:#7C4A03;border-radius:9px;padding:9px 11px;font-size:12.5px;margin-bottom:10px}
+
+  .capt{width:100%;border-collapse:collapse;font-size:12.5px}
+  .capt th{text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:6px 4px;font-size:11.5px}
+  .capt td{border-bottom:1px solid var(--line2);padding:7px 4px;vertical-align:top}
+  .capt code{font-size:12px}
+  .raw{background:#0F1220;color:#D6DAE6;font-family:var(--mono);font-size:11.5px;border-radius:8px;padding:10px 12px;white-space:pre;overflow:auto;max-height:200px;display:none;margin-top:10px}
+  #app[data-mode="cap"] .raw.open{display:block}
+
+  /* Hộp khám phá */
+  .overlay{display:none;position:absolute;inset:0;background:rgba(20,22,35,.28);z-index:30;align-items:center;justify-content:center;padding:24px}
+  #app[data-mode="discover"] .overlay{display:flex}
+  .modal{width:min(720px,100%);background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(15,18,30,.28);display:flex;flex-direction:column;max-height:calc(100% - 20px)}
+  .modal header{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+  .modal header h3{margin:0 0 4px;font-size:16px}
+  .modal header p{margin:0;color:var(--muted);font-size:12.5px}
+  .modal .body{padding:6px 20px;overflow:auto}
+  .modal footer{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:10px;align-items:center}
+  .modal footer .grow{flex:1;color:var(--muted);font-size:12.5px}
+  .drow{display:grid;grid-template-columns:200px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line2)}
+  .drow:last-child{border-bottom:0}
+  .drow .k b{font-weight:600}
+  .drow .k small{display:block;color:var(--muted);font-size:12px}
+  .st{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .st.ok{background:var(--ok-soft);color:var(--ok)}
+  .st.none{background:var(--line2);color:var(--muted)}
+  .st.err{background:var(--danger-soft);color:var(--danger)}
+  .st.manual{background:var(--warn-soft);color:var(--warn)}
+  .drow .d{font-size:12.5px;color:var(--muted)}
+  .drow .d b{color:var(--text);font-weight:600}
+  .errbox{margin-top:6px;font-size:12px;color:var(--danger);background:var(--danger-soft);border-radius:7px;padding:6px 9px}
+
+  /* Bộ chạy */
+  .stack-split{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:start}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .panel .ph{padding:12px 14px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .stk{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 12px;cursor:pointer;border-radius:8px;margin:4px}
+  .stk.on{background:var(--accent-soft)}
+  .stk .n{font-weight:600}
+  .stk .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .stk .s.err{color:var(--danger);font-weight:600}
+  .ed{padding:14px 16px}
+  .ed h2{margin:0;font-size:15px}
+  .banner{border-radius:9px;padding:10px 12px;font-size:12.5px;margin:10px 0;display:flex;gap:8px}
+  .banner.err{background:var(--danger-soft);color:#7F1D1D}
+  .banner.warn{background:var(--warn-soft);color:#7C4A03}
+  .sstep{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff}
+  .sstep.bad{border-color:#F3B4B4}
+  .sstep .top{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .sstep .ix{width:24px;height:24px;border-radius:50%;background:var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted)}
+  .sstep .top .w{flex:1;min-width:0;font-weight:600}
+  .sstep .top .w code{font-weight:400;color:var(--muted);margin-left:6px}
+  .ddbtn{width:100%;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;text-align:left;cursor:pointer}
+  .ddbtn .path{flex:1;font-family:var(--mono);font-size:12.5px}
+  .seg2{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:max-content;margin-top:8px}
+  .seg2 button{border:0;background:#fff;padding:5px 11px;font-size:12.5px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
+  .seg2 button:last-child{border-right:0}
+  .seg2 button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .seg2 button[disabled]{color:#C4C7D4;background:#FAFAFB;cursor:not-allowed;text-decoration:line-through}
+  .why{font-size:12px;margin-top:6px;color:var(--muted)}
+  .why.bad{color:var(--danger)}
+  .why.guess{color:var(--warn)}
+  .ddpanel{margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px;box-shadow:0 8px 24px rgba(15,18,30,.10)}
+  .ddn,.ddp{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;font-size:13px}
+  .ddn .c{color:var(--faint);font-size:11.5px;margin-left:auto}
+  .ddi{padding-left:24px}
+  .ddp{padding-left:40px}
+  .ddp.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .ddp.bad{color:var(--danger)}
+  .ddp small{color:var(--faint);font-family:var(--mono);font-size:11.5px;margin-left:auto}
+  .stepbar{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .stepbar .hint{font-size:12px;color:var(--muted)}
+
+  .screen{display:none}
+  .screen.on{display:block}
+  .legend{font-size:12px;color:var(--muted);margin:0 0 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  @media (max-width: 900px){
+    .app{grid-template-columns:1fr}.rail{display:none}
+    .stack-split{grid-template-columns:1fr}
+    .field{grid-template-columns:1fr}
+    .drow{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="mockbar">
+  <span><b>Mockup v5</b> DxFactory</span>
+  <div class="seg" id="modes">
+    <button data-mode="tree" class="on">Cây lệnh</button>
+    <button data-mode="profile">Thêm profile</button>
+    <button data-mode="cap">Khả năng lệnh</button>
+    <button data-mode="discover">Khám phá tool</button>
+    <button data-mode="stack">Bộ chạy</button>
+  </div>
+  <span class="sep"></span>
+  <button class="ghostbtn" id="privacyBtn">Ẩn đường dẫn</button>
+  <span class="note">Dữ liệu thật: package.json, angular.json, <code>ng serve dxfac --help</code>. Giao diện chỉ minh hoạ, các app khác dùng cùng cấu trúc.</span>
+</div>
+
+<div class="app" id="app" data-mode="tree">
+
+  <aside class="rail">
+    <div class="it"><span>▦</span> Thư viện</div>
+    <div class="it"><span>◎</span> Tổng quan</div>
+    <div class="it"><span>≡</span> Tác vụ <span style="margin-left:auto;color:var(--faint)">1</span></div>
+    <h6>Workspace</h6>
+    <div class="it on"><span class="dot"></span> DxFactory</div>
+    <div class="it"><span class="dot gray"></span> Toolbox</div>
+  </aside>
+
+  <main class="main">
+    <header class="head">
+      <h1>DxFactory <span class="dot"></span></h1>
+      <div class="sub">npm · Angular · 52 script · 9 project</div>
+      <nav class="tabs">
+        <button class="tab on" data-view="tree">Lệnh</button>
+        <button class="tab" data-view="stack">Bộ chạy</button>
+        <button class="tab" data-view="detail">Chi tiết</button>
+      </nav>
+    </header>
+
+    <!-- MÀN CÂY LỆNH -->
+    <section class="content screen on" id="v-tree">
+      <div class="legend">
+        <span>Chip khả năng:</span>
+        <span class="cap help">từ --help</span>
+        <span class="cap script">từ script</span>
+        <span class="cap config">từ angular.json</span>
+        <span class="cap none">chưa đọc</span>
+      </div>
+
+      <div class="tree">
+        <details class="tnode" open>
+          <summary><span class="nm">start</span><span class="cnt">1 profile · script: <code>ng serve dxfac -o --port 3000</code></span></summary>
+          <div class="tbody">
+            <div class="caps">
+              <button class="cap help" data-open="cap">cổng <span class="src">--port · 0</span></button>
+              <button class="cap script">cổng 3000 <span class="src">từ script</span></button>
+              <button class="cap config">cấu hình 4 <span class="src">angular.json</span></button>
+              <button class="cap help">mở trình duyệt <span class="src">-o</span></button>
+              <button class="cap help" data-open="cap">15 cờ <span class="src">đọc 14:02</span></button>
+            </div>
+            <div class="grp">Hay dùng</div>
+            <div class="prof">
+              <div class="pt"><b>dxfac · cổng 4200</b><span class="tgl">ghim</span>
+                <div class="ps">ng serve dxfac -o --port 4200 · chạy ngầm</div></div>
+              <div class="acts"><button class="run">Chạy</button><button class="btn sm" data-open="profile">Sửa</button></div>
+            </div>
+            <div class="addrow"><button class="link" data-open="profile">+ Thêm profile cho start</button></div>
+          </div>
+        </details>
+
+        <details class="tnode">
+          <summary><span class="nm">build</span><span class="cnt">4 biến thể · 1 profile</span></summary>
+          <div class="tbody">
+            <div class="caps">
+              <button class="cap config">cấu hình 4 <span class="src">angular.json</span></button>
+              <button class="cap none">cờ chưa đọc <span class="src">bấm Đọc</span></button>
+            </div>
+            <div class="readrow">Chưa đọc cờ của <code>ng build dxfac</code>. <button class="link">Đọc ngay</button></div>
+            <div class="grp">Profile</div>
+            <div class="prof" style="border-color:#F3D7A6">
+              <div class="pt"><b>dxfac · build staging</b><span class="warnbadge">script đã đổi</span>
+                <div class="ps">node ./projects/dxfac/version.js &amp;&amp; ng build dxfac --configuration staging</div>
+                <div style="font-size:12px;color:var(--warn);margin-top:3px">Thân script đổi sau khi tạo profile. Xem lại trước khi chạy.</div></div>
+              <div class="acts"><button class="btn sm">Xem lại</button></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="tnode">
+          <summary><span class="nm">lint</span><span class="cnt">chưa có profile</span></summary>
+          <div class="tbody">
+            <div class="caps"><button class="cap none">cờ chưa đọc <span class="src">bấm Đọc</span></button></div>
+            <div class="readrow">Lệnh <code>ng lint dxfac --quiet</code>. <button class="link">Đọc cờ</button></div>
+          </div>
+        </details>
+      </div>
+      <div class="note-tree">Lệnh chưa đọc vẫn chạy được như trước. Chỉ khi tạo profile mới cần cờ, và lúc đó Toolbox đọc trước.</div>
+    </section>
+
+    <!-- MÀN BỘ CHẠY -->
+    <section class="content screen" id="v-stack">
+      <div class="stack-split">
+        <aside class="panel">
+          <div class="ph"><b>Bộ chạy</b><button class="btn sm">+ Tạo</button></div>
+          <button class="stk on">
+            <div class="n">Chạy local DxFactory</div>
+            <div class="s err">Có 1 lỗi, chưa chạy được</div>
+          </button>
+          <button class="stk">
+            <div class="n">Kiểm tra trước khi push</div>
+            <div class="s">3 bước · có 1 cảnh báo</div>
+          </button>
+        </aside>
+
+        <div class="panel">
+          <div class="ed">
+            <h2>Chạy local DxFactory</h2>
+            <div class="banner err">✕ <span><b>Bước 2 không chạy được.</b> Chờ cổng, nhưng profile “dxconnect · mặc định” không có cờ <code>--port</code>. Thêm cổng vào profile, hoặc đổi bước thành “Không chờ”.</span></div>
+
+            <!-- Bước 1: dropdown cây đang mở -->
+            <div class="sstep">
+              <div class="top"><div class="ix">1</div><div class="w">Bật dxfac <code>start</code></div></div>
+              <button class="ddbtn"><span class="path">dxfac › start › dxfac · cổng 4200</span><span>▴</span></button>
+              <div class="ddpanel">
+                <div class="ddn">▾ dxfac <span class="c">6 lệnh</span></div>
+                <div class="ddn ddi">▾ start <span class="c">1 profile</span></div>
+                <div class="ddp on">● dxfac · cổng 4200 <small>port 4200</small></div>
+                <div class="ddn ddi">▸ build <span class="c">1 profile</span></div>
+                <div class="ddn ddi">▸ lint <span class="c">0 profile</span></div>
+                <div class="ddn">▸ dxconnect <span class="c">1 profile</span></div>
+                <div class="ddn">▸ Lệnh không profile…</div>
+              </div>
+              <div class="seg2"><button class="on">Không chờ</button><button>Chờ cổng 4200</button><button disabled>Chờ thoát mã 0</button></div>
+              <div class="why">Chạy nền. Có cổng nên có thể chờ cổng.</div>
+            </div>
+
+            <!-- Bước 2: lỗi -->
+            <div class="sstep bad">
+              <div class="top"><div class="ix">2</div><div class="w">Bật dxconnect <code>start</code></div></div>
+              <button class="ddbtn"><span class="path" style="color:var(--danger)">dxconnect › start › dxconnect · mặc định</span><span>▾</span></button>
+              <div class="seg2"><button>Không chờ</button><button disabled>Chờ cổng</button><button disabled>Chờ thoát mã 0</button></div>
+              <div class="why bad">“Chờ cổng” bị khoá: profile không có cổng. Lệnh <code>ng serve dxconnect</code> không có cờ port trong script, nên Toolbox không biết cổng để chờ.</div>
+            </div>
+
+            <!-- Bước 3: đoán -->
+            <div class="sstep">
+              <div class="top"><div class="ix">3</div><div class="w">Chạy test một lần <code>ng test</code></div></div>
+              <button class="ddbtn"><span class="path">Lệnh không profile: test</span><span>▾</span></button>
+              <div class="seg2"><button>Không chờ</button><button disabled>Chờ cổng</button><button class="on">Chờ thoát mã 0</button></div>
+              <div class="why guess">Đoán “chờ thoát” từ tên lệnh test. Trợ giúp không cho biết lệnh có thoát hay không. <button class="link">Xác nhận</button></div>
+            </div>
+
+            <div class="stepbar"><button class="btn sm">+ Thêm bước</button><span class="hint">Chạy được khi không còn lỗi. Cảnh báo vẫn cho chạy.</span><span style="flex:1"></span><button class="btn primary" disabled>Chạy bộ chạy</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MÀN CHI TIẾT -->
+    <section class="content screen" id="v-detail">
+      <div class="panel" style="margin-bottom:14px">
+        <div class="ph"><b>Thư mục</b></div>
+        <div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span class="chip-path" data-full="~\Work\Repositories\newocenis\DxFactory" data-mask="…\DxFactory">~\Work\Repositories\newocenis\DxFactory</span>
+          <button class="btn sm">Sao chép</button><button class="btn sm">Mở thư mục</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><b>Khả năng của tool</b><span style="font-size:12px;color:var(--muted)">Lấy từ lệnh liệt kê của từng tool, không đoán</span></div>
+        <div style="padding:4px 14px">
+          <div class="drow"><div class="k"><b>npm</b><small>package.json</small></div><div class="d">52 script · đọc 14:02 · tự đọc lại khi package.json đổi</div><button class="btn sm">Làm mới</button></div>
+          <div class="drow"><div class="k"><b>Angular</b><small>ng help, ng &lt;lệnh&gt; &lt;project&gt; --help</small></div><div class="d">help của dxfac đọc 14:02 · project khác chưa đọc</div><button class="btn sm">Đọc project</button></div>
+          <div class="drow"><div class="k"><b>.NET</b><small>dotnet &lt;lệnh&gt; --help</small></div><div class="d">Chưa khám phá</div><button class="btn sm">Khám phá</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIDE SHEET: THÊM PROFILE -->
+    <div class="dim" data-close></div>
+    <aside class="sheet" id="profSheet" aria-label="Thêm profile">
+      <header>
+        <button class="x" data-close>×</button>
+        <h3>Profile mới cho <code>start</code></h3>
+        <div class="sb">Lệnh gốc: <code>ng serve dxfac -o --port 3000</code> (từ script <code>start:dxfac</code>)</div>
+      </header>
+      <div class="body">
+        <div class="field">
+          <div class="fl"><b>Tên</b><span class="s">gợi ý từ cờ đã đổi</span></div>
+          <div><input type="text" value="dxfac · cổng 4200"></div>
+        </div>
+
+        <div class="sect">Cờ chính</div>
+        <div class="field">
+          <div class="fl"><b>Cổng</b><code>--port</code><span class="s">số · 1024–65535 · script: 3000</span></div>
+          <div>
+            <input type="number" value="4200" class="ok">
+            <div class="hint good">✓ Không trùng cổng đang chạy</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="fl"><b>Cấu hình build</b><code>-c, --configuration</code><span class="s">danh sách từ angular.json</span></div>
+          <div>
+            <select><option>(giữ như script, không đổi)</option><option>production</option><option>staging</option><option>docker</option><option>development</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <div class="fl"><b>Mở trình duyệt</b><code>-o, --open</code><span class="s">bật/tắt · script đang bật</span></div>
+          <div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" checked style="accent-color:#5046E5"> Mở khi chạy</label></div>
+        </div>
+
+        <details class="more">
+          <summary>Cờ khác của lệnh · 12</summary>
+          <div style="padding:6px 0 4px">
+            <div class="frow"><div><code>--dev</code><small>bật chế độ dev · mặc định false</small></div><button class="btn sm">+ Thêm</button></div>
+            <div class="frow"><div><code>--rebuild-delay</code><small>số · mặc định 2000 ms</small></div><button class="btn sm">+ Thêm</button></div>
+            <div class="frow"><div><code>--watch</code><small>bật/tắt · mặc định false</small></div><button class="btn sm">+ Thêm</button></div>
+            <div class="frow"><div><code>--output-path</code><small>chuỗi · không có mặc định</small></div><button class="btn sm">+ Thêm</button></div>
+            <div style="font-size:12px;color:var(--muted);padding-top:6px">… 8 cờ nữa</div>
+          </div>
+        </details>
+
+        <div class="absent">Không có ở lệnh này: <code>--host</code>. Không có trong <code>ng serve dxfac --help</code> nên không thêm được.</div>
+
+        <div class="sect">Sẽ chạy</div>
+        <div class="preview">ng serve dxfac -o <span class="old">--port 3000</span> <span class="chg">--port 4200</span></div>
+        <div class="hint" style="font-size:12px;color:var(--muted);margin-top:6px">Đổi: <code>--port</code> 3000 → 4200. Đường dẫn chạy: Micro-Frontend.</div>
+      </div>
+      <footer>
+        <span class="grow">Nguồn: <code>ng serve dxfac --help</code> · đọc 14:02 · <button class="link">Đọc lại</button></span>
+        <button class="btn" data-close>Huỷ</button>
+        <button class="btn primary" data-close>Lưu profile</button>
+      </footer>
+    </aside>
+
+    <!-- SIDE SHEET: KHẢ NĂNG LỆNH -->
+    <aside class="sheet" id="capSheet" aria-label="Khả năng lệnh">
+      <header>
+        <button class="x" data-close>×</button>
+        <h3>Khả năng của <code>ng serve dxfac</code></h3>
+        <div class="sb">Đọc từ <code>--help</code> lúc 14:02 · 15 cờ · profile đang dùng: 1</div>
+      </header>
+      <div class="body">
+        <table class="capt">
+          <thead><tr><th>Cờ</th><th>Kiểu</th><th>Mặc định</th><th>Nguồn</th><th>Dùng trong</th></tr></thead>
+          <tbody>
+            <tr><td><code>--port</code></td><td>số</td><td>0 <span class="src">script: 3000</span></td><td><span class="cap help">--help</span></td><td>1 profile</td></tr>
+            <tr><td><code>-c, --configuration</code></td><td>chọn</td><td>không</td><td><span class="cap config">angular.json</span></td><td>0</td></tr>
+            <tr><td><code>-o, --open</code></td><td>bật/tắt</td><td>true</td><td><span class="cap help">--help</span></td><td>1 profile</td></tr>
+            <tr><td><code>--dev</code></td><td>bật/tắt</td><td>false</td><td><span class="cap help">--help</span></td><td>0</td></tr>
+            <tr><td><code>--rebuild-delay</code></td><td>số</td><td>2000</td><td><span class="cap help">--help</span></td><td>0</td></tr>
+            <tr><td><code>--watch</code></td><td>bật/tắt</td><td>false</td><td><span class="cap help">--help</span></td><td>0</td></tr>
+          </tbody>
+        </table>
+        <div class="absent" style="margin-top:12px">Không có trong danh sách: <code>--host</code>. Các cờ khác vẫn liệt kê đầy đủ trong output gốc.</div>
+        <button class="btn sm" onclick="document.getElementById('rawBox').classList.toggle('open')">Xem output gốc</button>
+        <div class="raw" id="rawBox">Usage: ng serve [project]
+Options:
+      --help                     Shows a help message for this command in the console.  [boolean]
+  -c, --configuration            One or more named builder configurations ...  [string]
+      --port  [number] [default: 0]
+  -o, --open                     Open browser?  [boolean] [default: true]
+      --dev                      Set this to true to start the builder in dev mode  [boolean] [default: false]
+      --rebuild-delay            The delay for rebuilding federation artefacts.  [number] [default: 2000]
+      --watch  [boolean] [default: false]
+      …</div>
+      </div>
+      <footer>
+        <span class="grow">Chỉ đọc. Lệnh này không thay đổi gì.</span>
+        <button class="btn" data-close>Đóng</button>
+        <button class="btn">Đọc lại</button>
+      </footer>
+    </aside>
+
+    <!-- MODAL: KHÁM PHÁ TOOL -->
+    <div class="overlay" id="discover">
+      <div class="modal" role="dialog" aria-label="Khám phá tool">
+        <header>
+          <h3>Khám phá khả năng của tool</h3>
+          <p>Toolbox chỉ chạy lệnh liệt kê và trợ giúp. Không sửa file, không cài gì. Bước nào cần cài thì báo, không tự cài.</p>
+        </header>
+        <div class="body">
+          <div class="drow">
+            <div class="k"><b>npm</b><small>package.json</small></div>
+            <div class="d"><span class="st ok">Đã đọc</span> · 52 script, đọc 14:02</div>
+            <button class="btn sm">Làm mới</button>
+          </div>
+          <div class="drow">
+            <div class="k"><b>Angular</b><small>ng help + từng project</small></div>
+            <div class="d"><span class="st ok">Đã đọc</span> · 17 lệnh · dxfac: 15 cờ<br>
+              <span class="st none">Chưa đọc</span> dxmpm, dxiiot, dxcmms, dxai, dxconnect…</div>
+            <button class="btn sm">Đọc project</button>
+          </div>
+          <div class="drow">
+            <div class="k"><b>Angular · dxconnect</b><small>ng serve dxconnect --help</small></div>
+            <div class="d"><span class="st err">Lỗi</span> · hết 10 giây khi chạy trợ giúp
+              <div class="errbox">Không đọc được cờ. Có thể máy đang bận. Thử lại, hoặc khai tay phần còn thiếu.</div></div>
+            <div style="display:flex;gap:6px;flex-direction:column"><button class="btn sm">Thử lại</button><button class="btn sm">Khai tay</button></div>
+          </div>
+          <div class="drow">
+            <div class="k"><b>.NET</b><small>dotnet &lt;lệnh&gt; --help</small></div>
+            <div class="d"><span class="st none">Chưa khám phá</span> · định dạng trợ giúp của SDK cần kiểm chứng trước</div>
+            <button class="btn sm">Khám phá</button>
+          </div>
+          <div class="drow">
+            <div class="k"><b>Git</b><small>git help -a</small></div>
+            <div class="d"><span class="st none">Chưa khám phá</span> · liệt kê được lệnh. Cờ từng lệnh chưa kiểm.</div>
+            <button class="btn sm">Khám phá</button>
+          </div>
+          <div class="drow">
+            <div class="k"><b>Tool khác (exe, script)</b></div>
+            <div class="d"><span class="st manual">Khai tay</span> · không có lệnh liệt kê. Tham số khai bằng tay, Toolbox không kiểm tra được.</div>
+            <button class="btn sm">Khai báo</button>
+          </div>
+        </div>
+        <footer>
+          <span class="grow">Lệnh liệt kê chạy với timeout 10 giây, dùng binary đã cài trong node_modules.</span>
+          <button class="btn" onclick="setMode('tree')">Đóng</button>
+        </footer>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const app = $('#app');
+
+  // Chuyển chế độ: cây lệnh, profile, khả năng, khám phá, bộ chạy
+  function setMode(m){
+    app.dataset.mode = m;
+    $$('#modes [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    const view = m === 'stack' ? 'stack' : 'tree';
+    showView(view);
+  }
+  function showView(v){
+    ['tree','stack','detail'].forEach(n => $('#v-' + n).classList.toggle('on', n === v));
+    $$('.tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.view === v));
+  }
+  window.setMode = setMode;
+
+  $$('#modes [data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  $$('[data-open]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.open)));
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => setMode('tree')));
+  $$('.tabs .tab').forEach(t => t.addEventListener('click', () => {
+    if (t.dataset.view === 'stack') setMode('stack'); else { setMode('tree'); showView(t.dataset.view); }
+  }));
+  $('#v-detail') && $$('.tabs .tab[data-view="detail"]').forEach(t => t.addEventListener('click', () => showView('detail')));
+  $('#discover').addEventListener('click', e => { if (e.target.id === 'discover') setMode('tree'); });
+
+  // Ẩn đường dẫn
+  let masked = false;
+  $('#privacyBtn').addEventListener('click', () => {
+    masked = !masked;
+    $$('[data-full]').forEach(el => el.textContent = masked ? el.dataset.mask : el.dataset.full);
+    $('#privacyBtn').textContent = masked ? 'Đang ẩn đường dẫn' : 'Ẩn đường dẫn';
+  });
+
+  // Cây thả xuống trong bộ chạy: chỉ mở/đóng cho mockup
+  $$('.ddbtn').forEach(b => b.addEventListener('click', () => {
+    const p = b.nextElementSibling;
+    if (p && p.classList.contains('ddpanel')) p.style.display = p.style.display === 'none' ? '' : 'none';
+  }));
+  $$('.seg2 button:not([disabled])').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  }));
+})();
+</script>
+</body>
+</html>

@@ -60,15 +60,19 @@ namespace Toolbox
             if (step == null)
                 return;
 
+            // Bước trỏ profile của lệnh riêng: đích là lệnh riêng mà profile tham chiếu (RefId).
+            var actionId = step.ActionId;
+            if (ProfileKind.IsCustom(step.Kind) && !string.IsNullOrEmpty(step.ProfileId))
+                actionId = workspace.Profiles.Find(p => string.Equals(p.Id, step.ProfileId, StringComparison.OrdinalIgnoreCase))?.RefId ?? actionId;
             _target = targets.FirstOrDefault(t => string.Equals(t.Kind, step.Kind, StringComparison.OrdinalIgnoreCase)
-                                                  && string.Equals(t.ActionId, step.ActionId, StringComparison.OrdinalIgnoreCase));
+                                                  && string.Equals(t.ActionId, actionId, StringComparison.OrdinalIgnoreCase));
             _wait = WaitChoices.FirstOrDefault(w => w.Kind == StackResolver.NormalizeWait(step.Wait)) ?? WaitChoices[0];
             _portText = step.Port > 0 ? step.Port.ToString() : "";
             Rebuild();
             if (_target != null)
             {
                 _profile = _profiles.FirstOrDefault(p => p.Profile != null && string.Equals(p.Profile.Id, step.ProfileId, StringComparison.OrdinalIgnoreCase))
-                           ?? _profiles[0];
+                           ?? _profiles.FirstOrDefault();
                 _variant = _variants.FirstOrDefault(v => string.Equals(v.Id, step.VariantId, StringComparison.OrdinalIgnoreCase))
                            ?? _variants.FirstOrDefault();
             }
@@ -214,6 +218,18 @@ namespace Toolbox
 
         private void Rebuild()
         {
+            if (_target != null && _target.Action == null && ProfileKind.IsCustom(_target.Kind))
+            {
+                // Lệnh riêng: không có action; profile chọn được là profile cùng loại trỏ tới đúng tool/lệnh này.
+                var refOptions = new List<ProfileOption> { new ProfileOption { Text = "Tham số mặc định" } };
+                refOptions.AddRange(_workspace.Profiles
+                    .Where(p => string.Equals(p.Kind, _target.Kind, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(p.RefId, _target.ActionId, StringComparison.OrdinalIgnoreCase))
+                    .Select(p => new ProfileOption { Profile = p, Text = p.Label }));
+                _profiles = refOptions;
+                _variants = new VariantDef[0];
+                return;
+            }
             if (_target?.Action == null)
             {
                 _profiles = new ProfileOption[0];
@@ -269,7 +285,7 @@ namespace Toolbox
         {
             foreach (var binding in _workspace.Bindings)
             {
-                var tool = ToolCatalog.Find(binding.Kind);
+                var tool = ToolCatalog.Find(binding.ToolId);
                 if (tool == null)
                     continue;
                 foreach (var action in ToolCatalog.ActionsFor(_workspace, binding))

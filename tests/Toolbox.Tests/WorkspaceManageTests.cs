@@ -39,7 +39,7 @@ namespace Toolbox.Tests
                 WorkspacesPath = path,
                 Repo = repo,
                 WorkspaceId = workspace.Id,
-                GitActionId = ToolCatalog.Find("git").Actions[0].Id,
+                GitActionId = TestData.GitAction,
             };
         }
 
@@ -82,6 +82,39 @@ namespace Toolbox.Tests
                 Assert.Equal("Git status", profile.Label);
                 Assert.Equal("git", profile.Kind);
                 Assert.Contains("Git status", Text(Call(server, "list_setup", "{}")));
+                server.Close();
+            }
+        }
+
+        [Fact]
+        public void Pairs_QuaMcp_TaoSuaVaChayCanAnswers()
+        {
+            using (var dir = new TempDir())
+            {
+                var f = Create(dir);
+                var server = Scoped(f);
+                AddGit(server, f);
+                var head = "\"kind\":\"git\",\"action\":\"" + f.GitActionId + "\"";
+
+                var bad = Call(server, "create_profile", "{\"label\":\"X\"," + head + ",\"pairs\":[{\"key\":\"--x;calc\"}]}");
+                Assert.True(IsError(bad));
+                Assert.Empty(Saved(f).Profiles);
+
+                var created = Call(server, "create_profile",
+                    "{\"label\":\"Có cặp\"," + head + ",\"pairs\":[{\"key\":\"--file\",\"value\":\"A B.txt\"},{\"key\":\"\",\"ask\":true}]}");
+                Assert.False(IsError(created), Text(created));
+                var profile = Saved(f).Profiles.Single();
+                Assert.Equal(2, profile.Pairs.Count);
+                Assert.Single(profile.PendingAsks);
+
+                // Còn cặp hỏi lúc chạy mà không có answers: từ chối, nói rõ cần gì.
+                var run = Call(server, "run_profile", "{\"id\":\"" + profile.Id + "\"}");
+                Assert.True(IsError(run));
+                Assert.Contains("answers", Text(run));
+
+                var cleared = Call(server, "update_profile", "{\"id\":\"" + profile.Id + "\",\"pairs\":[]}");
+                Assert.False(IsError(cleared), Text(cleared));
+                Assert.False(Saved(f).Profiles.Single().HasPairs);
                 server.Close();
             }
         }

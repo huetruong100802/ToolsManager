@@ -53,6 +53,46 @@ namespace Toolbox.Tests
         }
 
         [Fact]
+        public void Pack_ToolDangLenh_ChiGuiThongTin_KhongChepThuMucLamViec()
+        {
+            using (var dir = new TempDir())
+            {
+                // Thư mục làm việc của tool lệnh có thể chứa .env; không được vào gói dù Pack = Folder.
+                dir.WriteFile(@"app\.env", "SECRET=1");
+                var zipPath = dir.Combine("out.zip");
+                var tool = new ToolEntry { Id = "ai", Name = "ai", Path = dir.Combine("app"), Command = "python -m ai", Pack = PackMode.Folder };
+
+                var preview = Packer.Preview(tool);
+                Packer.Pack(new[] { tool }, zipPath);
+
+                Assert.Null(preview.SourceRoot);
+                using (var zip = ZipFile.OpenRead(zipPath))
+                    Assert.Equal(new[] { Packer.ManifestName }, zip.Entries.Select(e => e.FullName));
+                var packed = Packer.ReadManifest(zipPath).Tools.Single();
+                Assert.Equal(PackMode.None, packed.Pack);
+                Assert.Equal("python -m ai", packed.Command);
+            }
+        }
+
+        [Fact]
+        public void PackWorkspace_ToolExeTrongThuVienChuaGan_VanDongGoiDuoc()
+        {
+            using (var dir = new TempDir())
+            {
+                var exe = dir.WriteFile(@"src\sim\sim.exe", "exe");
+                var library = ToolStore.Load(dir.Combine("tools.json"));
+                library.Import(Tool("sim", exe), ConflictResolution.Skip);
+                var ws = new Toolbox.Core.Workspaces.Workspace { Id = "w", Name = "w", Path = dir.Combine("ws") };
+                var zipPath = dir.Combine("out.zip");
+
+                Packer.PackWorkspace(ws, library, new Toolbox.Core.Workspaces.WorkspacePackSelection { ToolIds = { "sim" } }, zipPath);
+
+                Assert.Equal("sim/sim.exe", Packer.ReadManifest(zipPath).Tools.Single().Path);
+                Assert.Single(Packer.ReadManifest(zipPath).Workspace.Bindings);
+            }
+        }
+
+        [Fact]
         public void Pack_PathKhongTonTai_NemLoi()
         {
             using (var dir = new TempDir())

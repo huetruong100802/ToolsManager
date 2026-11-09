@@ -1,0 +1,34 @@
+ M src/Toolbox/App.xaml
+ M src/Toolbox/Core/Runner.cs
+ M src/Toolbox/Core/Text.cs
+ M src/Toolbox/Core/ToolStore.cs
+ M src/Toolbox/MainWindow.xaml
+ M src/Toolbox/MainWindow.xaml.cs
+ M src/Toolbox/Mcp/McpServer.cs
+ M src/Toolbox/ToolItem.cs
+ M tests/Toolbox.Tests/ToolStoreTests.cs
+?? docs/.phases-plan-workspace/
+?? docs/plan-workspace.md
+?? src/Toolbox/AddWorkspaceWindow.xaml
+?? src/Toolbox/AddWorkspaceWindow.xaml.cs
+?? src/Toolbox/Core/RunTracker.cs
+?? src/Toolbox/Core/Workspaces/
+?? src/Toolbox/TagOption.cs
+?? src/Toolbox/Views/
+?? src/Toolbox/WorkspaceRow.cs
+?? tests/Toolbox.Tests/CommandBuilderTests.cs
+?? tests/Toolbox.Tests/RunTrackerTests.cs
+?? tests/Toolbox.Tests/TaskHostTests.cs
+?? tests/Toolbox.Tests/WorkspaceDetectorTests.cs
+?? tests/Toolbox.Tests/WorkspaceStoreTests.cs
+
+ src/Toolbox/App.xaml                  | 140 ++++++++-
+ src/Toolbox/Core/Runner.cs            |  12 +-
+ src/Toolbox/Core/Text.cs              |  24 ++
+ src/Toolbox/Core/ToolStore.cs         |  14 +-
+ src/Toolbox/MainWindow.xaml           | 315 +++++++-------------
+ src/Toolbox/MainWindow.xaml.cs        | 542 ++++++++--------------------------
+ src/Toolbox/Mcp/McpServer.cs          |   3 +-
+ src/Toolbox/ToolItem.cs               |  62 +++-
+ tests/Toolbox.Tests/ToolStoreTests.cs |  18 +-
+ 9 files changed, 486 insertions(+), 644 deletions(-)

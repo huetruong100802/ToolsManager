@@ -1,0 +1,60 @@
+<UserControl x:Class="Toolbox.Views.AgentsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <!-- Tab: chữ đậm và gạch chân accent khi chọn (cùng kiểu với tab của workspace). -->
+        <Style x:Key="AgentTab" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="14,10,14,8" Background="Transparent">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,0">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Click="OnConnect" VerticalAlignment="Top"
+                        AutomationProperties.Name="Kết nối agent">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" />
+                        <TextBlock Text="Kết nối agent…" />
+                    </StackPanel>
+                </Button>
+                <StackPanel>
+                    <TextBlock Text="Agent" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                               Text="AI agent kết nối qua MCP. Mỗi agent có phạm vi và quyền riêng, đổi quyền là áp dụng ngay." />
+                </StackPanel>
+            </DockPanel>
+            <StackPanel Orientation="Horizontal" Margin="-14,8,0,0">
+                <RadioButton x:Name="AgentsTab" Style="{StaticResource AgentTab}" IsChecked="True" Click="OnTab" Tag="agents" Content="Agent" />
+                <RadioButton x:Name="ProposalsTab" Style="{StaticResource AgentTab}" Click="OnTab" Tag="proposals" Content="Chờ duyệt" />
+                <RadioButton x:Name="ActivityTab" Style="{StaticResource AgentTab}" Click="OnTab" Tag="activity" Content="Nhật ký" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="Body" Margin="24,16,24,20" />
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

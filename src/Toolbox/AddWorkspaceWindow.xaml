@@ -21,7 +21,7 @@
                          ToolTip="Thư mục gốc của repo hoặc dự án" />
             </DockPanel>
             <TextBlock x:Name="PathHint" Style="{StaticResource Hint}" Margin="0,4,0,14"
-                       Text="Toolbox đọc thư mục này để đoán dự án dùng .NET, Git, Angular hay npm." />
+                       Text="Toolbox đọc thư mục này để đoán các tool trong catalog.json mà dự án dùng." />
 
             <TextBlock Text="Tên *" Style="{StaticResource FieldLabel}" />
             <TextBox x:Name="NameBox" TextChanged="OnNameChanged" AutomationProperties.Name="Tên workspace" />

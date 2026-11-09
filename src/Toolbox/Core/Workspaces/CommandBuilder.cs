@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Toolbox.Core;
 
 namespace Toolbox.Core.Workspaces
 {
@@ -98,8 +99,29 @@ namespace Toolbox.Core.Workspaces
 
             var line = variant.Template;
             foreach (var pair in Effective(variant, vals))
-                line = line.Replace("{" + pair.Key + "}", pair.Value);
+            {
+                // Tham số để trống (vd project Angular không chọn): bỏ luôn dấu cách đứng trước để không để lại "  ".
+                line = string.IsNullOrEmpty(pair.Value)
+                    ? line.Replace(" {" + pair.Key + "}", "").Replace("{" + pair.Key + "}", "")
+                    : line.Replace("{" + pair.Key + "}", pair.Value);
+            }
             return line;
+        }
+
+        /// <summary>
+        /// Như <see cref="Build"/> nhưng phần tham số thêm đến từ các cặp (key, value) của profile thay cho ô <c>{args}</c>:
+        /// ô <c>args</c> bị bỏ trống rồi cặp được nối sau cùng. Cặp không đi qua luật ký tự của <c>{args}</c> vì value có khoảng trắng được bọc nháy.
+        /// </summary>
+        public static string BuildWithPairs(VariantDef variant, IDictionary<string, string> vals, IEnumerable<ParamPair> pairs)
+        {
+            var error = PairLine.Check(pairs);
+            if (error != null)
+                throw new ArgumentException(error);
+            var copy = new Dictionary<string, string>(vals ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase)
+            {
+                [ProfileKind.ArgsKey] = "",
+            };
+            return JoinArgs(Build(variant, copy), PairLine.Render(pairs));
         }
 
         /// <summary>Cổng mà lệnh sẽ dùng (tham số cổng đầu tiên); null nếu lệnh không có tham số cổng hoặc cổng sai.</summary>
@@ -112,5 +134,99 @@ namespace Toolbox.Core.Workspaces
         }
 
         private static bool IsQuoted(string template, string key) => template.Contains("\"{" + key + "}\"");
+
+        // ----- Profile loại library / custom -----
+
+        /// <summary>Lỗi của tham số thêm (Vals["args"]) vì nó được nối thẳng vào dòng lệnh; null nếu hợp lệ hoặc rỗng.</summary>
+        public static string CheckExtraArgs(string args)
+        {
+            if (!string.IsNullOrEmpty(args) && args.Any(c => Dangerous.IndexOf(c) >= 0))
+                return "Tham số thêm không được dùng các ký tự & | < > ^ \" % hoặc xuống dòng.";
+            return null;
+        }
+
+        /// <summary>Nối tham số thêm vào sau <paramref name="baseLine"/>.</summary>
+        public static string JoinArgs(string baseLine, string extra) =>
+            string.IsNullOrWhiteSpace(extra) ? (baseLine ?? "").Trim() : ((baseLine ?? "") + " " + extra.Trim()).Trim();
+
+        /// <summary>Dòng lệnh của lệnh riêng kèm tham số thêm của profile (nếu có).</summary>
+        public static string CustomLine(CustomCommand command, string extraArgs) => JoinArgs(command.CommandLine, extraArgs);
+
+        /// <summary>
+        /// Dòng lệnh chạy một tool thư viện (cho tác vụ chạy ngầm/bộ chạy): lệnh thì "lệnh tham số", file thì theo đuôi
+        /// (.exe/.com chạy thẳng, .bat/.cmd, .ps1, .py). <paramref name="effectiveArgs"/> là tham số hiệu lực của tool, đã gồm phần nối thêm.
+        /// Ném <see cref="NotSupportedException"/> nếu loại file không chạy ngầm được.
+        /// </summary>
+        public static string LibraryCommandLine(ToolEntry tool, string effectiveArgs)
+        {
+            var args = (effectiveArgs ?? "").Trim();
+            if (tool.IsCommand)
+                return JoinArgs(tool.Command, args);
+
+            var path = System.IO.Path.GetFullPath(tool.ResolvedPath);
+            if (System.IO.Directory.Exists(path))
+                throw new NotSupportedException($"\"{tool.Name}\" là thư mục, không chạy được.");
+            var quoted = "\"" + path + "\"";
+            switch (System.IO.Path.GetExtension(path).ToLowerInvariant())
+            {
+                case ".exe":
+                case ".com":
+                case ".bat":
+                case ".cmd":
+                    return JoinArgs(quoted, args);
+                case ".ps1":
+                    return JoinArgs("powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + quoted, args);
+                case ".py":
+                    return JoinArgs("python.exe " + quoted, args);
+                default:
+                    throw new NotSupportedException($"Không chạy ngầm được file {System.IO.Path.GetExtension(path)} của \"{tool.Name}\"; chỉ hỗ trợ .exe, .com, .bat, .cmd, .ps1, .py hoặc lệnh.");
+            }
+        }
+
+        /// <summary>Thư mục chạy của tool thư viện: thư mục đăng ký nếu là lệnh, ngược lại thư mục chứa file.</summary>
+        public static string LibraryCwd(ToolEntry tool)
+        {
+            var path = System.IO.Path.GetFullPath(tool.ResolvedPath);
+            return tool.IsCommand ? path : System.IO.Path.GetDirectoryName(path);
+        }
+
+        // ----- Đường chạy chung của mọi tool (kind = toolId) -----
+
+        /// <summary>Tham số hiệu lực của tool trong workspace: <see cref="ToolBinding.Args"/> (nếu có) thay Args đăng ký của tool.</summary>
+        public static string EffectiveArgs(ToolBinding binding, ToolEntry tool) =>
+            string.IsNullOrWhiteSpace(binding?.Args) ? tool?.Args : binding.Args;
+
+        /// <summary>
+        /// Dòng lệnh chạy lệnh gốc của tool (hậu tố rỗng): <see cref="LibraryCommandLine"/> với <see cref="EffectiveArgs"/>,
+        /// rồi nối <paramref name="extraArgs"/> (Vals["args"] của profile). Ném <see cref="NotSupportedException"/> nếu file không chạy ngầm được.
+        /// </summary>
+        public static string ToolCommandLine(ToolEntry tool, ToolBinding binding, string extraArgs) =>
+            LibraryCommandLine(tool, JoinArgs(EffectiveArgs(binding, tool), extraArgs));
+
+        /// <summary>
+        /// Thư mục chạy thật của tool trong workspace: <see cref="ToolBinding.Cwd"/> (tương đối gốc workspace, khác rỗng/".")
+        /// → <see cref="LibraryCwd"/> nếu tool có Path (tool lệnh: thư mục đăng ký; tool file: thư mục chứa file) → gốc workspace.
+        /// </summary>
+        public static string ToolCwd(Workspace ws, ToolBinding binding, ToolEntry tool)
+        {
+            if (!string.IsNullOrWhiteSpace(binding?.Cwd) && binding.Cwd.Trim() != ".")
+                return ws.ResolveCwd(binding.Cwd);
+            if (tool != null && !string.IsNullOrWhiteSpace(tool.Path))
+                return LibraryCwd(tool);
+            return ws.ResolveCwd(null);
+        }
+
+        /// <summary>null nếu chạy được; ngược lại lý do: tool file thiếu đường dẫn, hoặc Path đã khai mà không còn trên đĩa.</summary>
+        public static string CheckTool(ToolEntry tool)
+        {
+            if (tool == null)
+                return "Tool không còn trong thư viện.";
+            var hasPath = !string.IsNullOrWhiteSpace(tool.Path);
+            if (!tool.IsCommand && !hasPath)
+                return $"\"{tool.Name}\" chưa có lệnh hoặc đường dẫn.";
+            if (hasPath && !tool.PathExists)
+                return $"Không tìm thấy \"{tool.Name}\": {tool.ResolvedPath}";
+            return null;
+        }
     }
 }

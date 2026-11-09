@@ -1,0 +1,58 @@
+<UserControl x:Class="Toolbox.Views.PairEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <ItemsControl x:Name="Rows">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="120" />
+                            <ColumnDefinition Width="1.3*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Key: chọn từ gợi ý (quét từ trợ giúp của tool) hoặc gõ tự do; để trống = đối số vị trí. -->
+                        <ComboBox Grid.Column="0" IsEditable="True" IsTextSearchEnabled="False" Loaded="OnKeyComboLoaded" ItemsSource="{Binding Names}"
+                                  Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="{Binding Hint}" AutomationProperties.Name="Tên tham số" Margin="0,0,6,0" />
+                        <Grid Grid.Column="1" Margin="0,0,6,0" Visibility="{Binding ValueVisibility}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding ValueEnabled}"
+                                     ToolTip="{Binding ValueHint}" AutomationProperties.Name="Giá trị" />
+                            <!-- Gợi ý giá trị: lệnh con, giá trị cho phép hoặc file trong thư mục chạy, lấy từ help của tool. -->
+                            <Button Grid.Column="1" Style="{StaticResource GhostButton}" Width="26" Height="26" MinHeight="26" Padding="0" Margin="2,0,0,0"
+                                    Visibility="{Binding OptionsVisibility}" IsEnabled="{Binding ValueEnabled}" Click="OnOptions"
+                                    ToolTip="Chọn từ gợi ý" AutomationProperties.Name="Gợi ý giá trị"><Path Data="M 0,0 L 8,0 L 4,6 Z" Fill="{StaticResource Muted}" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" /></Button>
+                        </Grid>
+                        <CheckBox Grid.Column="2" Content="Hỏi" IsChecked="{Binding Ask}" VerticalAlignment="Center" Margin="0,0,6,0"
+                                  ToolTip="Hỏi giá trị mỗi lần chạy (UI hiện hộp nhập, MCP phải truyền giá trị)." />
+                        <Button Grid.Column="3" Style="{StaticResource GhostButton}" Width="26" Height="26" MinHeight="26" Padding="0" Click="OnUp" ToolTip="Lên" AutomationProperties.Name="Đưa lên"><Path Data="M 0,6 L 4,0 L 8,6 Z" Fill="{StaticResource Muted}" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" /></Button>
+                        <Button Grid.Column="4" Style="{StaticResource GhostButton}" Width="26" Height="26" MinHeight="26" Padding="0" Click="OnDown" ToolTip="Xuống" AutomationProperties.Name="Đưa xuống" Margin="2,0,0,0"><Path Data="M 0,0 L 8,0 L 4,6 Z" Fill="{StaticResource Muted}" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" /></Button>
+                        <Button Grid.Column="5" Style="{StaticResource GhostButton}" Width="26" Height="26" MinHeight="26" Padding="0" Click="OnRemove" ToolTip="Xoá tham số này"
+                                AutomationProperties.Name="Xoá tham số" Margin="2,0,0,0"><Path Data="M 0,0 L 8,8 M 8,0 L 0,8" Stroke="{StaticResource Muted}" StrokeThickness="1.6" Width="9" Height="9" Stretch="Uniform" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" /></Button>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+            <Button x:Name="AddButton" Content="+ Thêm tham số" Click="OnAdd" Style="{StaticResource GhostButton}"
+                    ToolTip="Thêm một cặp (key, giá trị). Key chọn từ gợi ý hoặc gõ tự do." />
+            <Button Content="Dán cả dòng…" Click="OnPasteToggle" Style="{StaticResource GhostButton}" Margin="6,0,0,0"
+                    ToolTip="Dán một dòng tham số, Toolbox tách thành các cặp." />
+            <Button x:Name="ScanButton" Content="Quét gợi ý" Click="OnScan" Style="{StaticResource GhostButton}" Margin="6,0,0,0"
+                    Visibility="Collapsed" ToolTip="Chạy lệnh trợ giúp của lệnh này để lấy danh sách cờ cho dropdown." />
+        </StackPanel>
+        <TextBlock x:Name="ScanStatus" Style="{StaticResource Hint}" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,4,0,0" />
+        <DockPanel x:Name="PastePanel" Visibility="Collapsed" Margin="0,6,0,0">
+            <Button DockPanel.Dock="Right" Content="Tách" Click="OnPasteApply" Margin="6,0,0,0" MinWidth="60" />
+            <TextBox x:Name="PasteBox" AutomationProperties.Name="Dòng tham số cần tách" KeyDown="OnPasteKey" />
+        </DockPanel>
+        <TextBlock x:Name="ErrorText" Foreground="{StaticResource Danger}" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,4,0,0" />
+    </StackPanel>
+</UserControl>

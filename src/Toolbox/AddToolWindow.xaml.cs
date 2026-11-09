@@ -1,123 +1,138 @@
+using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Data;
+using Toolbox.Core;
 using Toolbox.Core.Workspaces;
-using Toolbox.Views;
 
 namespace Toolbox
 {
-    /// <summary>Gắn thêm một tool vào workspace, hoặc đổi thư mục chạy của tool đã gắn.</summary>
+    /// <summary>Một tool người dùng đã chọn để gắn vào workspace.</summary>
+    public sealed class ToolPick
+    {
+        public ToolEntry Entry { get; set; }
+
+        /// <summary>Chưa có trong thư viện: bên gọi thêm vào thư viện (và lưu) trước khi gắn.</summary>
+        public bool IsNew { get; set; }
+
+        /// <summary>Thư mục chạy riêng của workspace (từ nhận diện thư mục); null là dùng mặc định của tool.</summary>
+        public string Cwd { get; set; }
+    }
+
+    /// <summary>
+    /// Gắn tool vào workspace: chọn tool có sẵn trong thư viện, nhận gợi ý từ thư mục dự án, hoặc đăng ký tool mới
+    /// bằng đúng form của Thư viện (<see cref="ToolEditWindow"/>). Mọi tool là một loại, không phân biệt dựng sẵn hay thư viện.
+    /// </summary>
     public partial class AddToolWindow : Window
     {
-        private readonly Workspace _workspace;
-        private readonly bool _editing;
-        private readonly IReadOnlyList<Detection> _detected;
-        private bool _cwdTouched;
-        private bool _settingCwd;
+        private const string SuggestedSection = "Gợi ý từ thư mục này";
+        private const string NewSection = "Tool mới (sẽ đăng ký vào thư viện)";
+        private const string LibrarySection = "Trong thư viện";
 
-        /// <param name="existing">Có giá trị thì là sửa thư mục chạy của binding này (không đổi được tool).</param>
-        public AddToolWindow(Workspace workspace, ToolBinding existing = null)
+        private sealed class Option : INotifyPropertyChanged
+        {
+            private bool _isChecked;
+
+            public string Section { get; set; }
+            public string Title { get; set; }
+            public string Detail { get; set; }
+            public ToolEntry Entry { get; set; }
+            public bool IsNew { get; set; }
+            public string Cwd { get; set; }
+
+            public bool IsChecked
+            {
+                get => _isChecked;
+                set
+                {
+                    if (_isChecked == value)
+                        return;
+                    _isChecked = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+                }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+        }
+
+        private readonly ObservableCollection<Option> _options = new ObservableCollection<Option>();
+
+        public AddToolWindow(Workspace workspace, ToolStore library)
         {
             InitializeComponent();
-            _workspace = workspace;
-            _editing = existing != null;
-            _detected = workspace.PathExists ? WorkspaceDetector.Detect(workspace.ResolvedPath) : new List<Detection>();
 
-            IEnumerable<ToolDef> kinds = _editing
-                ? ToolCatalog.All.Where(t => t.Kind == existing.Kind)
-                : ToolCatalog.All.Where(t => workspace.Binding(t.Kind) == null);
-            KindCombo.ItemsSource = kinds.ToList();
+            var detections = workspace.PathExists ? WorkspaceDetector.Detect(workspace.ResolvedPath) : new List<Detection>();
+            foreach (var found in detections.Where(d => workspace.Binding(d.Kind) == null))
+            {
+                var existing = library.Find(found.Kind);
+                var preset = ToolPresets.Find(found.Kind);
+                var entry = existing ?? (preset == null ? null : ToolPresets.ToEntry(preset));
+                if (entry == null)
+                    continue;
+                _options.Add(Track(new Option
+                {
+                    Section = SuggestedSection, Title = entry.Name, Entry = entry, IsNew = existing == null, Cwd = found.Cwd,
+                    Detail = "Nhận diện được: " + found.Reason + (existing == null ? "  ·  sẽ đăng ký vào thư viện" : ""),
+                }));
+            }
+            foreach (var tool in library.Tools.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                if (workspace.Binding(tool.Id) != null || _options.Any(o => string.Equals(o.Entry.Id, tool.Id, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                _options.Add(Track(new Option { Section = LibrarySection, Title = tool.Name, Entry = tool, Detail = Describe(tool) }));
+            }
 
-            if (_editing)
-            {
-                Title = "Đổi thư mục chạy";
-                OkButton.Content = "Lưu";
-                KindCombo.IsEnabled = false;
-                _cwdTouched = true;
-                SetCwd(existing.Cwd);
-            }
-            KindCombo.SelectedIndex = KindCombo.Items.Count > 0 ? 0 : -1;
-            if (KindCombo.Items.Count == 0)
-            {
-                KindHint.Text = "Workspace đã gắn đủ mọi tool có sẵn.";
-                OkButton.IsEnabled = false;
-            }
+            var view = (ListCollectionView)CollectionViewSource.GetDefaultView(_options);
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Option.Section)));
+            OptionList.ItemsSource = view;
+            Search.Attach(view, o => ((Option)o).Title + " " + ((Option)o).Detail);
+            UpdateState();
         }
 
-        public ToolBinding Result { get; private set; }
+        /// <summary>Các tool đã tick khi người dùng bấm Thêm.</summary>
+        public IReadOnlyList<ToolPick> Picks { get; private set; } = new List<ToolPick>();
 
-        private ToolDef SelectedTool => KindCombo.SelectedItem as ToolDef;
-
-        private void OnKindChanged(object sender, SelectionChangedEventArgs e)
+        private Option Track(Option option)
         {
-            var tool = SelectedTool;
-            if (tool == null)
+            option.PropertyChanged += (s, e) => UpdateState();
+            return option;
+        }
+
+        private static string Describe(ToolEntry tool)
+        {
+            if (!tool.IsCommand)
+                return tool.ResolvedPath;
+            return string.IsNullOrWhiteSpace(tool.Path) ? tool.Command : tool.Command + "  ·  " + tool.ResolvedPath;
+        }
+
+        private void UpdateState()
+        {
+            EmptyText.Visibility = _options.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            OptionList.Visibility = _options.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            OkButton.IsEnabled = _options.Any(o => o.IsChecked);
+        }
+
+        private void OnNewTool(object sender, RoutedEventArgs e)
+        {
+            var draft = new ToolEntry();
+            var dialog = new ToolEditWindow(draft, isNew: true) { Owner = this };
+            if (dialog.ShowDialog() != true)
                 return;
-
-            var hit = _detected.FirstOrDefault(d => d.Kind == tool.Kind);
-            KindHint.Text = hit != null ? "Nhận diện được: " + hit.Reason : $"Áp dụng cho dự án có {tool.Rule}.";
-            if (!_cwdTouched)
-                SetCwd(hit?.Cwd);
-            UpdateCwdHint();
-        }
-
-        private void OnBrowse(object sender, RoutedEventArgs e)
-        {
-            using (var dialog = new System.Windows.Forms.FolderBrowserDialog { Description = "Chọn thư mục chạy của tool" })
+            _options.Insert(0, Track(new Option
             {
-                var current = _workspace.ResolveCwd(CwdBox.Text.Trim());
-                dialog.SelectedPath = Directory.Exists(current) ? current : _workspace.ResolvedPath;
-                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                    return;
-                _cwdTouched = true;
-                CwdBox.Text = WorkspacePaths.ToRelative(_workspace.ResolvedPath, dialog.SelectedPath);
-            }
-        }
-
-        private void OnCwdChanged(object sender, TextChangedEventArgs e)
-        {
-            if (!_settingCwd)
-                _cwdTouched = true;
-            UpdateCwdHint();
-        }
-
-        private void SetCwd(string cwd)
-        {
-            _settingCwd = true;
-            CwdBox.Text = cwd ?? "";
-            _settingCwd = false;
-        }
-
-        private void UpdateCwdHint()
-        {
-            var ok = CwdExists(out var full);
-            CwdHint.Text = ok ? "Chạy tại: " + full : "Không tìm thấy thư mục: " + full;
-            CwdHint.Foreground = (System.Windows.Media.Brush)FindResource(ok ? "Muted" : "Danger");
-            OkButton.IsEnabled = SelectedTool != null && ok;
-        }
-
-        private bool CwdExists(out string full)
-        {
-            try
-            {
-                full = _workspace.ResolveCwd(CwdBox.Text.Trim());
-                return Directory.Exists(full);
-            }
-            catch (System.Exception ex) when (ex is System.ArgumentException || ex is System.NotSupportedException || ex is PathTooLongException)
-            {
-                full = CwdBox.Text.Trim();
-                return false;
-            }
+                Section = NewSection, Title = draft.Name, Entry = draft, IsNew = true, Detail = Describe(draft), IsChecked = true,
+            }));
+            UpdateState();
         }
 
         private void OnOk(object sender, RoutedEventArgs e)
         {
-            var tool = SelectedTool;
-            if (tool == null || !CwdExists(out _))
-                return;
-            Result = new ToolBinding { Kind = tool.Kind, Cwd = CwdBox.Text.Trim() };
+            Picks = _options.Where(o => o.IsChecked)
+                .Select(o => new ToolPick { Entry = o.Entry, IsNew = o.IsNew, Cwd = o.Cwd })
+                .ToList();
             DialogResult = true;
         }
     }

@@ -78,6 +78,25 @@
                 </StackPanel>
             </DockPanel>
 
+            <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                    CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Agent mới khi kết nối" FontWeight="SemiBold" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,8" TextWrapping="Wrap"
+                               Text="Cần CLI claude trên PATH. Tên và quyền chạy áp dụng khi tạo agent lần đầu; đổi sau ở trang Agent." />
+                    <DockPanel Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left" Text="Tên agent" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox x:Name="AgentName" Text="Claude Code" AutomationProperties.Name="Tên agent" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Khi agent chạy" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, bộ chạy và tool đã có" Margin="0,0,18,0" />
+                        <RadioButton x:Name="RunAsk" GroupName="NewAgentRun" Content="Hỏi trước mỗi lần chạy" Margin="0,0,18,0" />
+                        <RadioButton x:Name="RunNone" GroupName="NewAgentRun" Content="Không cho chạy" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <Expander DockPanel.Dock="Bottom" Header="Client khác (Claude Desktop, Cursor, VS Code): khai báo tay" Margin="0,12,0,0">
                 <StackPanel Margin="0,8,0,0">
                     <TextBlock Text="Claude Desktop / Cursor (mcpServers)" Style="{StaticResource FieldLabel}" />

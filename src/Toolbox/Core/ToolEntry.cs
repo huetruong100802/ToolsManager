@@ -54,6 +54,26 @@ namespace Toolbox.Core
         [IgnoreDataMember]
         public bool IsCommand => !string.IsNullOrWhiteSpace(Command);
 
+        /// <summary>
+        /// Lệnh gốc để ghép hậu tố: <see cref="Command"/> nếu tool là lệnh, ngược lại file chạy đặt trong ngoặc kép;
+        /// null nếu tool không có cả hai.
+        /// </summary>
+        [IgnoreDataMember]
+        public string BaseCommand => IsCommand
+            ? Command.Trim()
+            : string.IsNullOrWhiteSpace(ResolvedPath) ? null : "\"" + ResolvedPath.Trim() + "\"";
+
+        /// <summary>Nguồn hậu tố đọc trong thư mục chạy, vd script trong package.json (null nếu hậu tố lấy từ bảng khả năng).</summary>
+        [DataMember(Name = "suffixSource", Order = 14, EmitDefaultValue = false)]
+        public SuffixSource SuffixSource { get; set; }
+
+        /// <summary>
+        /// Lệnh lấy trợ giúp để quét hậu tố/cờ; <c>{base}</c> = <see cref="BaseCommand"/>, <c>{tokens}</c> = hậu tố đang quét (rỗng khi quét chính tool).
+        /// Trống = <c>{base} {tokens} --help</c>. Đổi được cho tool có trợ giúp kiểu khác (ví dụ <c>{base} help {tokens}</c>).
+        /// </summary>
+        [DataMember(Name = "helpTemplate", Order = 15, EmitDefaultValue = false)]
+        public string HelpTemplate { get; set; }
+
         [DataMember(Name = "description", Order = 4, EmitDefaultValue = false)]
         public string Description { get; set; }
 
@@ -144,6 +164,7 @@ namespace Toolbox.Core
         {
             var copy = (ToolEntry)MemberwiseClone();
             copy.Tags = new List<string>(Tags ?? new List<string>());
+            copy.SuffixSource = SuffixSource?.Clone();
             return copy;
         }
 
@@ -153,6 +174,38 @@ namespace Toolbox.Core
         {
             if (Tags == null)
                 Tags = new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Nguồn hậu tố của tool, một trong ba dạng: <c>file</c> + <c>jsonPath</c> (khoá của object JSON),
+    /// <c>file</c> + <c>pattern</c> (nhóm 1 của regex, mỗi dòng khớp một mục) hoặc <c>values</c> (danh sách ghi sẵn).
+    /// <see cref="Template"/> có <c>{id}</c> cho tên mục; bỏ trống thì là lệnh gốc của tool cộng <c>{id}</c>.
+    /// File luôn tương đối với thư mục chạy.
+    /// </summary>
+    [DataContract]
+    public sealed class SuffixSource
+    {
+        [DataMember(Name = "file", Order = 0, EmitDefaultValue = false)]
+        public string File { get; set; }
+
+        [DataMember(Name = "jsonPath", Order = 1, EmitDefaultValue = false)]
+        public string JsonPath { get; set; }
+
+        [DataMember(Name = "pattern", Order = 2, EmitDefaultValue = false)]
+        public string Pattern { get; set; }
+
+        [DataMember(Name = "values", Order = 3, EmitDefaultValue = false)]
+        public List<string> Values { get; set; }
+
+        [DataMember(Name = "template", Order = 4, EmitDefaultValue = false)]
+        public string Template { get; set; }
+
+        public SuffixSource Clone()
+        {
+            var copy = (SuffixSource)MemberwiseClone();
+            copy.Values = Values == null ? null : new List<string>(Values);
+            return copy;
         }
     }
 }

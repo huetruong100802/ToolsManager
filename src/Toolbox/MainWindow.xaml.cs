@@ -1,10 +1,13 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using Toolbox.Core;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox
@@ -13,10 +16,11 @@ namespace Toolbox
     public partial class MainWindow : Window
     {
         /// <summary>Trang đang hiện trong vùng nội dung.</summary>
-        private enum Area { Library, Overview, Tasks, Workspace }
+        private enum Area { Library, Overview, Tasks, Agents, Workspace }
 
         private readonly ObservableCollection<WorkspaceRow> _rows = new ObservableCollection<WorkspaceRow>();
         private readonly TaskHost _tasks = new TaskHost(TaskHost.DefaultRunsDir);
+        private ICollectionView _rowsView;
         private WorkspaceStore _workspaces;
         private WorkspaceRow _current;
         private Area _area = Area.Library;
@@ -32,7 +36,13 @@ namespace Toolbox
             OverviewPage.ShowLogRequested += Inspector.Show;
             TasksPage.ShowLogRequested += Inspector.Show;
             OverviewPage.OpenWorkspaceRequested += row => Navigate(row);
-            WorkspaceList.ItemsSource = _rows;
+            AgentsPage.ConnectRequested += Library.OpenAgentWindow;
+            // Rail: ghim lên đầu, còn lại theo tên; ô tìm lọc theo tên (hiện khi workspace nhiều).
+            _rowsView = CollectionViewSource.GetDefaultView(_rows);
+            _rowsView.SortDescriptions.Add(new SortDescription(nameof(WorkspaceRow.IsPinned), ListSortDirection.Descending));
+            _rowsView.SortDescriptions.Add(new SortDescription(nameof(WorkspaceRow.Name), ListSortDirection.Ascending));
+            _rowsView.Filter = o => MatchesSearch(o as WorkspaceRow);
+            WorkspaceList.ItemsSource = _rowsView;
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
@@ -46,6 +56,14 @@ namespace Toolbox
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // Đọc danh mục tool lúc mở; catalog.json lỗi thì báo luôn, không để lặng lẽ dùng mặc định.
+            _ = ToolPresets.All;
+            if (ToolPresets.LastError != null)
+                Dialogs.Error(this, ToolPresets.LastError);
+            _ = ToolCatalog.All;
+            if (ToolCatalog.LastError != null)
+                Dialogs.Error(this, ToolCatalog.LastError);
+
             try
             {
                 _workspaces = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
@@ -71,6 +89,10 @@ namespace Toolbox
             foreach (var row in _rows)
                 row.Refresh(running.Count(t => string.Equals(t.Spec.WorkspaceId, row.Workspace.Id, StringComparison.OrdinalIgnoreCase)));
             NoWorkspaceHint.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            var archived = _rows.Count(r => r.IsArchived);
+            ArchivedToggle.Visibility = archived > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ArchivedToggle.Content = _showArchived ? "Ẩn workspace đã lưu trữ" : $"Lưu trữ ({archived})";
+            WorkspaceSearchBox.Visibility = _rows.Count >= SearchThreshold ? Visibility.Visible : Visibility.Collapsed;
 
             StatusText.Text = TaskBoard.StatusLine(running);
             TasksBadge.Visibility = running.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -81,11 +103,61 @@ namespace Toolbox
             else if (_area == Area.Tasks)
                 TasksPage.Refresh();
 
+            var pending = Views.AgentsView.PendingCount();
+            AgentsBadge.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+            AgentsBadgeCount.Text = pending.ToString();
+
             if (_current != null)
             {
                 MissingBanner.Visibility = _current.IsMissing ? Visibility.Visible : Visibility.Collapsed;
                 WorkspaceContent.Refresh();
             }
+        }
+
+        /// <summary>Từ chừng này workspace trở lên mới hiện ô tìm, để rail gọn khi ít workspace.</summary>
+        private const int SearchThreshold = 6;
+
+        private bool MatchesSearch(WorkspaceRow row)
+        {
+            var query = Core.Text.Fold(WorkspaceSearch?.Text ?? "");
+            return row != null && (_showArchived || !row.IsArchived) && (query.Length == 0 || Core.Text.Fold(row.Name).Contains(query));
+        }
+
+        /// <summary>Có hiện workspace đã lưu trữ trong rail không (bật bằng nút "Lưu trữ (n)").</summary>
+        private bool _showArchived;
+
+        private void OnToggleArchived(object sender, RoutedEventArgs e)
+        {
+            _showArchived = !_showArchived;
+            RefreshRows();
+            _rowsView.Refresh();
+        }
+
+        private void OnToggleArchive(object sender, RoutedEventArgs e)
+        {
+            var row = (sender as FrameworkElement)?.DataContext as WorkspaceRow;
+            if (row == null)
+                return;
+            row.ToggleArchive();
+            TrySave();
+            RefreshRows();
+            _rowsView.Refresh();
+        }
+
+        private void OnWorkspaceSearch(object sender, TextChangedEventArgs e)
+        {
+            WorkspaceSearchHint.Visibility = WorkspaceSearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            _rowsView?.Refresh();
+        }
+
+        private void OnTogglePin(object sender, RoutedEventArgs e)
+        {
+            var row = (sender as FrameworkElement)?.DataContext as WorkspaceRow;
+            if (row == null)
+                return;
+            row.TogglePin();
+            TrySave();
+            _rowsView.Refresh();
         }
 
         private void OnLibraryClick(object sender, RoutedEventArgs e) => Navigate(null);
@@ -95,6 +167,8 @@ namespace Toolbox
         private void OnTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
 
         private void OnStatusTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
+
+        private void OnAgentsClick(object sender, RoutedEventArgs e) => GoTo(Area.Agents);
 
         private void OnWorkspaceClick(object sender, RoutedEventArgs e)
         {
@@ -142,15 +216,19 @@ namespace Toolbox
             LibraryNav.IsChecked = area == Area.Library;
             OverviewNav.IsChecked = area == Area.Overview;
             TasksNav.IsChecked = area == Area.Tasks;
+            AgentsNav.IsChecked = area == Area.Agents;
 
             Library.Visibility = Visible(area == Area.Library);
             OverviewPage.Visibility = Visible(area == Area.Overview);
             TasksPage.Visibility = Visible(area == Area.Tasks);
+            AgentsPage.Visibility = Visible(area == Area.Agents);
             WorkspacePage.Visibility = Visible(area == Area.Workspace);
             if (area == Area.Overview)
                 OverviewPage.Refresh();
             else if (area == Area.Tasks)
                 TasksPage.Refresh();
+            else if (area == Area.Agents)
+                AgentsPage.Refresh();
 
             if (_current == null)
                 return;
@@ -173,6 +251,19 @@ namespace Toolbox
             var dialog = new AddWorkspaceWindow(_workspaces.Workspaces.Select(w => w.Path)) { Owner = this };
             if (dialog.ShowDialog() != true)
                 return;
+
+            // Tool nhận diện được là preset: đăng ký vào thư viện để workspace mới dùng được ngay như mọi tool khác.
+            try
+            {
+                var library = ToolStore.Load(ToolStore.DefaultPath);
+                if (ToolPresets.EnsureInLibrary(library, dialog.Result.Bindings.Select(b => b.ToolId)))
+                    library.Save();
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(this, "Không ghi được tool nhận diện vào thư viện: " + ex.Message);
+                return;
+            }
 
             var workspace = _workspaces.Add(dialog.Result);
             if (!TrySave())

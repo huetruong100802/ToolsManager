@@ -1,0 +1,1 @@
+- P14: StackDiagram.ShowDialog(owner, ws, stack) trả StackDef hoặc null; mô hình đợt List<List<StackStep>>, Group gán lại khi lưu. WorkspaceView: nút Sơ đồ (OnDiagramStack) và Dựng bằng sơ đồ (OnDiagramNew); cửa sổ danh sách giữ làm dạng thứ hai.

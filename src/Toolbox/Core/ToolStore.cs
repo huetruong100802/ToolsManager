@@ -43,7 +43,7 @@ namespace Toolbox.Core
         }
 
         public static string DefaultPath =>
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Toolbox", "tools.json");
+            System.IO.Path.Combine(DataDir.Root, "tools.json");
 
         public string FilePath { get; }
 
@@ -56,22 +56,46 @@ namespace Toolbox.Core
         public static ToolStore Load(string filePath)
         {
             using (Lock())
-            {
-                if (!File.Exists(filePath))
-                    return new ToolStore(filePath, new List<ToolEntry>());
+                return ReadFile(filePath);
+        }
 
+        /// <summary>
+        /// Đọc không lấy khoá, cho tra cứu chỉ đọc (vd. kiểm tool có trong thư viện) chạy được ngay cả khi đang giữ khoá workspaces:
+        /// thứ tự khoá quy ước là tools rồi workspaces, nên lấy khoá tools từ trong khoá workspaces có thể chờ nhau tới hết thời hạn.
+        /// Ghi là ghi ra file tạm rồi thay thế nên đọc không thấy file dở; đọc trúng lúc đang thay thế thì thử lại vài lần.
+        /// Đừng dùng kết quả để đọc-sửa-ghi: dùng <see cref="Load"/>.
+        /// </summary>
+        public static ToolStore Peek(string filePath)
+        {
+            for (var attempt = 0; ; attempt++)
+            {
                 try
                 {
-                    using (var stream = File.OpenRead(filePath))
-                    {
-                        var file = Json.Read<ToolListFile>(stream);
-                        return new ToolStore(filePath, file?.Tools ?? new List<ToolEntry>());
-                    }
+                    return ReadFile(filePath);
                 }
-                catch (SerializationException ex)
+                catch (IOException) when (attempt < 4)
                 {
-                    throw new InvalidDataException($"Không đọc được {filePath}: {ex.Message}", ex);
+                    System.Threading.Thread.Sleep(25);
                 }
+            }
+        }
+
+        private static ToolStore ReadFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return new ToolStore(filePath, new List<ToolEntry>());
+
+            try
+            {
+                using (var stream = File.OpenRead(filePath))
+                {
+                    var file = Json.Read<ToolListFile>(stream);
+                    return new ToolStore(filePath, file?.Tools ?? new List<ToolEntry>());
+                }
+            }
+            catch (SerializationException ex)
+            {
+                throw new InvalidDataException($"Không đọc được {filePath}: {ex.Message}", ex);
             }
         }
 
@@ -147,7 +171,8 @@ namespace Toolbox.Core
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
                 throw new ArgumentException("Tool phải có tên.", nameof(entry));
-            if (string.IsNullOrWhiteSpace(entry.Path))
+            // Tool lệnh có Path rỗng là hợp lệ (chạy tại thư mục workspace); tool file chạy thì phải có đường dẫn.
+            if (string.IsNullOrWhiteSpace(entry.Path) && !entry.IsCommand)
                 throw new ArgumentException("Tool phải có đường dẫn.", nameof(entry));
 
             entry.Id = UniqueId(Text.IsValidId(entry.Id) ? entry.Id : Text.ToId(entry.Name));

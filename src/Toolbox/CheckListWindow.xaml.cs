@@ -36,8 +36,10 @@ namespace Toolbox
 
             Items = items.ToList();
             ItemList.ItemsSource = Items;
+            Search.Attach(Items, o => ((CheckItem)o).Title + " " + ((CheckItem)o).Detail);
             if (Items.Count == 0)
             {
+                Search.Visibility = Visibility.Collapsed;
                 EmptyText.Text = emptyText;
                 EmptyText.Visibility = Visibility.Visible;
                 ItemList.Visibility = Visibility.Collapsed;

@@ -25,4 +25,9 @@
     <InternalsVisibleTo Include="Toolbox.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Mặc định của danh mục tool; lần đầu chạy được chép ra %APPDATA%\Toolbox\catalog.json để sửa. -->
+    <EmbeddedResource Include="Core\Workspaces\catalog.default.json" LogicalName="catalog.default.json" />
+  </ItemGroup>
+
 </Project>

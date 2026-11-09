@@ -1,0 +1,48 @@
+<UserControl x:Class="Toolbox.Views.PackTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="14" />
+            <ColumnDefinition Width="300" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Cây chọn -->
+        <DockPanel Grid.Column="0">
+            <TextBlock DockPanel.Dock="Top" Text="Chọn thứ cần đóng gói" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,10"
+                       Text="Chọn bộ chạy thì profile nó dùng được tự chọn theo; chọn profile thì tool hoặc lệnh riêng nó dùng cũng vậy." />
+            <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,0,0,8" TextChanged="OnSearch"
+                     ToolTip="Tìm theo tên" AutomationProperties.Name="Tìm trong cây chọn" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="Tree" />
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- Gói sẽ có -->
+        <Border Grid.Column="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                CornerRadius="10" Padding="14,12">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                    <TextBlock Text="Tên gói" Style="{StaticResource FieldLabel}" />
+                    <TextBox x:Name="PackName" AutomationProperties.Name="Tên gói" TextChanged="OnNameChanged" />
+                    <Button x:Name="PackButton" Style="{StaticResource PrimaryButton}" Content="Đóng gói" Click="OnPack"
+                            Margin="0,10,0,0" IsEnabled="False" />
+                    <Button x:Name="ImportButton" Style="{StaticResource GhostButton}" Content="Nhập gói vào workspace…" Click="OnImport"
+                            Margin="0,8,0,0" ToolTip="Nhập gói .toolbox từ máy khác: tool vào thư viện, profile và bộ chạy vào workspace này." />
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Top" Text="GÓI SẼ CÓ" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource Faint}" Margin="0,0,0,8" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <TextBlock x:Name="Summary" TextWrapping="Wrap" />
+                        <TextBlock x:Name="Pulled" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        <TextBlock x:Name="Warnings" Foreground="{StaticResource Danger}" FontSize="12" TextWrapping="Wrap"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

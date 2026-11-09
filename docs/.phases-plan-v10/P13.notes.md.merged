@@ -1,0 +1,5 @@
+- P13: CONTRACT: StackStep.Group (int, 0 = không nhóm, json "group", Order 6, EmitDefaultValue=false); ResolvedStep.Group = Step.Group.
+- P13: CONTRACT: StackPlan.Batches(IEnumerable<StackStep>) -> List<List<int>> (chỉ số bước; bước Group 0 là đợt riêng, các bước liền kề cùng Group>0 chung một đợt). Nhóm tách hoặc Group<0 -> ném ArgumentException; StackPlan.Validate(steps) -> string lỗi hoặc null (chứa "nhóm N bị tách").
+- P13: CONTRACT: nhóm chạy song song; bước sau nhóm chờ mọi bước đạt Wait của mình; một bước lỗi thì các bước cùng nhóm không bị kill, dừng ở ranh giới nhóm, Finish(Failed, "Dừng ở bước N \"label\": lý do"); Stop() dừng cả nhóm (Cancelled). WorkspaceEditor.CheckStack gọi StackPlan.Validate.
+- P13: DONE trừ MCP: ParseSteps (McpServer.Setup.cs:521-529, ngoài touches) cần thêm `Group = IntArg(d, "group"),` để create_stack/update_stack/save nhận group; get (Generic.cs) đã trả group khi >0. Tests: StackParallelTests 20/20.
+- P13: CÒN LẠI: thiếu Group trong ParseSteps (đã bổ sung tay)

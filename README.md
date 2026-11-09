@@ -40,10 +40,11 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 | **Nhập gói** | Bấm **Nhập gói**, kéo thả, hoặc double-click file `.toolbox`. Chọn tool cần nhập, xử lý trùng `id` (thay thế, giữ cả hai, hoặc bỏ qua). |
 | | Chặn file có đường dẫn thoát ra ngoài thư mục đích (zip-slip). Cảnh báo khi gói chứa `.exe` hoặc script. |
 | **Bộ cài** | Gửi kèm file cài đặt (`pack=setup`) cho app cần driver. Bên nhận thấy thẻ cam **Chưa cài trên máy này** và nút **Cài đặt**. Toolbox không cài ngầm: UAC và các bước cài do người dùng tự bấm. |
-| **AI agent (MCP)** | `Toolbox.exe --mcp` chạy MCP server qua stdio, không mở cửa sổ. Agent tìm, chạy, đăng ký, sửa và bỏ tool, và điều khiển workspace (profile, bộ chạy, lệnh riêng, worktree). |
-| | Nút **Kết nối agent…** khai báo Toolbox vào Claude Code cho toàn máy hoặc từng workspace. |
+| **AI agent (MCP)** | `Toolbox.exe --mcp` chạy MCP server qua stdio, không mở cửa sổ. Trong workspace agent thấy **12 công cụ cố định** (`overview`, `search`, `get`, `save`, `delete`, `attach`, `run`, `logs`, `propose`…), nên workspace có 5 hay 500 profile vẫn vậy. Agent thêm, sửa, xoá tool riêng, profile, bộ chạy trong workspace tuỳ ý. |
+| | Trang **Agent**: mỗi kết nối là một agent có tên, phạm vi (một workspace hoặc toàn máy) và quyền chạy. Agent muốn sửa hoặc xoá tool dùng chung thì gửi **đề xuất**, bạn duyệt ở tab **Chờ duyệt**. Tab **Nhật ký** ghi mọi việc agent làm. |
 | **Workspace** | **+ Thêm workspace** và chọn một thư mục dự án. Toolbox quét `.sln`, `.git`, `angular.json`, `package.json` rồi gợi ý tool, kèm lý do bằng tiếng Việt. |
-| | Mỗi workspace có tab theo loại tool (.NET, Angular, npm, Git), tab **Lệnh riêng** và tab **Bộ chạy**. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
+| | Mỗi workspace có một tab cho từng tool đã gắn, tab **Lệnh riêng** và tab **Bộ chạy**. Mọi tool là một tool trong **Thư viện** (lệnh gốc hoặc file chạy), nên tool nào cũng có bảng hậu tố (nút **Khả năng…**), chạy được lệnh gốc hoặc một hậu tố, và tạo được profile. Nút **Thêm tool** cho chọn từ thư viện, nhận gợi ý từ thư mục dự án (.NET, git, Angular, npm), hoặc **Đăng ký tool mới…** bằng đúng form của Thư viện. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
+| | Tab đầu tiên **Chạy** gom mọi bộ chạy và profile của workspace, có ô tìm profile, bấm **Chạy** là chạy. Cột trái có ô tìm workspace (từ 6 workspace trở lên) và **Ghim lên đầu** (chuột phải vào workspace). |
 | | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. Tab **Tổng quan** và **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
 | | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
 | **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`. |
@@ -81,7 +82,7 @@ dotnet build src/Toolbox/Toolbox.csproj -c Release
 dotnet test tests/Toolbox.Tests/Toolbox.Tests.csproj
 ```
 
-Bộ test xUnit gồm 221 test, bao phủ đóng gói, chạy tool, MCP server, workspace (phát hiện, cổng, bộ chạy, worktree), thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
+Bộ test xUnit gồm 270 test, bao phủ danh tính agent, đề xuất, nhật ký, bộ công cụ MCP gom, đóng gói, chạy tool, MCP server, workspace (phát hiện, cổng, bộ chạy, worktree), thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
 
 ## Sử dụng
 
@@ -126,9 +127,42 @@ Tab **Bộ chạy** gom nhiều lệnh thành một chuỗi, ví dụ bật API,
 
 ![Tổng quan: số workspace, tác vụ đang chạy, cổng đang dùng và hoạt động gần đây](docs/images/overview.png)
 
+Tab **Chạy** là tab đầu của mỗi workspace: các bộ chạy hiện kèm các bước, bên dưới là mọi profile (tìm theo tên). Workspace nhiều tool và profile thì không phải mở từng tab tool để tìm lệnh cần chạy.
+
+![Tab Chạy: bộ chạy kèm các bước và danh sách profile, mỗi dòng có nút Chạy](docs/images/workspace-run.png)
+
+Cột trái giữ workspace theo thứ tự: ghim trước, còn lại theo tên. Chuột phải vào một workspace để ghim hoặc bỏ ghim.
+
 ## Kết nối AI agent (MCP)
 
-`Toolbox.exe --mcp` chạy MCP server qua stdin/stdout theo JSON-RPC, không mở cửa sổ. Agent là bên ghi danh sách chính, còn người dùng chủ yếu quan sát và sử dụng.
+`Toolbox.exe --mcp` chạy MCP server qua stdin/stdout theo JSON-RPC, không mở cửa sổ. Agent là bên ghi danh sách chính, còn người dùng chủ yếu quan sát, duyệt và sử dụng.
+
+### Agent: đăng ký, quyền, duyệt
+
+Mỗi lần bấm **Kết nối** (xem dưới) Toolbox tạo một **agent** trong `agents.json` và truyền `--agent <id>` cho MCP server. Trang **Agent** trên thanh trái có ba tab:
+
+![Trang Agent: danh sách agent, phạm vi và bảng quyền](docs/images/agents.png)
+
+| Tab | Làm gì |
+|---|---|
+| **Agent** | Danh sách agent, trạng thái kết nối (hoạt động trong 2 phút gần nhất), phạm vi. Bấm **Quyền…** để chọn *Tự chạy profile, bộ chạy và tool đã có* hoặc *Không cho chạy*, hoặc **Gỡ agent**. Quyền đọc lại mỗi lần agent gọi công cụ, nên đổi là có hiệu lực ngay, không cần kết nối lại. |
+| **Chờ duyệt** | Đề xuất của agent sửa hoặc xoá tool dùng chung, kèm giá trị cũ và mới, lý do, và số workspace bị ảnh hưởng. **Duyệt** thì ghi vào thư viện (xoá thì gỡ tool khỏi mọi workspace), **Từ chối** thì bỏ. |
+| **Nhật ký** | Mỗi việc agent làm (tạo profile, gắn tool, chạy…) và mỗi lần bạn duyệt hoặc từ chối. |
+
+![Chờ duyệt: đề xuất sửa npm kèm giá trị cũ và mới](docs/images/agents-proposals.png)
+
+Phạm vi và quyền:
+
+| | Agent trong một workspace | Agent toàn máy |
+|---|---|---|
+| Tool riêng, profile, bộ chạy, lệnh riêng của workspace | thêm, sửa, xoá tuỳ ý | không đụng |
+| Thư viện tool | xem, gắn tool có sẵn, thêm tool mới | thêm, sửa, xoá |
+| Sửa hoặc xoá tool dùng chung | chỉ gửi đề xuất cho bạn duyệt | trực tiếp |
+| Chạy | theo quyền của agent | theo quyền của agent |
+
+Agent trong workspace đăng ký lại một tool trùng đường dẫn thì chỉ được **gắn** tool đó vào workspace, không ghi đè tool dùng chung.
+
+Kết nối cũ không có `--agent` vẫn chạy được như trước (không có quyền riêng). Trong chế độ workspace, sửa tool dùng chung luôn là đề xuất, kể cả khi chưa đăng ký agent.
 
 ### Claude Code (một nút)
 
@@ -153,7 +187,26 @@ Claude Desktop, Cursor và VS Code/Copilot được khai báo tay. Cửa sổ **
 }
 ```
 
-### Công cụ MCP
+### Công cụ trong workspace (bộ gom, 12 công cụ)
+
+Agent kết nối theo workspace thấy đúng bộ này trong `tools/list`. Công cụ nhận `type` (`profile`, `stack`, `custom`, `tool`, `library`) và `id`, rồi chuyển sang các công cụ cũ để dùng lại đúng luật kiểm tra. Số công cụ không đổi theo số profile.
+
+| Tool | Làm gì |
+|---|---|
+| `overview` | Tóm tắt: số tool, profile, bộ chạy, lệnh riêng, đề xuất đang chờ, quyền chạy. Không liệt kê chi tiết. |
+| `search(type?, query?, limit?, offset?)` | Tìm theo từ khoá (không phân biệt dấu), có phân trang (mặc định 20, tối đa 100, trả `nextOffset`). `type=library` tìm cả thư viện, không trả đường dẫn. |
+| `get(type, id)` | Xem đầy đủ một mục. Không trả đường dẫn máy. |
+| `save(type, id?, …)` | Có `id`: sửa; không có: tạo. `type=tool` có `id` thì chỉ gửi đề xuất (kèm `reason`). |
+| `delete(type, id)` | Xoá khỏi workspace. `type=tool` chỉ gỡ khỏi workspace, tool vẫn còn trong thư viện. |
+| `attach(id` hoặc `kind)` | Gắn tool trong thư viện vào workspace (`id` hoặc `kind`, cả hai là Id tool). |
+| `run(type, id?, …)` | Chạy profile, bộ chạy, lệnh riêng, tool thư viện hoặc một lệnh (`type=action`). Bị chặn nếu agent không có quyền chạy. |
+| `logs(id, tail?)` | Log gần nhất của lần chạy do phiên này khởi chạy (mặc định 200 dòng). |
+| `propose(change, id, reason?, …)` | Đề xuất `update` hoặc `delete` tool dùng chung. Chỉ có hiệu lực sau khi bạn duyệt. |
+| `run_status`, `run_stop`, `prepare_worktree` | Như bảng "tên cũ" bên dưới. |
+
+Các tên cũ (`list_setup`, `run_profile`, `create_profile`…) vẫn gọi được nhưng không còn được quảng bá trong chế độ workspace. Agent toàn máy vẫn thấy bộ công cụ thư viện dưới đây.
+
+### Công cụ thư viện (agent toàn máy)
 
 | Tool | Làm gì |
 |---|---|
@@ -165,7 +218,7 @@ Claude Desktop, Cursor và VS Code/Copilot được khai báo tay. Cửa sổ **
 
 Quy tắc chọn kiểu lưu và chế độ đóng gói khi `register_tool` nằm trong [Dữ liệu và sao lưu](#dữ-liệu-và-sao-lưu).
 
-### Công cụ workspace
+### Công cụ workspace (tên cũ, vẫn gọi được)
 
 | Tool | Làm gì |
 |---|---|
@@ -180,7 +233,7 @@ Quy tắc chọn kiểu lưu và chế độ đóng gói khi `register_tool` n�
 | `create_*`, `update_*`, `delete_*` | Tạo, sửa, xoá profile, lệnh riêng và bộ chạy. `delete_custom` từ chối nếu bộ chạy còn dùng lệnh đó. |
 | `set_worktree` | Cấu hình file local đưa vào worktree và lệnh cài đặt (`files=[]` hoặc `command=""` để xoá). |
 
-> **Lưu ý bảo mật:** danh sách không phải allowlist bảo mật. Agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã đăng ký. `create_custom` cho agent lưu một dòng lệnh shell tuỳ ý vào workspace, và `run_custom` chạy dòng lệnh đó với quyền của bạn. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và client như Claude Code vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
+> **Lưu ý bảo mật:** phạm vi, quyền chạy và duyệt đề xuất là rào chắn chống nhầm lẫn, không phải ranh giới bảo mật. Agent có quyền chạy shell vẫn có thể tự khởi chạy `Toolbox.exe --mcp` không kèm phạm vi, hoặc sửa file cấu hình của chính nó. Trong một workspace, agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã gắn. `create_custom` cho agent lưu một dòng lệnh shell tuỳ ý vào workspace, và `run_custom` chạy dòng lệnh đó với quyền của bạn. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và client như Claude Code vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
 
 ## Dữ liệu và sao lưu
 
@@ -191,9 +244,14 @@ tools.json                  # danh sách tool
 library\<id>\…              # bản chép của tool có store=copy; setup\ nếu có bộ cài
 backup\tools-<thời điểm>.json   # bản trước mỗi lần thay đổi danh sách, giữ 50 bản mới nhất
 changes.log                 # mỗi thay đổi một dòng: thời gian, nguồn (gui/mcp), thao tác, id, tên
-workspaces.json             # workspace: tool gắn vào, profile, lệnh riêng, bộ chạy, cấu hình worktree
+workspaces.json             # workspace: tool gắn vào, profile, lệnh riêng, bộ chạy, cấu hình worktree, ghim
+agents.json                 # agent đã kết nối: tên, phạm vi, quyền chạy, lần cuối hoạt động
+proposals.json              # đề xuất sửa hoặc xoá tool dùng chung: chờ duyệt, đã duyệt, đã từ chối
+activity.jsonl              # nhật ký việc của agent, mỗi dòng một JSON, giữ dưới 2 MB
 runs\<taskId>.log           # log của tác vụ chạy ngầm, giữ tối đa 200 file mới nhất
 ```
+
+Đặt biến môi trường `TOOLBOX_DATA` để dùng thư mục khác thay cho `%APPDATA%\Toolbox` (chạy thử, chụp ảnh, bản di động) mà không đụng dữ liệu thật.
 
 Ví dụ một mục trong `tools.json`:
 
@@ -238,10 +296,14 @@ src/Toolbox/                 # Toolbox.exe (WPF, net48)
   Core/AgentTools.cs         # đăng ký, sửa, bỏ tool cho agent và quy tắc chọn store/pack
   Core/Library.cs            # ngưỡng dung lượng, chép vào thư viện, fingerprint
   Core/Workspaces/           # Workspace, WorkspaceStore, ToolCatalog, WorkspaceDetector, TaskHost, StackRunner, WorktreePreparer
+  Core/Agents/               # AgentStore, ProposalStore, ProposalApplier, ActivityLog
+  Core/DataDir.cs            # thư mục dữ liệu, đổi bằng TOOLBOX_DATA
   Mcp/McpServer.cs           # JSON-RPC qua stdio
-  Mcp/McpServer.Setup.cs     # công cụ workspace: run_profile, run_stack, prepare_worktree…
+  Mcp/McpServer.Setup.cs     # công cụ workspace cũ: run_profile, run_stack, prepare_worktree…
+  Mcp/McpServer.Agents.cs    # danh tính agent, quyền chạy, đề xuất, nhật ký
+  Mcp/McpServer.Generic.cs   # bộ 12 công cụ gom: overview, search, get, save, delete, attach, run, logs, propose
   Mcp/SessionRuns.cs         # tác vụ do phiên MCP khởi chạy, dừng khi phiên kết thúc
-  Views/                     # LibraryView, WorkspaceView, OverviewView, TasksView…
+  Views/                     # LibraryView, WorkspaceView, OverviewView, TasksView, AgentsView…
   *.xaml                     # MainWindow, ToolEditWindow, ImportWindow, AgentWindow, WorktreeSetupWindow…
 tests/Toolbox.Tests/         # xUnit, tham chiếu trực tiếp project Toolbox
 docs/
@@ -259,6 +321,11 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 - Chưa có tab Lịch sử trên GUI. Xem thay đổi của agent ở `changes.log`.
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
 - Với `.bat` và `.cmd`, `cmd.exe` diễn giải chuỗi `args`. Mô tả tool nên ghi rõ tham số hợp lệ.
+- **Chưa làm so với thiết kế mới** (`docs/plan-v10.md`, `docs/mockup/workspace-v10-wpf.html`): hộp thoại **Profile mới** ba bước, sơ đồ bộ chạy sửa trực tiếp (dấu +, kéo thả), tab **Đóng gói** theo workspace, khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent.
+- Chế độ chạy của agent chỉ có *tự chạy* và *không cho chạy*. Chế độ *hỏi trước mỗi lần* chưa làm vì MCP chưa có cách hỏi người dùng.
+- Duyệt đề xuất chỉ có kiểu sửa hoặc xoá tool dùng chung. Chưa có kiểu "chỉ áp dụng cho workspace này".
+- Cột trái xếp workspace theo ghim rồi theo tên, không còn theo thứ tự thêm.
+- Trang **Agent**, tab **Chạy**, ô tìm và ghim workspace: phần dữ liệu và MCP có test tự động; giao diện mới chỉ dựng ra ảnh để xem, chưa thử tay đầy đủ (bấm Duyệt, Gỡ agent, ghim workspace).
 - Luồng gói `setup` → nhập → **Cài đặt** chưa được kiểm thử tay trên GUI. Kết nối Claude Code đã thử với CLI thật ở scope `local`, chưa thử scope `user`.
 
 Tiến độ chi tiết và các bước đã xong nằm ở [docs/design.md](docs/design.md#7-tiến-độ).

@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Toolbox.Core;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Mcp
@@ -39,6 +40,7 @@ namespace Toolbox.Mcp
                 {
                     ["id"] = Property("string", "Id profile (lấy từ list_setup)."),
                     ["waitReady"] = Property("boolean", "true: chờ cổng sẵn sàng. Profile phải khai báo cổng."),
+                    ["answers"] = Property("array", "Giá trị cho các tham số hỏi lúc chạy (ask), theo thứ tự xuất hiện. Profile có tham số ask thì bắt buộc truyền."),
                 }, "id"),
             },
             new Dictionary<string, object>
@@ -68,7 +70,7 @@ namespace Toolbox.Mcp
                 ["description"] = "Chạy một lệnh của tool trong workspace với tham số tuỳ ý, không cần profile. Không chờ cổng: dùng run_status để kiểm tra.",
                 ["inputSchema"] = Schema(new Dictionary<string, object>
                 {
-                    ["kind"] = Property("string", "Loại tool, ví dụ dotnet, git, angular, npm (lấy từ list_setup)."),
+                    ["kind"] = Property("string", "Id tool đã gắn vào workspace (lấy từ list_setup)."),
                     ["action"] = Property("string", "Id action của tool (lấy từ list_setup)."),
                     ["variant"] = Property("string", "Id biến thể. Bỏ trống thì dùng biến thể mặc định."),
                     ["vals"] = Property("object", "Tham số theo key, ví dụ {\"port\": \"4200\"}. Key lấy từ params trong list_setup."),
@@ -119,19 +121,21 @@ namespace Toolbox.Mcp
 
         private static object[] ManageToolDefinitions() => new object[]
         {
-            Tool("add_tool", "Thêm một loại tool của dự án (dotnet, git, angular, npm) vào workspace. Lệnh được dựng theo file dự án.",
-                Props(("kind", "string", "Loại tool: dotnet, git, angular, npm."), ("cwd", "string", "Thư mục chạy, tương đối so với workspace. Bỏ trống là gốc.")), "kind"),
+            Tool("add_tool", "Gắn một tool có sẵn trong thư viện (id) vào workspace, kèm thư mục chạy riêng nếu cần. Lệnh được dựng theo file dự án.",
+                Props(("kind", "string", "Id tool trong thư viện."), ("cwd", "string", "Thư mục chạy, tương đối so với workspace. Bỏ trống là gốc.")), "kind"),
             Tool("remove_tool", "Gỡ một loại tool khỏi workspace. Từ chối nếu profile hoặc bộ chạy còn dùng.",
                 Props(("kind", "string", "Loại tool cần gỡ.")), "kind"),
             Tool("bind_library_tool", "Gắn một tool có sẵn trong thư viện vào workspace. Không đổi bản thân tool. Id lấy từ list_tools.",
                 Props(("id", "string", "Id tool trong thư viện.")), "id"),
             Tool("create_profile", "Tạo profile: cách chạy đặt tên cho một lệnh của tool trong workspace. Tham số kiểm đúng luật như khi chạy.",
                 Props(("label", "string", "Tên profile."), ("kind", "string", "Loại tool."), ("action", "string", "Id lệnh (xem list_setup)."),
-                    ("variant", "string", "Id biến thể. Bỏ trống là mặc định."), ("vals", "object", "Tham số theo key, ví dụ {\"port\": \"4200\"}.")),
+                    ("variant", "string", "Id biến thể. Bỏ trống là mặc định."), ("vals", "object", "Tham số theo key, ví dụ {\"port\": \"4200\"}."),
+                    ("pairs", "array", "Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy.")),
                 "label", "kind", "action"),
             Tool("update_profile", "Sửa tên, biến thể hoặc tham số của profile. Không đổi tool và lệnh; muốn đổi thì xoá rồi tạo lại.",
                 Props(("id", "string", "Id profile."), ("label", "string", "Tên mới."), ("variant", "string", "Biến thể mới."),
-                    ("vals", "object", "Tham số mới (thay toàn bộ).")), "id"),
+                    ("vals", "object", "Tham số mới (thay toàn bộ)."),
+                    ("pairs", "array", "Cặp tham số mới (thay toàn bộ; mảng rỗng là xoá). Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy.")), "id"),
             Tool("delete_profile", "Xoá profile. Từ chối nếu bộ chạy còn dùng.",
                 Props(("id", "string", "Id profile.")), "id"),
             Tool("create_custom", "Tạo lệnh riêng: một dòng lệnh chạy trong thư mục của workspace.",
@@ -219,6 +223,7 @@ namespace Toolbox.Mcp
                     ["kind"] = p.Kind,
                     ["action"] = p.ActionId,
                     ["variant"] = p.VariantId ?? "",
+                    ["refId"] = p.RefId ?? "",
                     ["vals"] = p.Vals,
                 }).ToArray(),
                 ["stacks"] = workspace.Stacks.Select(s => (object)new Dictionary<string, object>
@@ -230,6 +235,7 @@ namespace Toolbox.Mcp
                         ["index"] = r.Index + 1,
                         ["label"] = r.Label,
                         ["wait"] = r.Wait,
+                        ["group"] = r.Group,
                         ["problem"] = r.Problem ?? "",
                     }).ToArray(),
                 }).ToArray(),
@@ -252,11 +258,11 @@ namespace Toolbox.Mcp
 
         private static Dictionary<string, object> ToolView(Workspace workspace, ToolBinding binding)
         {
-            var tool = ToolCatalog.Find(binding.Kind);
+            var tool = ToolCatalog.Find(binding.ToolId);
             return new Dictionary<string, object>
             {
-                ["kind"] = binding.Kind,
-                ["name"] = tool?.Name ?? binding.Kind,
+                ["kind"] = binding.ToolId,
+                ["name"] = tool?.Name ?? binding.ToolId,
                 ["cwd"] = workspace.ResolveCwd(binding.Cwd),
                 ["actions"] = ToolCatalog.ActionsFor(workspace, binding).Select(a => (object)new Dictionary<string, object>
                 {
@@ -285,15 +291,48 @@ namespace Toolbox.Mcp
             if (profile == null)
                 return ToolResult($"Không có profile \"{id}\". Dùng list_setup để xem id.", isError: true);
 
+            var answers = GetStrings(arguments, "answers");
+            var pending = profile.WithAnswers(answers).PendingAsks;
+            if (pending.Count > 0)
+            {
+                var all = profile.PendingAsks.Select((p, i) => $"{i + 1}. " + (string.IsNullOrWhiteSpace(p.Key) ? "đối số vị trí" : p.Key.Trim()));
+                return ToolResult("Profile cần giá trị lúc chạy. Truyền answers (mảng chuỗi) theo thứ tự: " + string.Join("; ", all) + ".", isError: true);
+            }
+
             var step = new StackStep
             {
                 Kind = profile.Kind,
                 ActionId = profile.ActionId,
                 VariantId = profile.VariantId,
                 ProfileId = profile.Id,
+                Port = IntArg(arguments, "port"),
                 Wait = WaitOf(arguments),
+                Answers = answers,
             };
             return LaunchStack(workspace, new StackDef { Id = profile.Id, Label = profile.Label, Steps = { step } });
+        }
+
+        /// <summary>
+        /// Trong khối using, bước tool và kiểm profile tra thư viện trong kho của server (không phải file mặc định).
+        /// Kho hỏng thì bỏ qua và để bộ resolve báo lỗi.
+        /// </summary>
+        private IDisposable LibraryScope()
+        {
+            ToolStore store = null;
+            try { store = _loadStore?.Invoke(); }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException) { }
+            return StackResolver.UseLibrary(store);
+        }
+
+        /// <summary>Gộp tham số "args" (của lời gọi save) vào Vals["args"] cho profile chạy lệnh gốc hoặc lệnh riêng.</summary>
+        private static Dictionary<string, string> WithArgs(Dictionary<string, object> a, Dictionary<string, string> vals, IDictionary<string, string> current = null)
+        {
+            var args = GetString(a, ProfileKind.ArgsKey);
+            if (args == null)
+                return vals;
+            var merged = new Dictionary<string, string>(vals ?? current ?? new Dictionary<string, string>(), StringComparer.Ordinal);
+            merged[ProfileKind.ArgsKey] = args;
+            return merged;
         }
 
         private object RunCustom(Dictionary<string, object> arguments, Workspace workspace)
@@ -372,17 +411,22 @@ namespace Toolbox.Mcp
                 return ToolResult("Không ghi được cấu hình workspace.", isError: true);
 
             string error = null;
-            WorkspaceStore.Update(store.FilePath, fresh =>
+            // LibraryScope đọc kho tool (khoá tool). Mở nó TRƯỚC khi giữ khoá workspace: WriteTool khoá theo thứ tự
+            // tool rồi workspace, nên đảo thứ tự ở đây làm hai luồng chờ nhau tới hết hạn khoá (10 giây).
+            using (LibraryScope())
             {
-                var target = fresh.Find(_workspaceId);
-                if (target == null)
+                WorkspaceStore.Update(store.FilePath, fresh =>
                 {
-                    error = $"Workspace \"{_workspaceId}\" chưa được đăng ký trong Toolbox.";
-                    return false;
-                }
-                error = change(target);
-                return error == null;
-            });
+                    var target = fresh.Find(_workspaceId);
+                    if (target == null)
+                    {
+                        error = $"Workspace \"{_workspaceId}\" chưa được đăng ký trong Toolbox.";
+                        return false;
+                    }
+                    error = change(target);
+                    return error == null;
+                });
+            }
             return error != null ? ToolResult(error, isError: true) : ToolResult(success(), isError: false);
         }
 
@@ -415,14 +459,24 @@ namespace Toolbox.Mcp
                         Kind = GetString(a, "kind"),
                         ActionId = GetString(a, "action"),
                         VariantId = GetString(a, "variant"),
+                        RefId = GetString(a, "refId"),
                         Vals = ParseVals(a),
+                        Pairs = ParsePairs(a),
                     };
+                    if (ProfileKind.IsRef(profile.Kind) || string.IsNullOrWhiteSpace(profile.ActionId))
+                        profile.Vals = WithArgs(a, profile.Vals);
                     return Write(ws => WorkspaceEditor.CreateProfile(ws, profile),
                         () => $"Đã tạo profile \"{profile.Label}\" (id {profile.Id}).");
                 }
                 case "update_profile":
-                    return Write(ws => WorkspaceEditor.UpdateProfile(ws, GetString(a, "id"), GetString(a, "label"), GetString(a, "variant"), ParseVals(a)),
-                        () => $"Đã cập nhật profile {GetString(a, "id")}.");
+                    return Write(ws =>
+                    {
+                        var current = ws.Profiles.Find(p => string.Equals(p.Id, GetString(a, "id"), StringComparison.OrdinalIgnoreCase));
+                        var vals = ParseVals(a);
+                        if (current != null && (ProfileKind.IsCustom(current.Kind) || string.IsNullOrEmpty(current.ActionId)))
+                            vals = WithArgs(a, vals, current.Vals);
+                        return WorkspaceEditor.UpdateProfile(ws, GetString(a, "id"), GetString(a, "label"), GetString(a, "variant"), vals, ParsePairs(a));
+                    }, () => $"Đã cập nhật profile {GetString(a, "id")}.");
                 case "delete_profile":
                     return Write(ws => WorkspaceEditor.DeleteProfile(ws, GetString(a, "id")), () => $"Đã xoá profile {GetString(a, "id")}.");
                 case "create_custom":
@@ -462,6 +516,21 @@ namespace Toolbox.Mcp
             }
         }
 
+        /// <summary>Danh sách cặp tham số; null nếu không truyền. Phần tử sai kiểu thì báo lỗi đầu vào.</summary>
+        private static List<ParamPair> ParsePairs(Dictionary<string, object> a)
+        {
+            if (!a.TryGetValue("pairs", out var raw) || !(raw is IEnumerable items) || raw is string)
+                return null;
+            var pairs = new List<ParamPair>();
+            foreach (var item in items)
+            {
+                if (!(item is Dictionary<string, object> d))
+                    throw new ArgumentException("Mỗi cặp phải là object, ví dụ {\"key\":\"--project\",\"value\":\"A.csproj\"}.");
+                pairs.Add(new ParamPair(GetString(d, "key"), GetString(d, "value"), BoolArg(d, "ask") ?? false));
+            }
+            return pairs;
+        }
+
         private static Dictionary<string, string> ParseVals(Dictionary<string, object> a)
         {
             if (!a.TryGetValue("vals", out var raw) || !(raw is Dictionary<string, object> map))
@@ -481,7 +550,7 @@ namespace Toolbox.Mcp
             foreach (var item in items)
             {
                 if (!(item is Dictionary<string, object> d))
-                    throw new ArgumentException("Mỗi bước phải là object, ví dụ {\"kind\":\"npm\",\"action\":\"start\",\"wait\":\"port\",\"port\":4200}.");
+                    throw new ArgumentException("Mỗi bước phải là object, ví dụ {\"kind\":\"<id tool>\",\"action\":\"start\",\"wait\":\"port\",\"port\":4200}.");
                 steps.Add(new StackStep
                 {
                     Kind = GetString(d, "kind"),
@@ -490,6 +559,7 @@ namespace Toolbox.Mcp
                     ProfileId = GetString(d, "profile"),
                     Wait = GetString(d, "wait"),
                     Port = IntArg(d, "port"),
+                    Group = IntArg(d, "group"),
                 });
             }
             return steps;
@@ -550,7 +620,8 @@ namespace Toolbox.Mcp
             string id;
             try
             {
-                id = Session.StartStack(workspace, stack);
+                using (LibraryScope())
+                    id = Session.StartStack(workspace, stack);
             }
             catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException || ex is Win32Exception)
             {

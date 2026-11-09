@@ -98,7 +98,8 @@ namespace Toolbox.Views
         public ParamRow(ParamDef def, string value, Action changed)
         {
             Def = def;
-            _value = value ?? "";
+            // Form mới điền sẵn mặc định, để ô hiện đúng giá trị lệnh sẽ dùng (không ẩn). Profile đã lưu giữ nguyên giá trị của nó.
+            _value = value ?? def.Default ?? "";
             _changed = changed;
         }
 
@@ -112,6 +113,11 @@ namespace Toolbox.Views
 
         /// <summary>Gợi ý mờ khi để trống: giá trị mặc định của tham số.</summary>
         public string Default => Def.Default;
+
+        /// <summary>Danh sách gợi ý đọc từ thư mục chạy (ô "" đầu = mặc định). Rỗng nghĩa là ô nhập tay.</summary>
+        public IReadOnlyList<string> Options { get; set; } = new string[0];
+
+        public Visibility OptionsVisibility => Options.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         public string Value
         {
@@ -152,15 +158,98 @@ namespace Toolbox.Views
         private VariantDef _variant;
         private bool _hasErrors;
 
-        public ActionRow(ToolDef tool, ToolBinding binding, ActionDef action, Func<IReadOnlyDictionary<int, string>> usedPorts)
+        /// <summary>Thư mục chạy tuyệt đối của binding, để đọc danh sách gợi ý (vd project trong angular.json).</summary>
+        private readonly string _workingDirectory;
+
+        public ActionRow(ToolDef tool, ToolBinding binding, ActionDef action, Func<IReadOnlyDictionary<int, string>> usedPorts, string workingDirectory = null)
         {
             Tool = tool;
             Binding = binding;
             Action = action;
             _usedPorts = usedPorts;
+            _workingDirectory = workingDirectory;
             _variant = action.Default;
+            Editor = new PairEditor();
+            Editor.Changed += (s, e) =>
+            {
+                Revalidate();
+                // Gõ thêm lệnh con (migrations add) thì cờ của nó mới là gợi ý đúng; chỉ nạp lại khi phạm vi đổi.
+                if (!string.Equals(Scope(), _scope, StringComparison.OrdinalIgnoreCase))
+                    RefreshSuggestions();
+            };
+            Editor.ScanRequested += async (s, e) => await ScanAsync();
+            RefreshSuggestions();
             BuildParams(null);
         }
+
+        private string _scope = "";
+
+        /// <summary>
+        /// Phạm vi trợ giúp của dòng: id của action cộng các đối số vị trí đứng đầu (key trống), vd <c>ef migrations add</c>.
+        /// Cờ như <c>--project</c> thường chỉ có trong help của lệnh lá, nên quét và gợi ý theo phạm vi này chứ không chỉ lệnh gốc.
+        /// Dừng ở cặp đầu tiên có key, hoặc token không giống tên lệnh con (đường dẫn, số…).
+        /// </summary>
+        internal static string ScopeOf(string actionId, IEnumerable<ParamPair> pairs)
+        {
+            var tokens = new List<string>();
+            if (!string.IsNullOrWhiteSpace(actionId))
+                tokens.Add(actionId.Trim());
+            foreach (var pair in pairs)
+            {
+                if (pair.Key.Length > 0)
+                    break;
+                var value = (pair.Value ?? "").Trim();
+                if (value.Length == 0 || !CapabilityStore.SubcommandName.IsMatch(value))
+                    break;
+                tokens.Add(value);
+            }
+            return string.Join(" ", tokens);
+        }
+
+        private string Scope() => ScopeOf(Action.Id, Editor.GetPairs());
+
+        /// <summary>Trình sửa cặp tham số của thẻ lệnh (bấm ＋ để thêm; gợi ý key từ bảng khả năng đã quét).</summary>
+        public PairEditor Editor { get; }
+
+        /// <summary>Đọc lại gợi ý key (sau khi quét trợ giúp ở "Khả năng…").</summary>
+        public void RefreshSuggestions()
+        {
+            _scope = Scope();
+            var suggestions = PairEditor.SuggestionsFor(Tool.Kind, _scope, out var hasOwn);
+            if (!hasOwn && !string.Equals(_scope, Action.Id ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                // Phạm vi sâu hơn action (migrations add) chưa quét: lùi về cờ của action, rồi cờ chung. Đã quét thì ghi đè hết.
+                var outer = PairEditor.SuggestionsFor(Tool.Kind, Action.Id, out _);
+                suggestions = suggestions.Concat(outer).ToList();
+            }
+            Editor.SetSuggestions(suggestions);
+            Editor.SetPositionalSource(PairEditor.LoadCapabilities(Tool.Kind), Action.Id, _workingDirectory);
+            Editor.EnableScan(!string.IsNullOrEmpty(Tool.HelpCommand(_scope)) && !string.IsNullOrEmpty(_workingDirectory), hasOwn);
+        }
+
+        /// <summary>Chạy lệnh trợ giúp của action này (nền), lưu vào bảng khả năng rồi nạp lại dropdown.</summary>
+        private async System.Threading.Tasks.Task ScanAsync()
+        {
+            var scope = Scope();
+            var command = Tool.HelpCommand(scope);
+            if (command == null)
+                return;
+            Editor.SetScanning(true, null);
+            var kind = Tool.Kind;
+            var cwd = _workingDirectory;
+            var outcome = await System.Threading.Tasks.Task.Run(() =>
+                CapabilityScanner.ScanAndStore(CapabilityStore.DefaultDirectory, kind, scope, command, cwd, includeSubcommands: true));
+            RefreshSuggestions();
+            Editor.SetScanning(false, outcome.Error ?? $"Đã đọc {outcome.Entries.Count(en => CapabilityStore.IsFlag(en.Name))} cờ từ: {command}");
+        }
+
+        /// <summary>Các cặp tham số đang nhập (bỏ dòng trống).</summary>
+        public List<ParamPair> Pairs => Editor.GetPairs();
+
+        /// <summary>Tham số của biến thể trừ ô {args} dạng chuỗi (đã nhường chỗ cho <see cref="Editor"/>).</summary>
+        public ObservableCollection<ParamRow> VisibleParams { get; } = new ObservableCollection<ParamRow>();
+
+        public Visibility VisibleParamsVisibility => VisibleParams.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         public ToolDef Tool { get; }
 
@@ -200,7 +289,8 @@ namespace Toolbox.Views
             {
                 try
                 {
-                    return CommandBuilder.Build(_variant, Values());
+                    var pairs = Pairs;
+                    return pairs.Count > 0 ? CommandBuilder.BuildWithPairs(_variant, Values(), pairs) : CommandBuilder.Build(_variant, Values());
                 }
                 catch (ArgumentException)
                 {
@@ -237,7 +327,7 @@ namespace Toolbox.Views
                 }
                 p.Error = p.Def.IsPort ? message + SuggestPort(p, used) : message;
             }
-            _hasErrors = errors.Count > 0;
+            _hasErrors = errors.Count > 0 || Editor.Error != null;
             Raise(nameof(Preview));
             return _hasErrors;
         }
@@ -259,12 +349,20 @@ namespace Toolbox.Views
         private void BuildParams(IDictionary<string, string> vals)
         {
             Params.Clear();
+            VisibleParams.Clear();
             foreach (var def in _variant.Params)
             {
                 string value = null;
                 vals?.TryGetValue(def.Key, out value);
-                Params.Add(new ParamRow(def, value, () => Revalidate()));
+                var row = new ParamRow(def, value, () => Revalidate());
+                var suggestions = ToolCatalog.OptionsFor(def, _workingDirectory);
+                if (suggestions.Count > 0)
+                    row.Options = new[] { "" }.Concat(suggestions).ToList();
+                Params.Add(row);
+                if (!string.Equals(def.Key, ProfileKind.ArgsKey, StringComparison.OrdinalIgnoreCase))
+                    VisibleParams.Add(row);
             }
+            Raise(nameof(VisibleParamsVisibility));
         }
     }
 
@@ -274,10 +372,24 @@ namespace Toolbox.Views
         public ProfileRow(Workspace workspace, Profile profile)
         {
             Profile = profile;
+            if (ProfileKind.IsCustom(profile.Kind))
+            {
+                // Lệnh riêng: không thuộc tool nào; kiểm bằng bộ resolve của bộ chạy.
+                var resolved = StackResolver.Resolve(workspace, new StackStep { Kind = profile.Kind, ProfileId = profile.Id }, 0);
+                Problem = resolved.Problem;
+                RefSummary = "Lệnh riêng · " + (workspace.Customs.Find(c => string.Equals(c.Id, profile.RefId, StringComparison.OrdinalIgnoreCase))?.Label ?? "(đã xoá)");
+                if (profile.ExtraArgs.Length > 0)
+                    RefSummary += " · " + profile.ExtraArgs;
+                CanRun = Problem == null;
+                return;
+            }
             Binding = workspace.Binding(profile.Kind);
             Tool = ToolCatalog.Find(profile.Kind);
             Action = Binding == null ? null : ToolCatalog.FindAction(workspace, Binding, profile.ActionId);
-            Variant = Action?.Variants.FirstOrDefault(v => string.Equals(v.Id, profile.VariantId, StringComparison.OrdinalIgnoreCase));
+            // Profile chạy lệnh gốc của tool (ActionId rỗng) không có biến thể riêng: dùng biến thể mặc định.
+            Variant = string.IsNullOrEmpty(profile.VariantId)
+                ? Action?.Default
+                : Action?.Variants.FirstOrDefault(v => string.Equals(v.Id, profile.VariantId, StringComparison.OrdinalIgnoreCase));
 
             if (Binding == null)
                 Problem = "Workspace không còn gắn tool này.";
@@ -303,6 +415,9 @@ namespace Toolbox.Views
 
         public string Title => Profile.Label;
 
+        /// <summary>Mô tả của profile loại library/custom (tên tool hoặc lệnh riêng + tham số thêm); null với loại dựng sẵn.</summary>
+        public string RefSummary { get; }
+
         public Visibility ProblemVisibility => Problem == null ? Visibility.Collapsed : Visibility.Visible;
 
         /// <summary>Mô tả ngắn: lệnh · biến thể · tham số, ví dụ "Chạy dev · Dev · cổng 4201".</summary>
@@ -310,6 +425,8 @@ namespace Toolbox.Views
         {
             get
             {
+                if (RefSummary != null)
+                    return RefSummary;
                 if (Action == null || Variant == null)
                     return $"{Profile.ActionId} · {Profile.VariantId}";
                 var parts = new List<string> { Action.Label };
@@ -357,30 +474,19 @@ namespace Toolbox.Views
         /// <summary>Id của tab "Lệnh riêng" và "Bộ chạy" (không trùng kind nào của catalog).</summary>
         public const string CustomId = "";
         public const string StacksId = ":stacks";
+        public const string RunId = ":run";
 
         public TabRow(string title, ToolBinding binding, string id = null)
         {
             Title = title;
             Binding = binding;
-            Id = id ?? binding?.Kind ?? CustomId;
+            Id = id ?? binding?.ToolId ?? CustomId;
         }
 
         public static TabRow Stacks() => new TabRow("Bộ chạy", null, StacksId);
 
-        /// <summary>Tiền tố Id của tab tool thư viện, để không trùng kind của catalog.</summary>
-        public const string LibraryPrefix = "lib:";
-
-        /// <summary>Tab một tool thư viện được gắn vào workspace.</summary>
-        public static TabRow ForLibrary(string title, LibraryBinding binding)
-        {
-            var tab = new TabRow(title, null, LibraryPrefix + binding.ToolId);
-            tab.LibraryRef = binding;
-            return tab;
-        }
-
-        public LibraryBinding LibraryRef { get; private set; }
-
-        public bool IsLibrary => LibraryRef != null;
+        /// <summary>Tab đầu tiên: bộ chạy và profile của cả workspace, để chạy ngay.</summary>
+        public static TabRow Run() => new TabRow("Chạy", null, RunId);
 
         /// <summary>Kind của tool, hoặc <see cref="CustomId"/> / <see cref="StacksId"/>; dùng để nhớ tab đang chọn.</summary>
         public string Id { get; }
@@ -394,6 +500,8 @@ namespace Toolbox.Views
         public bool IsCustom => Id == CustomId;
 
         public bool IsStacks => Id == StacksId;
+
+        public bool IsRun => Id == RunId;
 
         public bool IsSelected
         {

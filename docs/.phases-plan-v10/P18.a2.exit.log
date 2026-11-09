@@ -1,0 +1,22 @@
+  Toolbox -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\src\Toolbox\bin\Debug\net48\Toolbox.exe
+  Toolbox.Tests -> C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll
+Test run for C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\bin\Debug\net48\Toolbox.Tests.dll (.NETFramework,Version=v4.8)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:18.66]     Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung [FAIL]
+  Failed Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung [10 s]
+  Error Message:
+   tiến trình không kết thúc
+  Stack Trace:
+     at Toolbox.Tests.RunTrackerTests.WaitUntilStopped(RunTracker tracker) in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\RunTrackerTests.cs:line 18
+   at Toolbox.Tests.RunTrackerTests.Stop_DungTienTrinhDangChay_DanhDauDaDung() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\RunTrackerTests.cs:line 68
+[xUnit.net 00:00:20.00]     Toolbox.Tests.McpServerTests.RunTool_Wait_TraOutputVaExitCode [FAIL]
+  Failed Toolbox.Tests.McpServerTests.RunTool_Wait_TraOutputVaExitCode [5 s]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "exitCode: 3\n\n[stdout]\n\n\n[stderr]\n"
+Not found: "xin chao ban"
+  Stack Trace:
+     at Toolbox.Tests.McpServerTests.RunTool_Wait_TraOutputVaExitCode() in C:\Users\HueTruong\Work\Repositories\Researchs\ToolsManager\tests\Toolbox.Tests\McpServerTests.cs:line 112
+
+Failed!  - Failed:     2, Passed:   341, Skipped:     0, Total:   343, Duration: 30 s - Toolbox.Tests.dll (net48)
+

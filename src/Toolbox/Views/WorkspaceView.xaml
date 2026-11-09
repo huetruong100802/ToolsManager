@@ -1,6 +1,7 @@
 <UserControl x:Class="Toolbox.Views.WorkspaceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Toolbox.Views">
     <UserControl.Resources>
         <!-- Tab tool: chữ đậm và gạch chân accent khi chọn. -->
         <Style x:Key="TabButton" TargetType="RadioButton">
@@ -35,123 +36,14 @@
                 <TextBlock Text="{Binding RunningText}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
             </Border>
         </DataTemplate>
-    </UserControl.Resources>
-
-    <DockPanel>
-        <!-- Thanh tab: các tool đã gắn + "Lệnh riêng". -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
-                Padding="12,0,12,0">
-            <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnWorktreeSetup" VerticalAlignment="Center"
-                        AutomationProperties.Name="Worktree" ToolTip="File local và lệnh cài đặt cho worktree mới; chuẩn bị một worktree có sẵn">
-                    <TextBlock Text="Worktree…" />
-                </Button>
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnAddTool" VerticalAlignment="Center"
-                        AutomationProperties.Name="Thêm tool" ToolTip="Gắn tool từ thư viện, hoặc thêm loại tool của dự án (dotnet, git, Angular, npm)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
-                        <TextBlock Text="Thêm tool" />
-                    </StackPanel>
-                    <Button.ContextMenu>
-                        <ContextMenu Placement="Bottom">
-                            <MenuItem Header="Từ thư viện…" Click="OnAddFromLibrary"
-                                      ToolTip="Chọn tool đã đăng ký trong Thư viện để dùng trong workspace này" />
-                            <MenuItem Header="Loại tool của dự án…" Click="OnAddProjectTool"
-                                      ToolTip="dotnet, git, Angular, npm: lệnh do Toolbox dựng theo file dự án" />
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl x:Name="TabStrip">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource TabButton}" Click="OnTabClick" Content="{Binding Title}"
-                                             IsChecked="{Binding IsSelected, Mode=OneWay}" AutomationProperties.Name="{Binding Title}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
-
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Grid Margin="20,16,20,20">
-                <!-- Trang của một tool. -->
-                <StackPanel x:Name="ToolPage">
-                    <DockPanel Margin="0,0,0,12">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                            <Button Style="{StaticResource GhostButton}" Content="Đổi thư mục chạy…" Click="OnEditTool" />
-                            <Button Style="{StaticResource GhostButton}" Content="Gỡ tool" Click="OnRemoveTool" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock x:Name="ToolRule" Foreground="{StaticResource Muted}" />
-                            <TextBlock x:Name="ToolCwd" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-
-                    <TextBlock x:Name="NoActions" Style="{StaticResource Hint}" Margin="0,0,0,12" Visibility="Collapsed" />
-
-                    <ItemsControl x:Name="ActionList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Lưu profile" Click="OnSaveProfile" Margin="0,0,6,0"
-                                                    ToolTip="Lưu cách chạy này (biến thể + tham số) thành profile để chạy lại nhanh" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
-                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
-                                                    Visibility="{Binding StopVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
-                                                                Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <ComboBox ItemsSource="{Binding Variants}" SelectedItem="{Binding Variant, Mode=TwoWay}"
-                                                      DisplayMemberPath="Label" HorizontalAlignment="Left" MinWidth="220" Margin="0,8,0,0"
-                                                      Visibility="{Binding VariantPickerVisibility}" AutomationProperties.Name="Biến thể" />
-                                            <ItemsControl ItemsSource="{Binding Params}" Visibility="{Binding ParamsVisibility}" Margin="0,8,0,0">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <StackPanel Margin="0,0,0,6">
-                                                            <TextBlock Text="{Binding Prompt}" Style="{StaticResource FieldLabel}" />
-                                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left"
-                                                                     Width="260" AutomationProperties.Name="{Binding Prompt}"
-                                                                     ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
-                                                            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" FontSize="12"
-                                                                       TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding ErrorVisibility}" />
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <TextBlock Text="{Binding Preview}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource Muted}"
-                                                       TextWrapping="Wrap" Margin="0,8,0,0" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,12,0,6" />
-                    <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}"
-                               Text="Chưa có profile. Chọn biến thể và tham số ở trên rồi bấm &quot;Lưu profile&quot; để chạy lại bằng một cú bấm." />
-                    <ItemsControl x:Name="ProfileList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
+        <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
+                            <DataTemplate x:Key="ProfileRowTemplate">
                                 <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Nhân bản" Click="OnDuplicateProfile" />
+                                            <Button Style="{StaticResource GhostButton}" Content="Tham số…" Click="OnEditPairs" ToolTip="Sửa các cặp tham số của profile (thêm, xoá, đổi thứ tự, hỏi lúc chạy)." />
                                             <Button Style="{StaticResource GhostButton}" Content="Đổi tên" Click="OnRenameProfile" />
                                             <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteProfile" Margin="0,0,6,0" />
                                             <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
@@ -173,103 +65,17 @@
                                     </DockPanel>
                                 </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-
-                <!-- Trang một tool thư viện được gắn vào workspace. -->
-                <StackPanel x:Name="LibraryPage" Visibility="Collapsed">
-                    <TextBlock x:Name="LibraryTitle" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock x:Name="LibraryPathText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                    <TextBlock x:Name="LibraryMissingText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Foreground="{StaticResource Danger}" Visibility="Collapsed" />
-
-                    <TextBlock Text="Tham số khi chạy trong workspace này" Style="{StaticResource FieldLabel}" Margin="0,16,0,4" />
-                    <TextBox x:Name="LibraryArgsBox" LostFocus="OnLibraryArgsLost" AutomationProperties.Name="Tham số trong workspace" />
-                    <TextBlock x:Name="LibraryArgsHint" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0" />
-
-                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button x:Name="LibraryRunButton" Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnLibraryRun" MinWidth="110" />
-                        <Button Style="{StaticResource DangerButton}" Content="Gỡ khỏi workspace" Click="OnLibraryUnbind" Margin="8,0,0,0" />
-                    </StackPanel>
-                    <TextBlock x:Name="LibraryStatus" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,10,0,0" />
-                </StackPanel>
-
-                <!-- Trang "Lệnh riêng". -->
-                <StackPanel x:Name="CustomPage" Visibility="Collapsed">
-                    <DockPanel Margin="0,0,0,12">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddCommand" VerticalAlignment="Top"
-                                AutomationProperties.Name="Thêm lệnh riêng">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
-                                <TextBlock Text="Thêm lệnh" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                   Text="Lệnh tự đặt cho workspace này, ngoài các tool có sẵn." />
-                    </DockPanel>
-                    <TextBlock x:Name="NoCustoms" Style="{StaticResource Hint}" Text="Chưa có lệnh riêng. Bấm &quot;Thêm lệnh&quot; để tạo." />
-                    <ItemsControl x:Name="CustomList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditCommand" />
-                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteCommand" Margin="0,0,6,0" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
-                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
-                                                    Visibility="{Binding StopVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <Border Background="{StaticResource TagBg}" CornerRadius="10" Padding="7,1" Margin="8,0,0,0"
-                                                        VerticalAlignment="Center" Visibility="{Binding WindowVisibility}"
-                                                        ToolTip="Chạy trong cửa sổ terminal riêng, không có log">
-                                                    <TextBlock Text="Cửa sổ" FontSize="11" Foreground="{StaticResource TagInk}" />
-                                                </Border>
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
-                                                                Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding CommandLine}" FontFamily="Consolas" FontSize="12"
-                                                       Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding CwdText, StringFormat='Chạy tại: {0}'}" FontSize="12"
-                                                       Foreground="{StaticResource Faint}" TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-
-                <!-- Trang "Bộ chạy". -->
-                <StackPanel x:Name="StackPage" Visibility="Collapsed">
-                    <DockPanel Margin="0,0,0,12">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddStack" VerticalAlignment="Top"
-                                AutomationProperties.Name="Thêm bộ chạy">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
-                                <TextBlock Text="Thêm bộ chạy" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                   Text="Chuỗi lệnh chạy lần lượt bằng một cú bấm, vd: bật API, chờ cổng mở rồi bật web." />
-                    </DockPanel>
-                    <TextBlock x:Name="NoStacks" Style="{StaticResource Hint}" Text="Chưa có bộ chạy. Bấm &quot;Thêm bộ chạy&quot; để tạo." />
-                    <ItemsControl x:Name="StackList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
+        <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
+                            <DataTemplate x:Key="StackRowTemplate">
                                 <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
                                     <StackPanel>
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                                <Button Style="{StaticResource SoftButton}" Content="Sơ đồ" Click="OnDiagramStack" Margin="0,0,6,0"
+                                                        IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Sửa bộ chạy bằng sơ đồ" />
                                                 <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditStack"
-                                                        IsEnabled="{Binding CanEdit}" />
+                                                        IsEnabled="{Binding CanEdit}" ToolTip="Sửa dạng danh sách" />
                                                 <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteStack" Margin="0,0,6,0"
                                                         IsEnabled="{Binding CanEdit}" />
                                                 <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRunStack" MinWidth="72"
@@ -345,8 +151,217 @@
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- Thanh tab: các tool đã gắn + "Lệnh riêng". -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                Padding="12,0,12,0">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnWorktreeSetup" VerticalAlignment="Center"
+                        AutomationProperties.Name="Worktree" ToolTip="File local và lệnh cài đặt cho worktree mới; chuẩn bị một worktree có sẵn">
+                    <TextBlock Text="Worktree…" />
+                </Button>
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnAddTool" VerticalAlignment="Center"
+                        AutomationProperties.Name="Thêm tool" ToolTip="Gắn tool từ thư viện, nhận gợi ý từ thư mục dự án, hoặc đăng ký tool mới">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
+                        <TextBlock Text="Thêm tool" />
+                    </StackPanel>
+
+                </Button>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="TabStrip">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton Style="{StaticResource TabButton}" Click="OnTabClick" Content="{Binding Title}"
+                                             IsChecked="{Binding IsSelected, Mode=OneWay}" AutomationProperties.Name="{Binding Title}" />
+                            </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="20,16,20,20">
+                <!-- Trang của một tool. -->
+                <StackPanel x:Name="ToolPage">
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Button Style="{StaticResource GhostButton}" Content="Khả năng…" Click="OnCapabilities"
+                                    ToolTip="Cờ và lệnh con của tool, đọc từ trợ giúp hoặc nhập tay. Đánh dấu cờ cổng ở đây." />
+                            <Button Style="{StaticResource GhostButton}" Content="Tool…" Click="OnEditToolEntry" ToolTip="Sửa lệnh, đường dẫn, mô tả của tool trong thư viện (dùng chung mọi workspace)" />
+                            <Button Style="{StaticResource GhostButton}" Content="Sửa…" Click="OnEditTool" ToolTip="Đổi thư mục chạy và tham số riêng của workspace này" />
+                            <Button Style="{StaticResource GhostButton}" Content="Gỡ tool" Click="OnRemoveTool" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock x:Name="ToolRule" Foreground="{StaticResource Muted}" />
+                            <TextBlock x:Name="ToolCwd" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <TextBlock x:Name="NoActions" Style="{StaticResource Hint}" Margin="0,0,0,12" Visibility="Collapsed" />
+
+                    <v:SearchField x:Name="ActionSearch" Placeholder="Tìm lệnh theo tên hoặc biến thể…" Margin="0,0,0,10" Visibility="Collapsed" />
+                    <TextBlock x:Name="ActionSearchEmpty" Style="{StaticResource Hint}" Margin="0,0,0,12" Visibility="Collapsed" Text="Không có lệnh nào khớp." />
+
+                    <ItemsControl x:Name="ActionList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                        CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Lưu profile" Click="OnSaveProfile" Margin="0,0,6,0"
+                                                    ToolTip="Lưu cách chạy này (biến thể + tham số) thành profile để chạy lại nhanh" />
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
+                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
+                                                    Visibility="{Binding StopVisibility}" />
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
+                                                                Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <ComboBox ItemsSource="{Binding Variants}" SelectedItem="{Binding Variant, Mode=TwoWay}"
+                                                      DisplayMemberPath="Label" HorizontalAlignment="Left" MinWidth="220" Margin="0,8,0,0"
+                                                      Visibility="{Binding VariantPickerVisibility}" AutomationProperties.Name="Biến thể" />
+                                            <ItemsControl ItemsSource="{Binding VisibleParams}" Visibility="{Binding VisibleParamsVisibility}" Margin="0,8,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,6">
+                                                            <TextBlock Text="{Binding Prompt}" Style="{StaticResource FieldLabel}" />
+                                                            <!-- Nút ▾ chỉ hiện khi tham số có nguồn gợi ý (catalog khai báo); ô vẫn gõ tay được. -->
+                                                            <DockPanel HorizontalAlignment="Left" Width="260">
+                                                                <Button DockPanel.Dock="Right" Width="32" Click="OnPickOptions"
+                                                                        Visibility="{Binding OptionsVisibility}"
+                                                                        ToolTip="Chọn từ danh sách gợi ý" AutomationProperties.Name="{Binding Prompt, StringFormat='Chọn gợi ý cho {0}'}">
+                                                                    <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{StaticResource Muted}" Width="8" Height="5" Stretch="Fill" />
+                                                                </Button>
+                                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AutomationProperties.Name="{Binding Prompt}"
+                                                                         ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
+                                                            </DockPanel>
+                                                            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" FontSize="12"
+                                                                       TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding ErrorVisibility}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="Tham số" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                                            <ContentControl Content="{Binding Editor}" Focusable="False" IsTabStop="False" />
+                                            <TextBlock Text="{Binding Preview}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource Muted}"
+                                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,12,0,6" />
+                    <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}"
+                               Text="Chưa có profile. Chọn biến thể và tham số ở trên rồi bấm &quot;Lưu profile&quot; để chạy lại bằng một cú bấm." />
+                    <ItemsControl x:Name="ProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
+                </StackPanel>
+
+                <!-- Trang Chạy: bộ chạy và profile của cả workspace, bấm là chạy. -->
+                <StackPanel x:Name="RunPage" Visibility="Collapsed">
+                    <TextBlock Text="BỘ CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,0,0,6" />
+                    <TextBlock x:Name="NoRunStacks" Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Chưa có bộ chạy. Mở tab &quot;Bộ chạy&quot; để gom nhiều bước thành một nút chạy." />
+                    <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />
+
+                    <DockPanel Margin="0,14,0,6">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="+ Profile mới"
+                                Click="OnNewProfile" Margin="8,0,0,0" AutomationProperties.Name="Tạo profile mới" />
+                        <TextBox x:Name="RunSearch" DockPanel.Dock="Right" Width="220" TextChanged="OnRunSearch"
+                                 AutomationProperties.Name="Tìm profile" ToolTip="Tìm profile theo tên" />
+                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
+                                   Margin="2,0,0,0" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock x:Name="NoRunProfiles" Style="{StaticResource Hint}" Margin="0,0,0,8" />
+                    <ItemsControl x:Name="RunProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
+                </StackPanel>
+
+                <!-- Trang "Lệnh riêng". -->
+                <StackPanel x:Name="CustomPage" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,12">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddCommand" VerticalAlignment="Top"
+                                AutomationProperties.Name="Thêm lệnh riêng">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
+                                <TextBlock Text="Thêm lệnh" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Text="Lệnh tự đặt cho workspace này, ngoài các tool có sẵn." />
+                    </DockPanel>
+                    <TextBlock x:Name="NoCustoms" Style="{StaticResource Hint}" Text="Chưa có lệnh riêng. Bấm &quot;Thêm lệnh&quot; để tạo." />
+                    <ItemsControl x:Name="CustomList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditCommand" />
+                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteCommand" Margin="0,0,6,0" />
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
+                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
+                                                    Visibility="{Binding StopVisibility}" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <Border Background="{StaticResource TagBg}" CornerRadius="10" Padding="7,1" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center" Visibility="{Binding WindowVisibility}"
+                                                        ToolTip="Chạy trong cửa sổ terminal riêng, không có log">
+                                                    <TextBlock Text="Cửa sổ" FontSize="11" Foreground="{StaticResource TagInk}" />
+                                                </Border>
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
+                                                                Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding CommandLine}" FontFamily="Consolas" FontSize="12"
+                                                       Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding CwdText, StringFormat='Chạy tại: {0}'}" FontSize="12"
+                                                       Foreground="{StaticResource Faint}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Trang "Bộ chạy". -->
+                <v:PackTab x:Name="PackPage" Visibility="Collapsed" />
+
+                <StackPanel x:Name="StackPage" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,12">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Dựng bằng sơ đồ" Click="OnDiagramNew"
+                                VerticalAlignment="Top" Margin="8,0,0,0" AutomationProperties.Name="Dựng bộ chạy bằng sơ đồ" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddStack" VerticalAlignment="Top"
+                                AutomationProperties.Name="Thêm bộ chạy">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
+                                <TextBlock Text="Thêm bộ chạy" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Text="Chuỗi lệnh chạy lần lượt bằng một cú bấm, vd: bật API, chờ cổng mở rồi bật web." />
+                    </DockPanel>
+                    <TextBlock x:Name="NoStacks" Style="{StaticResource Hint}" Text="Chưa có bộ chạy. Bấm &quot;Thêm bộ chạy&quot; để tạo." />
+                    <ItemsControl x:Name="StackList" ItemTemplate="{StaticResource StackRowTemplate}" />
                 </StackPanel>
             </Grid>
         </ScrollViewer>

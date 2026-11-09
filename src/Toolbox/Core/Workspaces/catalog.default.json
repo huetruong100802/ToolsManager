@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 4,
+  "tools": [
+    {
+      "kind": "dotnet",
+      "name": ".NET",
+      "rule": "sln/csproj",
+      "command": "dotnet",
+      "detect": { "patterns": [ "*.sln", "*.slnx", "*.csproj" ], "depth": 0 }
+    },
+    {
+      "kind": "git",
+      "name": "git",
+      "rule": ".git",
+      "command": "git",
+      "detect": { "patterns": [ ".git" ], "depth": 0 }
+    },
+    {
+      "kind": "angular",
+      "name": "Angular",
+      "rule": "angular.json",
+      "command": "npx ng",
+      "detect": { "patterns": [ "angular.json" ], "depth": 1 }
+    },
+    {
+      "kind": "npm",
+      "name": "npm",
+      "rule": "package.json",
+      "command": "npm",
+      "detect": { "patterns": [ "package.json" ], "depth": 1, "requireActions": true },
+      "actionsFrom": { "file": "package.json", "jsonPath": "scripts", "template": "npm run {id}" }
+    }
+  ]
+}

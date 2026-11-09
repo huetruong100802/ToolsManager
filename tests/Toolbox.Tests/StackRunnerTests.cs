@@ -79,15 +79,15 @@ namespace Toolbox.Tests
             var r = StackResolver.Resolve(Ws(), new StackStep { Kind = "vb6", ActionId = "x" }, 0);
 
             Assert.True(r.IsBroken);
-            Assert.Contains("danh mục", r.Problem);
+            Assert.Contains("thư viện", r.Problem);
         }
 
         [Fact]
         public void Resolve_ProfileDaXoa_LaHong()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
-            var action = ToolCatalog.Find(ToolCatalog.DotNet).Actions[0];
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
+            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0])[0];
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = action.Id, ProfileId = "ma" }, 0);
 
@@ -129,9 +129,10 @@ namespace Toolbox.Tests
         public void Resolve_HanhDong_DungKhoaVaNhan()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
             var tool = ToolCatalog.Find(ToolCatalog.DotNet);
-            var action = tool.Actions[0];
+            // Action đầu tiên luôn là lệnh gốc (Id rỗng); lấy hậu tố đầu tiên để kiểm khoá và nhãn của một action có tên.
+            var action = ToolCatalog.ActionsFor(ws, ws.Bindings[0]).First(a => a.Id.Length > 0);
 
             var r = StackResolver.Resolve(ws, new StackStep { Kind = tool.Kind, ActionId = action.Id }, 0);
 
@@ -144,20 +145,20 @@ namespace Toolbox.Tests
         public void Resolve_Profile_DungBienTheVaThamSoCuaProfile()
         {
             var ws = Ws();
-            ws.Bindings.Add(new ToolBinding { Kind = ToolCatalog.DotNet });
+            ws.Bindings.Add(new ToolBinding { ToolId = ToolCatalog.DotNet });
             var profile = new Profile
             {
-                Id = "p1", Label = "API 5099", Kind = ToolCatalog.DotNet, ActionId = "run", VariantId = "port",
-                Vals = { ["port"] = "5099" },
+                Id = "p1", Label = "Test lọc", Kind = ToolCatalog.DotNet, ActionId = "test", VariantId = "default",
+                Vals = { ["args"] = "--no-build" },
             };
             ws.Profiles.Add(profile);
 
-            var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = "run", ProfileId = "p1" }, 0);
+            var r = StackResolver.Resolve(ws, new StackStep { Kind = ToolCatalog.DotNet, ActionId = "test", ProfileId = "p1" }, 0);
 
             Assert.False(r.IsBroken);
-            Assert.Equal("dotnet run --urls http://localhost:5099", r.Spec.CommandLine);
-            Assert.Equal(5099, r.Spec.Port);
-            Assert.Equal("API 5099", r.Spec.Label);
+            Assert.Equal("dotnet test --no-build", r.Spec.CommandLine);
+            Assert.Null(r.Spec.Port);
+            Assert.Equal("Test lọc", r.Spec.Label);
             Assert.Equal(TaskKey.ForProfile("w1", profile), r.Spec.Key);
         }
 

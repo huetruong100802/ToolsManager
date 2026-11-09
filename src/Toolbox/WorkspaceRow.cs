@@ -44,6 +44,33 @@ namespace Toolbox
             }
         }
 
+        /// <summary>Workspace được ghim: lên đầu rail.</summary>
+        public bool IsPinned => Workspace.Pinned;
+
+        public Visibility PinVisibility => Workspace.Pinned ? Visibility.Visible : Visibility.Collapsed;
+
+        public string PinMenuText => Workspace.Pinned ? "Bỏ ghim" : "Ghim lên đầu";
+
+        /// <summary>Workspace đã lưu trữ: ẩn khỏi danh sách chính của rail.</summary>
+        public bool IsArchived => Workspace.Archived;
+
+        public string ArchiveMenuText => Workspace.Archived ? "Bỏ lưu trữ" : "Lưu trữ";
+
+        public void ToggleArchive()
+        {
+            Workspace.Archived = !Workspace.Archived;
+            Raise(nameof(IsArchived));
+            Raise(nameof(ArchiveMenuText));
+        }
+
+        public void TogglePin()
+        {
+            Workspace.Pinned = !Workspace.Pinned;
+            Raise(nameof(IsPinned));
+            Raise(nameof(PinVisibility));
+            Raise(nameof(PinMenuText));
+        }
+
         public bool IsMissing => _isMissing;
 
         public int RunningCount => _running;
