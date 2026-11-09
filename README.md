@@ -269,4 +269,4 @@ Tiến độ chi tiết và các bước đã xong nằm ở [docs/design.md](do
 
 ## Giấy phép
 
-Repo chưa khai báo giấy phép. Hỏi chủ repo trước khi sử dụng lại mã nguồn.
+Phát hành theo giấy phép [MIT](LICENSE).
