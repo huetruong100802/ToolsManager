@@ -4,7 +4,7 @@
         Title="Thêm từ app đã cài" Width="640" Height="580" MinHeight="360" MinWidth="460"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
@@ -14,14 +14,14 @@
         </Border>
 
         <DockPanel Margin="20,16,20,12">
-            <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+            <TextBlock DockPanel.Dock="Top" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
                        Text="Danh sách lấy từ Start Menu. Chọn một app rồi bấm Thêm (hoặc double-click) — đường dẫn, tên, tham số được điền sẵn." />
 
             <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                 <TextBox x:Name="SearchBox" Padding="32,6,8,6" TextChanged="OnSearchChanged" AutomationProperties.Name="Tìm app" />
-                <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{StaticResource Faint}"
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Faint}"
                            HorizontalAlignment="Left" Margin="11,0,0,0" IsHitTestVisible="False" />
-                <TextBlock Text="Tìm app…" Foreground="{StaticResource Faint}" Margin="34,0,0,0"
+                <TextBlock Text="Tìm app…" Foreground="{DynamicResource Faint}" Margin="34,0,0,0"
                            VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -57,18 +57,18 @@
                                        RenderOptions.BitmapScalingMode="HighQuality" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Info.Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Info.TargetPath}" Foreground="{StaticResource Muted}" FontSize="12"
+                                    <TextBlock Text="{Binding Info.TargetPath}" Foreground="{DynamicResource Muted}" FontSize="12"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <Border Grid.Column="2" Background="{StaticResource Hover}" CornerRadius="9" Padding="8,1" Margin="10,0,0,0"
+                                <Border Grid.Column="2" Background="{DynamicResource Hover}" CornerRadius="9" Padding="8,1" Margin="10,0,0,0"
                                         VerticalAlignment="Center" Visibility="{Binding AddedVisibility}">
-                                    <TextBlock Text="Đã có" FontSize="11" Foreground="{StaticResource Muted}" />
+                                    <TextBlock Text="Đã có" FontSize="11" Foreground="{DynamicResource Muted}" />
                                 </Border>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-                <TextBlock x:Name="StatusText" Text="Đang đọc Start Menu…" Foreground="{StaticResource Muted}"
+                <TextBlock x:Name="StatusText" Text="Đang đọc Start Menu…" Foreground="{DynamicResource Muted}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
             </Grid>
         </DockPanel>

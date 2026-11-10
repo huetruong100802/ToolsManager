@@ -21,7 +21,7 @@
         </DockPanel>
 
         <!-- Gói sẽ có -->
-        <Border Grid.Column="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+        <Border Grid.Column="2" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                 CornerRadius="10" Padding="14,12">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
@@ -33,12 +33,12 @@
                             Margin="0,8,0,0" ToolTip="Nhập gói .toolbox từ máy khác: tool vào thư viện, profile và bộ chạy vào workspace này." />
                 </StackPanel>
                 <TextBlock DockPanel.Dock="Top" Text="GÓI SẼ CÓ" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource Faint}" Margin="0,0,0,8" />
+                           Foreground="{DynamicResource Faint}" Margin="0,0,0,8" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <TextBlock x:Name="Summary" TextWrapping="Wrap" />
                         <TextBlock x:Name="Pulled" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                        <TextBlock x:Name="Warnings" Foreground="{StaticResource Danger}" FontSize="12" TextWrapping="Wrap"
+                        <TextBlock x:Name="Warnings" Foreground="{DynamicResource Danger}" FontSize="12" TextWrapping="Wrap"
                                    Margin="0,8,0,0" />
                     </StackPanel>
                 </ScrollViewer>

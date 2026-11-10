@@ -5,7 +5,7 @@
     <UserControl.Resources>
         <!-- Tab tool: chữ đậm và gạch chân accent khi chọn. -->
         <Style x:Key="TabButton" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="Foreground" Value="{DynamicResource Muted}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -16,11 +16,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
-                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -31,14 +31,14 @@
 
         <!-- Nhãn "Đang chạy" dùng chung cho action, profile và lệnh riêng. -->
         <DataTemplate x:Key="RunningBadge">
-            <Border Background="{StaticResource OkSoft}" BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9"
+            <Border Background="{DynamicResource OkSoft}" BorderBrush="{DynamicResource OkLine}" BorderThickness="1" CornerRadius="9"
                     Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="{Binding RunningText}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
+                <TextBlock Text="{Binding RunningText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Ok}" />
             </Border>
         </DataTemplate>
         <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
                             <DataTemplate x:Key="ProfileRowTemplate">
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
@@ -57,9 +57,9 @@
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}"
+                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{StaticResource WarnInk}"
+                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarnInk}"
                                                        TextWrapping="Wrap" Visibility="{Binding ProblemVisibility}" />
                                         </StackPanel>
                                     </DockPanel>
@@ -67,7 +67,7 @@
                             </DataTemplate>
         <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
                             <DataTemplate x:Key="StackRowTemplate">
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
                                     <StackPanel>
                                         <DockPanel>
@@ -85,7 +85,7 @@
                                             </StackPanel>
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}" />
+                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}" />
                                             </StackPanel>
                                         </DockPanel>
 
@@ -96,31 +96,31 @@
                                                         <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Width="20" FontWeight="SemiBold">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Faint}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Faint}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding Kind}" Value="Done">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Ok}" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding Kind}" Value="Running">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding Kind}" Value="Failed">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Danger}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding WaitText}" FontSize="12"
-                                                                   Foreground="{StaticResource Faint}" Margin="12,0,0,0" />
+                                                                   Foreground="{DynamicResource Faint}" Margin="12,0,0,0" />
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="12" TextTrimming="CharacterEllipsis"
                                                                    Margin="12,0,0,0" MaxWidth="320" ToolTip="{Binding Note}">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding IsBroken}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Danger}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -136,13 +136,13 @@
                                                    Margin="0,8,0,0" FontSize="12">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding MessageKind}" Value="ok">
-                                                            <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Ok}" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding MessageKind}" Value="error">
-                                                            <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource Danger}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -155,7 +155,7 @@
 
     <DockPanel>
         <!-- Thanh tab: các tool đã gắn + "Lệnh riêng". -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
                 Padding="12,0,12,0">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnWorktreeSetup" VerticalAlignment="Center"
@@ -201,8 +201,8 @@
                             <Button Style="{StaticResource GhostButton}" Content="Gỡ tool" Click="OnRemoveTool" />
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock x:Name="ToolRule" Foreground="{StaticResource Muted}" />
-                            <TextBlock x:Name="ToolCwd" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ToolRule" Foreground="{DynamicResource Muted}" />
+                            <TextBlock x:Name="ToolCwd" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </DockPanel>
 
@@ -214,7 +214,7 @@
                     <ItemsControl x:Name="ActionList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
@@ -244,13 +244,13 @@
                                                                 <Button DockPanel.Dock="Right" Width="32" Click="OnPickOptions"
                                                                         Visibility="{Binding OptionsVisibility}"
                                                                         ToolTip="Chọn từ danh sách gợi ý" AutomationProperties.Name="{Binding Prompt, StringFormat='Chọn gợi ý cho {0}'}">
-                                                                    <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{StaticResource Muted}" Width="8" Height="5" Stretch="Fill" />
+                                                                    <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{DynamicResource Muted}" Width="8" Height="5" Stretch="Fill" />
                                                                 </Button>
                                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                                                          AutomationProperties.Name="{Binding Prompt}"
                                                                          ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
                                                             </DockPanel>
-                                                            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" FontSize="12"
+                                                            <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Danger}" FontSize="12"
                                                                        TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding ErrorVisibility}" />
                                                         </StackPanel>
                                                     </DataTemplate>
@@ -258,7 +258,7 @@
                                             </ItemsControl>
                                             <TextBlock Text="Tham số" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
                                             <ContentControl Content="{Binding Editor}" Focusable="False" IsTabStop="False" />
-                                            <TextBlock Text="{Binding Preview}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource Muted}"
+                                            <TextBlock Text="{Binding Preview}" FontFamily="Consolas" FontSize="12" Foreground="{DynamicResource Muted}"
                                                        TextWrapping="Wrap" Margin="0,8,0,0" />
                                         </StackPanel>
                                     </DockPanel>
@@ -267,7 +267,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,12,0,6" />
+                    <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,12,0,6" />
                     <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}"
                                Text="Chưa có profile. Chọn biến thể và tham số ở trên rồi bấm &quot;Lưu profile&quot; để chạy lại bằng một cú bấm." />
                     <ItemsControl x:Name="ProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
@@ -275,7 +275,7 @@
 
                 <!-- Trang Chạy: bộ chạy và profile của cả workspace, bấm là chạy. -->
                 <StackPanel x:Name="RunPage" Visibility="Collapsed">
-                    <TextBlock Text="BỘ CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,0,0,6" />
+                    <TextBlock Text="BỘ CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,0,0,6" />
                     <TextBlock x:Name="NoRunStacks" Style="{StaticResource Hint}" Margin="0,0,0,8"
                                Text="Chưa có bộ chạy. Mở tab &quot;Bộ chạy&quot; để gom nhiều bước thành một nút chạy." />
                     <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />
@@ -285,7 +285,7 @@
                                 Click="OnNewProfile" Margin="8,0,0,0" AutomationProperties.Name="Tạo profile mới" />
                         <TextBox x:Name="RunSearch" DockPanel.Dock="Right" Width="220" TextChanged="OnRunSearch"
                                  AutomationProperties.Name="Tìm profile" ToolTip="Tìm profile theo tên" />
-                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
+                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}"
                                    Margin="2,0,0,0" VerticalAlignment="Center" />
                     </DockPanel>
                     <TextBlock x:Name="NoRunProfiles" Style="{StaticResource Hint}" Margin="0,0,0,8" />
@@ -302,14 +302,14 @@
                                 <TextBlock Text="Thêm lệnh" />
                             </StackPanel>
                         </Button>
-                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
+                        <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
                                    Text="Lệnh tự đặt cho workspace này, ngoài các tool có sẵn." />
                     </DockPanel>
                     <TextBlock x:Name="NoCustoms" Style="{StaticResource Hint}" Text="Chưa có lệnh riêng. Bấm &quot;Thêm lệnh&quot; để tạo." />
                     <ItemsControl x:Name="CustomList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
@@ -323,18 +323,18 @@
                                         <StackPanel VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <Border Background="{StaticResource TagBg}" CornerRadius="10" Padding="7,1" Margin="8,0,0,0"
+                                                <Border Background="{DynamicResource TagBg}" CornerRadius="10" Padding="7,1" Margin="8,0,0,0"
                                                         VerticalAlignment="Center" Visibility="{Binding WindowVisibility}"
                                                         ToolTip="Chạy trong cửa sổ terminal riêng, không có log">
-                                                    <TextBlock Text="Cửa sổ" FontSize="11" Foreground="{StaticResource TagInk}" />
+                                                    <TextBlock Text="Cửa sổ" FontSize="11" Foreground="{DynamicResource TagInk}" />
                                                 </Border>
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding CommandLine}" FontFamily="Consolas" FontSize="12"
-                                                       Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding CwdText, StringFormat='Chạy tại: {0}'}" FontSize="12"
-                                                       Foreground="{StaticResource Faint}" TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource Faint}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>
@@ -357,7 +357,7 @@
                                 <TextBlock Text="Thêm bộ chạy" />
                             </StackPanel>
                         </Button>
-                        <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
+                        <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
                                    Text="Chuỗi lệnh chạy lần lượt bằng một cú bấm, vd: bật API, chờ cổng mở rồi bật web." />
                     </DockPanel>
                     <TextBlock x:Name="NoStacks" Style="{StaticResource Hint}" Text="Chưa có bộ chạy. Bấm &quot;Thêm bộ chạy&quot; để tạo." />

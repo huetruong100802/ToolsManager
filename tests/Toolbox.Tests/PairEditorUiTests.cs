@@ -17,7 +17,7 @@ namespace Toolbox.Tests
     {
         // Application.Current gắn với luồng đã tạo nó; mọi test UI chạy chung một luồng STA sống suốt tiến trình,
         // nếu không test sau thấy Application của luồng đã chết và style không áp dụng được.
-        private static readonly System.Collections.Concurrent.BlockingCollection<Action> Queue =
+        internal static readonly System.Collections.Concurrent.BlockingCollection<Action> Queue =
             new System.Collections.Concurrent.BlockingCollection<Action>();
         private static readonly Thread UiThread = StartUiThread();
 
@@ -33,7 +33,7 @@ namespace Toolbox.Tests
             return thread;
         }
 
-        private static void EnsureApp()
+        internal static void EnsureApp()
         {
             // Đóng cửa sổ cuối cùng sẽ tắt Application mặc định, các test sau mất dispatcher; giữ nó sống tới hết tiến trình.
             if (Application.Current == null)
@@ -41,7 +41,7 @@ namespace Toolbox.Tests
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         }
 
-        private static void RunSta(Action body)
+        internal static void RunSta(Action body)
         {
             Exception error = null;
             using (var done = new ManualResetEventSlim())

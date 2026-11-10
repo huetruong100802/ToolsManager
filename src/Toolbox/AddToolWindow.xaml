@@ -31,7 +31,7 @@
                 <GroupStyle>
                     <GroupStyle.HeaderTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Muted}" Margin="2,10,0,2" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="2,10,0,2" />
                         </DataTemplate>
                     </GroupStyle.HeaderTemplate>
                 </GroupStyle>

@@ -7,49 +7,49 @@
             <TextBlock x:Name="Subtitle" Style="{StaticResource Hint}" Margin="0,4,0,16" />
 
             <UniformGrid Columns="3">
-                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                         CornerRadius="10" Padding="16,14" Margin="0,0,10,0">
                     <StackPanel>
-                        <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" />
+                        <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
                         <TextBlock x:Name="WorkspaceCount" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
-                        <TextBlock x:Name="WorkspaceDetail" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="WorkspaceDetail" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
-                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                         CornerRadius="10" Padding="16,14" Margin="0,0,10,0">
                     <StackPanel>
-                        <TextBlock Text="ĐANG CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" />
+                        <TextBlock Text="ĐANG CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
                         <TextBlock x:Name="RunningCount" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
-                        <TextBlock x:Name="RunningDetail" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="RunningDetail" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
-                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                         CornerRadius="10" Padding="16,14">
                     <StackPanel>
-                        <TextBlock Text="CỔNG ĐANG DÙNG" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" />
+                        <TextBlock Text="CỔNG ĐANG DÙNG" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
                         <TextBlock x:Name="PortList" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" TextWrapping="Wrap" />
-                        <TextBlock Text="Cổng của các tác vụ đang chạy" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="Cổng của các tác vụ đang chạy" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
 
-            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,24,0,6" />
+            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,24,0,6" />
             <ItemsControl x:Name="WorkspaceList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Stretch" Click="OnWorkspaceClick"
                                 Margin="0,0,0,6" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}">
                             <DockPanel>
-                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{StaticResource OkSoft}"
-                                        BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{DynamicResource OkSoft}"
+                                        BorderBrush="{DynamicResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
                                         Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Số tác vụ đang chạy ngầm">
-                                    <TextBlock Text="{Binding RunningCount}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
+                                    <TextBlock Text="{Binding RunningCount}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Ok}" />
                                 </Border>
                                 <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"
                                          VerticalAlignment="Center" />
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Path}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Path}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </DockPanel>
                         </Button>
@@ -58,7 +58,7 @@
             </ItemsControl>
             <TextBlock x:Name="NoWorkspaceNote" Style="{StaticResource Hint}" Text="Chưa có workspace. Thêm một thư mục repo ở rail bên trái." />
 
-            <TextBlock Text="GẦN ĐÂY" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}" Margin="2,24,0,6" />
+            <TextBlock Text="GẦN ĐÂY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,24,0,6" />
             <ItemsControl x:Name="RecentList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -69,7 +69,7 @@
                                      VerticalAlignment="Center" />
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis">
+                                <TextBlock FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis">
                                     <Run Text="{Binding WorkspaceName, Mode=OneWay}" />
                                     <Run Text=" · " />
                                     <Run Text="{Binding StateText, Mode=OneWay}" />

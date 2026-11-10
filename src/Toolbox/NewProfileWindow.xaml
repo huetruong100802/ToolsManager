@@ -5,7 +5,7 @@
         Title="Profile mới" Width="560" Height="520" MinHeight="460"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
                 <Button DockPanel.Dock="Left" Content="Huỷ" IsCancel="True" MinWidth="80" />
@@ -61,12 +61,12 @@
                                         <Button DockPanel.Dock="Right" Width="32" Click="OnPickOptions"
                                                 Visibility="{Binding OptionsVisibility}"
                                                 ToolTip="Chọn từ danh sách gợi ý" AutomationProperties.Name="{Binding Prompt, StringFormat='Chọn gợi ý cho {0}'}">
-                                            <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{StaticResource Muted}" Width="8" Height="5" Stretch="Fill" />
+                                            <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{DynamicResource Muted}" Width="8" Height="5" Stretch="Fill" />
                                         </Button>
                                         <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                                  AutomationProperties.Name="{Binding Prompt}" ToolTip="{Binding Default}" />
                                     </DockPanel>
-                                    <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" FontSize="12"
+                                    <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Danger}" FontSize="12"
                                                Visibility="{Binding ErrorVisibility}" />
                                 </StackPanel>
                             </DataTemplate>
@@ -78,7 +78,7 @@
                     </StackPanel>
 
                     <TextBlock Text="Lệnh sẽ chạy" Style="{StaticResource FieldLabel}" Margin="0,4,0,0" />
-                    <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                    <Border Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                             CornerRadius="8" Padding="10,8">
                         <TextBlock x:Name="PreviewText" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
                                    AutomationProperties.Name="Lệnh sẽ chạy" />

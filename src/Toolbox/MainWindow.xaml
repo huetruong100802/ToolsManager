@@ -6,12 +6,12 @@
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterScreen">
     <DockPanel>
         <!-- Thanh trạng thái: số tác vụ đang chạy và cổng đang dùng. -->
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="14,4">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnStatusTasksClick"
                         Content="Xem tác vụ" Padding="10,2" AutomationProperties.Name="Mở trang Tác vụ" />
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Muted}"
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource Muted}"
                            TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
@@ -23,7 +23,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Rail trái: Thư viện, Tổng quan, Tác vụ, danh sách workspace. -->
-            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
                 <DockPanel Margin="12,14,12,12">
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,16">
                         <Border Width="32" Height="32" CornerRadius="9" Background="{StaticResource BrandGradient}" Margin="0,0,10,0">
@@ -31,6 +31,15 @@
                         </Border>
                         <TextBlock Text="Toolbox" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
+
+                    <Button x:Name="ThemeButton" DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Click="OnThemeClick"
+                            Margin="0,6,0,0" HorizontalContentAlignment="Left" ToolTip="Đổi giao diện: theo hệ thống, sáng, tối"
+                            AutomationProperties.Name="Đổi giao diện">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE790;" FontSize="12" Margin="0,0,7,0" />
+                            <TextBlock x:Name="ThemeText" Text="Giao diện" />
+                        </StackPanel>
+                    </Button>
 
                     <Button x:Name="AddWorkspaceButton" DockPanel.Dock="Bottom" Click="OnAddWorkspace" Margin="0,8,0,0"
                             AutomationProperties.Name="Thêm workspace">
@@ -45,27 +54,27 @@
                             <RadioButton x:Name="LibraryNav" Style="{StaticResource RailItem}" Click="OnLibraryClick" IsChecked="True"
                                          AutomationProperties.Name="Thư viện">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
                                     <TextBlock Text="Thư viện" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton x:Name="OverviewNav" Style="{StaticResource RailItem}" Click="OnOverviewClick"
                                          AutomationProperties.Name="Tổng quan">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE80F;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE80F;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
                                     <TextBlock Text="Tổng quan" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton x:Name="TasksNav" Style="{StaticResource RailItem}" Click="OnTasksClick"
                                          AutomationProperties.Name="Tác vụ">
                                 <DockPanel>
-                                    <Border x:Name="TasksBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{StaticResource OkSoft}"
-                                            BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                    <Border x:Name="TasksBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{DynamicResource OkSoft}"
+                                            BorderBrush="{DynamicResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
                                             Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Số tác vụ đang chạy ngầm">
-                                        <TextBlock x:Name="TasksBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ok}" />
+                                        <TextBlock x:Name="TasksBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Ok}" />
                                     </Border>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
                                         <TextBlock Text="Tác vụ" />
                                     </StackPanel>
                                 </DockPanel>
@@ -74,23 +83,23 @@
                             <RadioButton x:Name="AgentsNav" Style="{StaticResource RailItem}" Click="OnAgentsClick"
                                          AutomationProperties.Name="Agent">
                                 <DockPanel>
-                                    <Border x:Name="AgentsBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{StaticResource WarnSoft}"
-                                            BorderBrush="{StaticResource WarnLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                    <Border x:Name="AgentsBadge" DockPanel.Dock="Right" Visibility="Collapsed" Background="{DynamicResource WarnSoft}"
+                                            BorderBrush="{DynamicResource WarnLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
                                             Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Đề xuất của agent đang chờ bạn duyệt">
-                                        <TextBlock x:Name="AgentsBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource WarnInk}" />
+                                        <TextBlock x:Name="AgentsBadgeCount" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource WarnInk}" />
                                     </Border>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE716;" Foreground="{StaticResource Accent}" Margin="0,0,10,0" />
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE716;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
                                         <TextBlock Text="Agent" />
                                     </StackPanel>
                                 </DockPanel>
                             </RadioButton>
 
-                            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}"
+                            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}"
                                        Margin="10,18,0,6" />
                             <Grid x:Name="WorkspaceSearchBox" Margin="2,0,2,6" Visibility="Collapsed">
                                 <TextBox x:Name="WorkspaceSearch" TextChanged="OnWorkspaceSearch" AutomationProperties.Name="Tìm workspace" />
-                                <TextBlock x:Name="WorkspaceSearchHint" Text="Tìm workspace" IsHitTestVisible="False" Foreground="{StaticResource Faint}"
+                                <TextBlock x:Name="WorkspaceSearchHint" Text="Tìm workspace" IsHitTestVisible="False" Foreground="{DynamicResource Faint}"
                                            Margin="11,0,0,0" VerticalAlignment="Center" />
                             </Grid>
                             <ItemsControl x:Name="WorkspaceList">
@@ -106,17 +115,17 @@
                                             </RadioButton.ContextMenu>
                                             <DockPanel>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE735;" FontSize="11"
-                                                           Foreground="{StaticResource Accent}" Visibility="{Binding PinVisibility}"
+                                                           Foreground="{DynamicResource Accent}" Visibility="{Binding PinVisibility}"
                                                            Margin="6,0,0,0" ToolTip="Đã ghim" />
-                                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{StaticResource OkSoft}"
-                                                        BorderBrush="{StaticResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
+                                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{DynamicResource OkSoft}"
+                                                        BorderBrush="{DynamicResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
                                                         Margin="6,0,0,0" VerticalAlignment="Center"
                                                         ToolTip="Số tác vụ đang chạy ngầm">
                                                     <TextBlock Text="{Binding RunningCount}" FontSize="11" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Ok}" />
+                                                               Foreground="{DynamicResource Ok}" />
                                                 </Border>
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12"
-                                                           Foreground="{StaticResource WarnInk}" Visibility="{Binding MissingVisibility}"
+                                                           Foreground="{DynamicResource WarnInk}" Visibility="{Binding MissingVisibility}"
                                                            Margin="6,0,0,0" ToolTip="Không tìm thấy thư mục" />
                                                 <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"
                                                          VerticalAlignment="Center" />
@@ -144,7 +153,7 @@
                 <views:AgentsView x:Name="AgentsPage" Visibility="Collapsed" />
 
                 <DockPanel x:Name="WorkspacePage" Visibility="Collapsed">
-                    <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                             BorderThickness="0,0,0,1" Padding="20,14">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -163,19 +172,19 @@
                                     <Ellipse x:Name="WsDot" Width="12" Height="12" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <TextBlock x:Name="WsName" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <TextBlock x:Name="WsPath" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                <TextBlock x:Name="WsPath" Foreground="{DynamicResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"
                                            Margin="22,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
 
-                    <Border x:Name="MissingBanner" DockPanel.Dock="Top" Background="{StaticResource WarnSoft}"
-                            BorderBrush="{StaticResource WarnLine}" BorderThickness="0,0,0,1" Padding="20,10" Visibility="Collapsed">
+                    <Border x:Name="MissingBanner" DockPanel.Dock="Top" Background="{DynamicResource WarnSoft}"
+                            BorderBrush="{DynamicResource WarnLine}" BorderThickness="0,0,0,1" Padding="20,10" Visibility="Collapsed">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Content="Trỏ lại thư mục…" Click="OnRelocateWorkspace" Margin="12,0,0,0" />
-                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" Foreground="{StaticResource WarnInk}"
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="&#xE7BA;" Foreground="{DynamicResource WarnInk}"
                                        FontSize="16" Margin="0,0,10,0" />
-                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource WarnInk}"
+                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource WarnInk}"
                                        Text="Không tìm thấy thư mục của workspace này (đã đổi tên, di chuyển hoặc xoá). Lệnh không chạy được cho tới khi trỏ lại." />
                         </DockPanel>
                     </Border>

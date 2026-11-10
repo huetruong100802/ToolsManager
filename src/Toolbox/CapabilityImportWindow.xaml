@@ -4,7 +4,7 @@
         Title="Nhập lệnh và cờ" Width="620" Height="560" MinHeight="460"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
                 <TextBlock x:Name="CountText" Style="{StaticResource Hint}" VerticalAlignment="Center" />
@@ -51,7 +51,7 @@
                            Text="Để trống: lệnh con thuộc lệnh gốc của tool. Điền run: build thành &quot;run build&quot; (npm run build). Cờ dán vào được gắn cho lệnh này." />
 
                 <TextBlock Text="Sẽ nhập" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
-                <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,8">
+                <Border Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,8">
                     <TextBlock x:Name="PreviewText" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
                 </Border>
             </StackPanel>

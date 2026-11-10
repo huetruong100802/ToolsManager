@@ -4,7 +4,7 @@
         Title="Thêm tool" Width="600" SizeToContent="Height" ResizeMode="NoResize"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />

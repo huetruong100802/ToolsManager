@@ -45,6 +45,7 @@ namespace Toolbox
             _rowsView.SortDescriptions.Add(new SortDescription(nameof(WorkspaceRow.Name), ListSortDirection.Ascending));
             _rowsView.Filter = o => MatchesSearch(o as WorkspaceRow);
             WorkspaceList.ItemsSource = _rowsView;
+            ThemeText.Text = Theme.Label(Theme.Mode);
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
@@ -188,6 +189,15 @@ namespace Toolbox
             row.TogglePin();
             TrySave();
             _rowsView.Refresh();
+        }
+
+        private void OnThemeClick(object sender, RoutedEventArgs e)
+        {
+            Theme.SetMode(Theme.Next(Theme.Mode));
+            ThemeText.Text = Theme.Label(Theme.Mode);
+            var settings = Settings.Load();
+            settings.Theme = Theme.Name(Theme.Mode);
+            settings.Save();
         }
 
         private void OnLibraryClick(object sender, RoutedEventArgs e) => Navigate(null);
