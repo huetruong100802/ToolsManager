@@ -7,13 +7,13 @@ using Toolbox.Core;
 using Toolbox.Core.Workspaces;
 using Toolbox.Views;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>
     /// Hộp thoại tạo profile ba bước: chọn tool (dựng sẵn, thư viện hoặc lệnh riêng), chọn lệnh, điền thông số.
     /// Chỉ dựng ra <see cref="Result"/>; việc ghi vào workspace do bên gọi làm.
     /// </summary>
-    public partial class NewProfileWindow : Window
+    public partial class ProfileSheet : SheetBase
     {
         private enum Source { Tool, Custom }
 
@@ -36,11 +36,14 @@ namespace Toolbox
         private bool _nameEdited;
         private bool _suppress;
 
-        public NewProfileWindow(Workspace workspace, Func<IReadOnlyDictionary<int, string>> usedPorts)
+        public override double SheetWidth => 560;
+
+        public ProfileSheet(Workspace workspace, Func<IReadOnlyDictionary<int, string>> usedPorts)
         {
             _workspace = workspace;
             _usedPorts = usedPorts;
             InitializeComponent();
+            SheetTitle = "Profile mới";
 
             var choices = new List<Choice>();
             foreach (var binding in workspace.Bindings)
@@ -72,6 +75,8 @@ namespace Toolbox
         private void ShowStep(int step)
         {
             _step = step;
+            if (step < 2)
+                PreviewText.Text = EarlyPreview();
             ToolPanel.Visibility = step == 0 ? Visibility.Visible : Visibility.Collapsed;
             CustomToolLink.Visibility = ToolPanel.Visibility;
             CommandPanel.Visibility = step == 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -125,6 +130,7 @@ namespace Toolbox
             if (_choice?.Problem != null)
                 StepHint.Text = _choice.Problem;
             NextButton.IsEnabled = _choice != null && _choice.Problem == null;
+            PreviewText.Text = EarlyPreview();
         }
 
         // ---- bước 2 ----
@@ -256,11 +262,24 @@ namespace Toolbox
             }
         }
 
+        /// <summary>Dòng "Lệnh sẽ chạy" ở bước 1-2: chưa đủ thông số thì cho thấy phần đã biết.</summary>
+        private string EarlyPreview()
+        {
+            if (_choice == null)
+                return "Chọn một tool ở trên để xem lệnh sẽ chạy.";
+            return _choice.Source == Source.Tool
+                ? "Chạy: " + (_choice.Tool.Name ?? "tool") + " · chọn lệnh và thông số ở các bước sau"
+                : "Chạy: " + _choice.Custom.CommandLine;
+        }
+
         /// <summary>Tính lại dòng "Lệnh sẽ chạy", lỗi tham số và nút.</summary>
         private void Refresh()
         {
-            if (_choice == null || _step != 2)
+            if (_step != 2 || _choice == null)
+            {
+                PreviewText.Text = EarlyPreview();
                 return;
+            }
             if (_choice.Source == Source.Tool)
                 _row.Revalidate();
             string preview;

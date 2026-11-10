@@ -445,6 +445,16 @@ namespace Toolbox.Views
             }
         }
 
+        /// <summary>Cửa sổ chính mở một sheet bên phải (thay cho hộp thoại modal); <c>done</c> chạy khi sheet xong.</summary>
+        public event Action<SheetBase, Action<bool>> SheetRequested;
+
+        private void OpenSheet(SheetBase sheet, Action<bool> done)
+        {
+            if (SheetRequested == null)
+                throw new InvalidOperationException("Chưa có nơi hiện sheet.");
+            SheetRequested(sheet, done);
+        }
+
         /// <summary>Mở bảng lệnh của tool (cờ đọc từ trợ giúp, cờ cổng, mục nhập tay). Đóng cửa sổ thì vẽ lại tab.</summary>
         private void OnCapabilities(object sender, RoutedEventArgs e)
         {
@@ -453,10 +463,13 @@ namespace Toolbox.Views
             if (binding == null || tool == null)
                 return;
             var kind = binding.ToolId;
-            var window = new CapabilitiesWindow(tool, _workspace.ResolveCwd(binding.Cwd), () => ClearActionCache(kind)) { Owner = Host };
-            window.ShowDialog();
-            ClearActionCache(kind);
-            Select(_tab);
+            var sheet = new CommandsSheet(tool, _workspace.ResolveCwd(binding.Cwd), () => ClearActionCache(kind));
+            OpenSheet(sheet, ok =>
+            {
+                ClearActionCache(kind);
+                if (_workspace != null && _tab?.Binding != null && string.Equals(_tab.Binding.ToolId, kind, StringComparison.OrdinalIgnoreCase))
+                    Select(_tab);
+            });
         }
 
         private void ClearActionCache(string kind)
@@ -1056,8 +1069,14 @@ namespace Toolbox.Views
         /// <summary>Hộp thoại ba bước: tạo profile cho tool dựng sẵn, tool thư viện hoặc lệnh riêng.</summary>
         private void OnNewProfile(object sender, RoutedEventArgs e)
         {
-            var dialog = new NewProfileWindow(_workspace, () => _tasks.UsedPorts()) { Owner = Host };
-            var confirmed = dialog.ShowDialog() == true;
+            var dialog = new ProfileSheet(_workspace, () => _tasks.UsedPorts());
+            OpenSheet(dialog, confirmed => FinishNewProfile(dialog, confirmed));
+        }
+
+        private void FinishNewProfile(ProfileSheet dialog, bool confirmed)
+        {
+            if (_workspace == null)
+                return;
             if (dialog.RequestCustomTool)
             {
                 OnAddCommand(this, null);
@@ -1113,14 +1132,18 @@ namespace Toolbox.Views
                     return known == null || known.TakesValue; // cờ ngoài bảng quét: token kế tiếp là giá trị
                 });
 
-            var dialog = new PairsWindow(profile.Label, initial, suggestions,
-                profile.HasPairs ? null : "Tham số cũ được tách thành các cặp; lưu để chuyển hẳn sang dạng cặp.") { Owner = Host };
-            if (dialog.ShowDialog() != true)
-                return;
+            var dialog = new PairsSheet(profile.Label, initial, suggestions,
+                profile.HasPairs ? null : "Tham số cũ được tách thành các cặp; lưu để chuyển hẳn sang dạng cặp.");
+            OpenSheet(dialog, ok => { if (ok) FinishEditPairs(profile, dialog.Result); });
+        }
 
+        private void FinishEditPairs(Profile profile, List<ParamPair> result)
+        {
+            if (_workspace == null)
+                return;
             var oldPairs = profile.Pairs;
             var oldVals = new Dictionary<string, string>(profile.Vals ?? new Dictionary<string, string>());
-            var newPairs = dialog.Result.Count > 0 ? dialog.Result : null;
+            var newPairs = result.Count > 0 ? result : null;
             var saved = Mutate(() =>
             {
                 profile.Pairs = newPairs;

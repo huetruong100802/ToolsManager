@@ -1,9 +1,8 @@
-<Window x:Class="Toolbox.CapabilitiesWindow"
+<v:SheetBase x:Class="Toolbox.Views.CommandsSheet"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:Toolbox.Views"
-        Title="Lệnh của tool" Width="760" Height="560" MinWidth="620" MinHeight="420"
-        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        Background="{DynamicResource Surface}">
     <DockPanel>
         <!-- Chân: thêm tay một lệnh (lệnh con hoặc cờ) của tool, và đóng. Luôn hiện, không bị cuộn khuất. -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
@@ -50,4 +49,4 @@
             <StackPanel x:Name="RowsPanel" />
         </ScrollViewer>
     </DockPanel>
-</Window>
+</v:SheetBase>

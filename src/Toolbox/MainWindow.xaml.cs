@@ -38,6 +38,7 @@ namespace Toolbox
             TasksPage.Initialize(_tasks, _rows);
             Dock.LogRequested += Inspector.Show;
             WorkspaceContent.ShowLogRequested += ShowLog;
+            WorkspaceContent.SheetRequested += (sheet, done) => Sheet.Open(sheet, done);
             Inspector.SetWorkspaceRootResolver(id => _workspaces?.Find(id)?.ResolvedPath);
             Inspector.HintActionRequested += OnHintAction;
             Dock.StopRequested += task => _tasks.Stop(task.Id);
@@ -384,6 +385,7 @@ namespace Toolbox
                 case WindowCommand.Escape:
                     handled = Palette.IsOpen ? CloseOverlay(Palette.Close)
                             : Shortcuts.IsOpen ? CloseOverlay(Shortcuts.Close)
+                            : Sheet.IsOpen ? Sheet.CloseCurrent()
                             : Inspector.Hide();
                     break;
             }

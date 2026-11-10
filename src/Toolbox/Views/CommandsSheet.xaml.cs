@@ -9,7 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Toolbox.Core.Workspaces;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>
     /// Bảng lệnh của một tool: mọi thứ nối được vào sau lệnh gốc, gồm lệnh con (<c>serve</c>) và cờ (<c>--port</c>).
@@ -17,7 +17,7 @@ namespace Toolbox
     /// Bấm một lệnh con để xem và quét cờ riêng của nó. Đánh dấu « Cổng » ở cờ đặt cổng của lệnh con đó.
     /// Mỗi thay đổi lưu ngay vào <c>capabilities\&lt;kind&gt;.json</c> rồi gọi <paramref name="changed"/> để tab làm mới.
     /// </summary>
-    public partial class CapabilitiesWindow : Window
+    public partial class CommandsSheet : SheetBase
     {
         private readonly ToolDef _tool;
         private readonly string _cwd;
@@ -27,15 +27,19 @@ namespace Toolbox
         private readonly HashSet<string> _scanning = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private ToolCapabilities _data;
 
-        public CapabilitiesWindow(ToolDef tool, string workingDirectory, Action changed)
+        public override double SheetWidth => 720;
+
+        public CommandsSheet(ToolDef tool, string workingDirectory, Action changed)
         {
             InitializeComponent();
+            SheetTitle = "Lệnh của tool";
             _tool = tool;
             _cwd = workingDirectory;
             _changed = changed;
             _directory = CapabilityStore.DefaultDirectory;
             Search.TextChanged += OnSearchChanged;
             TitleText.Text = "Lệnh · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
+            SheetTitle = TitleText.Text;
             AddLabel.Text = tool.Command == null ? "" : "Thêm lệnh sau " + tool.Command;
 
             try
@@ -243,7 +247,7 @@ namespace Toolbox
                 }
                 catch (ArgumentException ex)
                 {
-                    Dialogs.Error(this, ex.Message);
+                    Dialogs.Error(Host, ex.Message);
                     return;
                 }
                 Persist(null);
@@ -272,7 +276,7 @@ namespace Toolbox
             }
             catch (InvalidDataException ex)
             {
-                Dialogs.Error(this, ex.Message);
+                Dialogs.Error(Host, ex.Message);
             }
             _changed?.Invoke();
             RenderRows();
@@ -285,7 +289,7 @@ namespace Toolbox
         {
             if (_data == null)
                 return;
-            var dialog = new CapabilityImportWindow(_cwd) { Owner = this };
+            var dialog = new CapabilityImportWindow(_cwd) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
             var added = 0;
@@ -308,7 +312,7 @@ namespace Toolbox
             }
             catch (ArgumentException ex)
             {
-                Dialogs.Error(this, ex.Message);
+                Dialogs.Error(Host, ex.Message);
                 return;
             }
             NameBox.Clear();
@@ -329,7 +333,7 @@ namespace Toolbox
             }
             catch (IOException ex)
             {
-                Dialogs.Error(this, "Không ghi được bảng lệnh: " + ex.Message);
+                Dialogs.Error(Host, "Không ghi được bảng lệnh: " + ex.Message);
             }
             _changed?.Invoke();
             RenderRows();

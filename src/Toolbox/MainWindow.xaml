@@ -205,6 +205,7 @@
 
                 <!-- Panel log trượt bên phải, đè lên nội dung. -->
                 <views:InspectorView x:Name="Inspector" HorizontalAlignment="Right" VerticalAlignment="Stretch" Visibility="Collapsed" />
+                <views:SideSheet x:Name="Sheet" />
                 <views:ToastHost x:Name="ToastLayer" />
             </Grid>
         </Grid>
