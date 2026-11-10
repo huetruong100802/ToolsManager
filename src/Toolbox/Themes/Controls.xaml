@@ -379,6 +379,9 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource Hover}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource InputLineHover}" />
@@ -424,6 +427,9 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource Hover}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource InputLineHover}" />
@@ -488,7 +494,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Bd" CornerRadius="8" Padding="10,7" Background="Transparent" SnapsToDevicePixels="True">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="10,7" Background="Transparent" SnapsToDevicePixels="True" BorderThickness="1" BorderBrush="Transparent">
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -501,6 +507,7 @@
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Hover}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

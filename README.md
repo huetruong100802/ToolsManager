@@ -45,7 +45,7 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 | **Workspace** | **+ Thêm workspace** và chọn một thư mục dự án. Toolbox quét `.sln`, `.git`, `angular.json`, `package.json` rồi gợi ý tool, kèm lý do bằng tiếng Việt. |
 | | Mỗi workspace có một tab cho từng tool đã gắn, tab **Lệnh riêng** và tab **Workflow**. Mọi tool là một tool trong **Thư viện** (lệnh gốc hoặc file chạy), nên tool nào cũng có bảng lệnh (nút **Lệnh…**), chạy được lệnh gốc hoặc một lệnh, và tạo được profile. Nút **Thêm tool** cho chọn từ thư viện, nhận gợi ý từ thư mục dự án (.NET, git, Angular, npm), hoặc **Đăng ký tool mới…** bằng đúng form của Thư viện. Lệnh hay dùng lưu thành **profile** để chạy lại đúng tham số và cổng. |
 | | Tab đầu tiên **Chạy** gom mọi workflow và profile của workspace, có ô tìm profile, bấm **Chạy** là chạy. Cột trái có ô tìm workspace (từ 6 workspace trở lên) và **Ghim lên đầu** (chuột phải vào workspace). |
-| | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. Tab **Tổng quan** và **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
+| | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. **Trang chủ** và tab **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
 | | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
 | **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`. |
 | **An toàn dữ liệu** | Sao lưu `tools.json` trước mỗi lần thay đổi danh sách (giữ 50 bản mới nhất). Ghi nhật ký `changes.log` gồm nguồn (GUI hoặc MCP). Mọi lần ghi giữ mutex để không ghi chồng nhau. |

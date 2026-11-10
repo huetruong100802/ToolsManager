@@ -208,5 +208,6 @@
         </Grid>
     </DockPanel>
         <views:CommandPalette x:Name="Palette" />
+        <views:ShortcutsSheet x:Name="Shortcuts" />
     </Grid>
 </Window>

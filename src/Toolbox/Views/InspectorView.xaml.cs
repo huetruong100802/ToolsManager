@@ -125,6 +125,16 @@ namespace Toolbox.Views
                 TaskActions.OpenLogFile(_task, Host);
         }
 
+        /// <summary>Đóng panel log (phím Esc). Trả về true nếu panel đang mở và vừa được đóng.</summary>
+        public bool Hide()
+        {
+            if (Visibility != Visibility.Visible)
+                return false;
+            _task = null;
+            Visibility = Visibility.Collapsed;
+            return true;
+        }
+
         private void OnClose(object sender, RoutedEventArgs e)
         {
             _task = null;

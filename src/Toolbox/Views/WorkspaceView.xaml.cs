@@ -547,6 +547,57 @@ namespace Toolbox.Views
             Rebuild();
         }
 
+        // ---- Bàn phím ----
+
+        /// <summary>Ctrl+Tab / Ctrl+Shift+Tab: sang tab kế hoặc trước, quay vòng.</summary>
+        public void CycleTab(int delta)
+        {
+            if (_workspace == null || _tabs.Count == 0)
+                return;
+            var index = _tab == null ? 0 : _tabs.IndexOf(_tab);
+            Select(_tabs[((index + delta) % _tabs.Count + _tabs.Count) % _tabs.Count]);
+        }
+
+        /// <summary>F5: chạy dòng đang có con trỏ bàn phím (profile, lệnh, workflow, lệnh riêng). false nếu không có dòng nào.</summary>
+        public bool RunFocused()
+        {
+            switch ((System.Windows.Input.Keyboard.FocusedElement as FrameworkElement)?.DataContext)
+            {
+                case ActionRow action:
+                    RunAction(action);
+                    return true;
+                case ProfileRow profile:
+                    Used("profile", profile.Profile.Id);
+                    RunProfile(profile);
+                    return true;
+                case CustomRow custom:
+                    Used("custom", custom.Command.Id);
+                    RunCustom(custom);
+                    return true;
+                case StackRow stack:
+                    StartStack(stack);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>Shift+F5: dừng dòng đang có con trỏ bàn phím nếu nó đang chạy.</summary>
+        public bool StopFocused()
+        {
+            switch ((System.Windows.Input.Keyboard.FocusedElement as FrameworkElement)?.DataContext)
+            {
+                case RunRow row when row.RunningTaskId != null:
+                    _tasks.Stop(row.RunningTaskId);
+                    return true;
+                case StackRow stack when stack.Run != null:
+                    stack.Run.Stop();
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         // ---- Chạy / dừng ----
 
         private void OnRun(object sender, RoutedEventArgs e)

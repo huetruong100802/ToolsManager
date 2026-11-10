@@ -812,6 +812,25 @@ namespace Toolbox.Views
         /// <summary>Mở cửa sổ Kết nối agent từ trang Agent.</summary>
         public void OpenAgentWindow() => OnConnectAgent(null, null);
 
+        /// <summary>F5: chạy tool đang chọn trong danh sách. false nếu không có tool nào chạy được đang chọn.</summary>
+        public bool RunSelected()
+        {
+            if (!(ToolList.SelectedItem is ToolItem item) || item.CanInstall)
+                return false;
+            Run(item);
+            return true;
+        }
+
+        /// <summary>Shift+F5: dừng tool đang chọn nếu nó đang chạy.</summary>
+        public bool StopSelected()
+        {
+            if (!(ToolList.SelectedItem is ToolItem item) || !item.IsRunning)
+                return false;
+            _runs.Stop(item.Tool.Id);
+            StatusText.Text = $"Đang dừng \"{item.Tool.Name}\"…";
+            return true;
+        }
+
         /// <summary>Mở hộp chọn app đã cài để thêm tool (cho bước làm quen ở Trang chủ).</summary>
         public void StartPickApp() => OnPickApp(null, null);
 

@@ -275,15 +275,65 @@ namespace Toolbox
 
         private void OnPaletteClick(object sender, RoutedEventArgs e) => Palette.Open();
 
-        /// <summary>Ctrl+K mở bảng lệnh ở mọi trang (kể cả khi đang gõ trong một ô); Ctrl+F vẫn là tìm trong trang.</summary>
+        /// <summary>
+        /// Phím tắt toàn cửa sổ (xem <see cref="KeyRoute"/> và bảng F1). Chạy ở bước Preview nên Ctrl+K hoạt động cả khi đang gõ trong một ô.
+        /// Esc chỉ bị nuốt khi có gì đó để đóng, để Esc xoá ô tìm của Thư viện vẫn hoạt động.
+        /// </summary>
         private void OnWindowPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.K && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0)
+            var command = KeyRoute.Map(e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key, System.Windows.Input.Keyboard.Modifiers);
+            if (command == WindowCommand.None)
+                return;
+
+            var handled = true;
+            switch (command)
             {
-                Palette.Toggle();
-                e.Handled = true;
+                case WindowCommand.Palette: Palette.Toggle(); break;
+                case WindowCommand.GoHome: GoTo(Area.Overview); break;
+                case WindowCommand.GoLibrary: Navigate(null); break;
+                case WindowCommand.GoTasks: GoTo(Area.Tasks); break;
+                case WindowCommand.GoAgents: GoTo(Area.Agents); break;
+                case WindowCommand.NextTab:
+                case WindowCommand.PrevTab:
+                    if (_area == Area.Workspace)
+                        WorkspaceContent.CycleTab(command == WindowCommand.NextTab ? 1 : -1);
+                    break;
+                case WindowCommand.Run:
+                case WindowCommand.Stop:
+                    handled = RunOrStopSelected(command == WindowCommand.Run);
+                    break;
+                case WindowCommand.Help: Shortcuts.Toggle(); break;
+                case WindowCommand.Escape:
+                    handled = Palette.IsOpen ? CloseOverlay(Palette.Close)
+                            : Shortcuts.IsOpen ? CloseOverlay(Shortcuts.Close)
+                            : Inspector.Hide();
+                    break;
             }
+            if (handled)
+                e.Handled = true;
         }
+
+        private static bool CloseOverlay(Action close)
+        {
+            close();
+            return true;
+        }
+
+        /// <summary>F5 / Shift+F5 trên mục đang chọn của trang hiện tại; không có mục nào thì nhắc cách chọn.</summary>
+        private bool RunOrStopSelected(bool run)
+        {
+            bool done;
+            if (_area == Area.Workspace)
+                done = run ? WorkspaceContent.RunFocused() : WorkspaceContent.StopFocused();
+            else if (_area == Area.Library)
+                done = run ? Library.RunSelected() : Library.StopSelected();
+            else
+                return false;
+            if (!done && run)
+                Dialogs.Info("Chọn một dòng (Tab tới nút của dòng đó) rồi bấm F5 để chạy.");
+            return true;
+        }
+
 
         private SearchIndex BuildSearchIndex() =>
             SearchIndex.Build(Library.Tools, _workspaces?.Workspaces, PaletteActions());
