@@ -242,6 +242,7 @@
         </Style>
 
         <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -323,7 +324,13 @@
             <Setter Property="Padding" Value="0" />
         </Style>
 
+        <!-- Expander và ListBoxItem có màu chữ mặc định tối; đặt Ink để chữ con (kể cả nội dung gập) kế thừa đúng. -->
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+        </Style>
+
         <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Margin" Value="0,0,0,6" />
             <Setter Property="Padding" Value="16,11" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
