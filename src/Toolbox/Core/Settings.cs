@@ -9,6 +9,10 @@ namespace Toolbox.Core
     public class Settings
     {
         /// <summary>"system" (theo Windows), "light" hoặc "dark".</summary>
+        /// <summary>Tắt thông báo khi tác vụ chạy lâu kết thúc (mặc định bật).</summary>
+        [DataMember(Name = "notifyOff", EmitDefaultValue = false)]
+        public bool NotifyOff { get; set; }
+
         [DataMember(Name = "onboardingDismissed", EmitDefaultValue = false)]
         public bool OnboardingDismissed { get; set; }
 
@@ -16,6 +20,15 @@ namespace Toolbox.Core
         public string Theme { get; set; }
 
         public static string DefaultPath => Path.Combine(DataDir.Root, "settings.json");
+
+        /// <summary>Đọc, sửa rồi ghi lại trong một bước, để mỗi nơi chỉ đổi đúng phần của mình và không đè cài đặt do nơi khác vừa ghi.</summary>
+        public static Settings Update(Action<Settings> change, string path = null)
+        {
+            var settings = Load(path);
+            change(settings);
+            settings.Save(path);
+            return settings;
+        }
 
         public static Settings Load(string path = null)
         {

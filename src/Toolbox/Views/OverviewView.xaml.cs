@@ -169,9 +169,8 @@ namespace Toolbox.Views
 
         private void OnDismissOnboarding(object sender, RoutedEventArgs e)
         {
-            var settings = Settings.Load();
-            settings.OnboardingDismissed = _dismissed = true;
-            settings.Save();
+            Settings.Update(s => s.OnboardingDismissed = true);
+            _dismissed = true;
             OnboardingCard.Visibility = Visibility.Collapsed;
             Refresh();
         }

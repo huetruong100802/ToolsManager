@@ -67,7 +67,7 @@ namespace Toolbox.Core.Workspaces
         public string Id { get; }
         public TaskSpec Spec { get; }
         public string LogPath { get; }
-        public DateTime StartedAt { get; }
+        public DateTime StartedAt { get; internal set; }
         internal int ProcessId { get; set; }
         internal bool StopRequested { get; set; }
 

@@ -33,6 +33,16 @@
                         </DockPanel>
                     </Button>
 
+                    <Button x:Name="NotifyButton" DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Click="OnNotifyClick"
+                            Margin="0,6,0,0" HorizontalContentAlignment="Left"
+                            ToolTip="Thông báo Windows khi tác vụ chạy trên 30 giây kết thúc hoặc lỗi lúc cửa sổ không ở trước"
+                            AutomationProperties.Name="Bật tắt thông báo tác vụ">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE7E7;" FontSize="12" Margin="0,0,7,0" />
+                            <TextBlock x:Name="NotifyText" Text="Thông báo" />
+                        </StackPanel>
+                    </Button>
+
                     <Button x:Name="ThemeButton" DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Click="OnThemeClick"
                             Margin="0,6,0,0" HorizontalContentAlignment="Left" ToolTip="Đổi giao diện: theo hệ thống, sáng, tối"
                             AutomationProperties.Name="Đổi giao diện">

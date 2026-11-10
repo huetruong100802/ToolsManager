@@ -26,6 +26,8 @@ namespace Toolbox
         private WorkspaceRow _current;
         private Area _area = Area.Library;
         private StoreWatcher _watcher;
+        private readonly Settings _settings = Settings.Load();
+        private readonly Notifier _notifier = new Notifier();
 
         public MainWindow(string fileToOpen = null)
         {
@@ -54,6 +56,7 @@ namespace Toolbox
             WorkspaceList.ItemsSource = _rowsView;
             ThemeText.Text = Theme.Label(Theme.Mode);
             Views.Toasts.Host = ToastLayer;
+            RefreshNotifyText();
             Palette.Initialize(BuildSearchIndex);
             Palette.Activated += OnPaletteActivated;
             Palette.RevealRequested += OnPaletteReveal;
@@ -61,7 +64,9 @@ namespace Toolbox
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
-            _tasks.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshRows));
+            _tasks.Changed += () => Dispatcher.BeginInvoke(new Action(() => { RefreshRows(); CheckNotifications(); }));
+            _notifier.Clicked += task => { Activate(); ShowLog(task); };
+            Closed += (s, e) => _notifier.Dispose();
             // Quay lại cửa sổ → kiểm lại thư mục workspace còn hay mất.
             Activated += (s, e) => RefreshRows();
         }
@@ -247,6 +252,29 @@ namespace Toolbox
                     }
                     break;
             }
+        }
+
+        // ---- Thông báo Windows ----
+
+        private bool NotifyEnabled => !_settings.NotifyOff;
+
+        private void RefreshNotifyText() => NotifyText.Text = NotifyEnabled ? "Thông báo: Bật" : "Thông báo: Tắt";
+
+        private void OnNotifyClick(object sender, RoutedEventArgs e)
+        {
+            var off = !_settings.NotifyOff;
+            _settings.NotifyOff = Settings.Update(s => s.NotifyOff = off).NotifyOff;
+            RefreshNotifyText();
+            Dialogs.Info(NotifyEnabled
+                ? "Sẽ báo khi tác vụ chạy trên 30 giây kết thúc lúc cửa sổ không ở trước."
+                : "Đã tắt thông báo tác vụ.");
+        }
+
+        /// <summary>Gọi mỗi khi tác vụ đổi trạng thái: báo các tác vụ lâu vừa kết thúc nếu cửa sổ đang không ở trước.</summary>
+        private void CheckNotifications()
+        {
+            var windowActive = IsActive && WindowState != WindowState.Minimized;
+            _notifier.Check(_tasks.Snapshot(), NotifyEnabled, windowActive);
         }
 
         // ---- Trang chủ ----
@@ -460,9 +488,7 @@ namespace Toolbox
         {
             Theme.SetMode(Theme.Next(Theme.Mode));
             ThemeText.Text = Theme.Label(Theme.Mode);
-            var settings = Settings.Load();
-            settings.Theme = Theme.Name(Theme.Mode);
-            settings.Save();
+            _settings.Theme = Settings.Update(s => s.Theme = Theme.Name(Theme.Mode)).Theme;
         }
 
         private void OnLibraryClick(object sender, RoutedEventArgs e) => Navigate(null);
