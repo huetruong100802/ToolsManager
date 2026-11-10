@@ -36,6 +36,8 @@ namespace Toolbox
             TasksPage.Initialize(_tasks, _rows);
             Dock.LogRequested += Inspector.Show;
             WorkspaceContent.ShowLogRequested += ShowLog;
+            Inspector.SetWorkspaceRootResolver(id => _workspaces?.Find(id)?.ResolvedPath);
+            Inspector.HintActionRequested += OnHintAction;
             Dock.StopRequested += task => _tasks.Stop(task.Id);
             Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
             Dock.AllRequested += () => GoTo(Area.Tasks);
@@ -209,6 +211,42 @@ namespace Toolbox
         {
             Dock.MarkSeen(task.Id);
             Inspector.Show(task);
+        }
+
+        /// <summary>Nút hành động của thẻ lỗi trong panel log.</summary>
+        private void OnHintAction(FailureHint hint, TaskInfo task)
+        {
+            switch (hint.Action)
+            {
+                case HintAction.OpenTasks:
+                    GoTo(Area.Tasks);
+                    break;
+                case HintAction.RelocateWorkspace:
+                    var row = RowOf(task.Spec.WorkspaceId);
+                    if (row != null)
+                    {
+                        Navigate(row);
+                        OnRelocateWorkspace(this, new RoutedEventArgs());
+                    }
+                    break;
+                case HintAction.RunInstall:
+                    try
+                    {
+                        var spec = task.Spec.Clone();
+                        spec.Label = "npm install";
+                        spec.CommandLine = hint.Command;
+                        spec.Port = null;
+                        spec.Key = (task.Spec.Key ?? task.Id) + "|install";
+                        var started = _tasks.Start(spec);
+                        ShowLog(started);
+                        Dialogs.Info("Đang chạy npm install. Xong thì chạy lại tác vụ.");
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException || ex is System.ComponentModel.Win32Exception || ex is IOException)
+                    {
+                        Dialogs.Error(this, "Không chạy được npm install: " + ex.Message);
+                    }
+                    break;
+            }
         }
 
         // ---- Trang chủ ----
