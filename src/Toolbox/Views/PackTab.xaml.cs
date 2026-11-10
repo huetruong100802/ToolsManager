@@ -102,7 +102,7 @@ namespace Toolbox.Views
         {
             Tree.Children.Clear();
             var query = Core.Text.Fold(SearchBox.Text ?? "");
-            AddSection("BỘ CHẠY", "stack", query);
+            AddSection("WORKFLOW", "stack", query);
             AddSection("PROFILE", "profile", query);
             AddSection("TOOL THƯ VIỆN", "tool", query);
             AddSection("LỆNH RIÊNG", "custom", query);

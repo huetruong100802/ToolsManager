@@ -315,7 +315,8 @@
 
                 <!-- Trang Chạy: workflow và profile của cả workspace, bấm là chạy. -->
                 <StackPanel x:Name="RunPage" Visibility="Collapsed">
-                    <TextBlock Text="BỘ CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,0,0,6" />
+                    <v:ReadinessPanel x:Name="ReadyPanel" />
+                    <TextBlock Text="WORKFLOW" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,0,0,6" />
                     <TextBlock x:Name="NoRunStacks" Style="{StaticResource Hint}" Margin="0,0,0,8"
                                Text="Chưa có workflow. Mở tab &quot;Workflow&quot; để gom nhiều bước thành một nút chạy." />
                     <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />

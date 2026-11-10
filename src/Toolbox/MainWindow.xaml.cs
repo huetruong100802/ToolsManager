@@ -44,6 +44,8 @@ namespace Toolbox
             Inspector.HintActionRequested += OnHintAction;
             Inspector.AskAgentRequested += OnAskAgentAboutTask;
             WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindow;
+            WorkspaceContent.RelocateRequested += () => OnRelocateWorkspace(this, new RoutedEventArgs());
+            WorkspaceContent.OpenToolRequested += id => { Navigate(null); Library.FocusTool(id); };
             Dock.StopRequested += task => _tasks.Stop(task.Id);
             Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
             Dock.AllRequested += () => GoTo(Area.Tasks);
@@ -473,6 +475,29 @@ namespace Toolbox
             }
         }
 
+        // ---- Sẵn sàng ----
+
+        private Dictionary<string, int> _readinessCache = new Dictionary<string, int>();
+        private DateTime _readinessAt = DateTime.MinValue;
+
+        /// <summary>Số việc chưa sẵn sàng của từng workspace, lưu đệm 20 giây vì mỗi lần kiểm phải đọc thư viện và dò lệnh trên PATH.</summary>
+        private IReadOnlyDictionary<string, int> ReadinessCounts()
+        {
+            if (DateTime.UtcNow - _readinessAt < TimeSpan.FromSeconds(20) || _workspaces == null)
+                return _readinessCache;
+            _readinessAt = DateTime.UtcNow;
+            try
+            {
+                var library = ToolStore.Peek(ToolStore.DefaultPath);
+                _readinessCache = _workspaces.Workspaces.Where(w => !w.Archived)
+                    .ToDictionary(w => w.Id, w => Readiness.Check(w, library).Count(i => i.Level == ReadinessLevel.Error), StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+            return _readinessCache;
+        }
+
         // ---- Trang chủ ----
 
         private HomeFeed BuildHomeFeed()
@@ -482,7 +507,7 @@ namespace Toolbox
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { hasAgent = false; }
             var index = BuildSearchIndex();
             return HomeFeed.Build(_workspaces?.Workspaces ?? new List<Workspace>(), Library.Tools, _tasks.Snapshot(),
-                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, null, PendingRunRequests());
+                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, null, PendingRunRequests(), ReadinessCounts());
         }
 
         private void OnHomeItem(HomeItem item, bool secondary)

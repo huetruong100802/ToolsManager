@@ -74,6 +74,7 @@ namespace Toolbox.Views
             _tasks = tasks;
             _save = save;
             _runner = new StackRunner(tasks);
+            ReadyPanel.FixRequested += OnReadinessFix;
             // Thời gian đã chờ của bước đang chạy tăng theo giây: chỉ chạy khi có workflow đang chạy.
             var clock = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             clock.Tick += (s, e) =>
@@ -264,6 +265,7 @@ namespace Toolbox.Views
             RunProfileList.ItemsSource = _profiles;
             NoRunStacks.Visibility = _stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             NoRunProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshReadiness();
             AskSetupButton.Visibility = _workspace.Profiles.Count == 0 && _workspace.Stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             NoRunProfiles.Text = _workspace.Profiles.Count == 0
                 ? "Chưa có profile. Mở tab của một tool, chọn biến thể và tham số rồi bấm \"Lưu profile\"."
@@ -469,6 +471,7 @@ namespace Toolbox.Views
 
             PackPage.Load(_workspace, LoadLibraryStore);
             Refresh();
+            SelectTop(_topTabs[0]);
             var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} profile, {result.StacksAdded} workflow, {result.CustomsAdded} lệnh riêng.";
             if (result.Warnings.Count > 0)
                 summary += "\n\nCảnh báo:\n" + string.Join("\n", result.Warnings);
@@ -651,6 +654,55 @@ namespace Toolbox.Views
 
         /// <summary>Bỏ các dấu "mới" (người dùng đã xem trang này).</summary>
         public void ClearNew() => _newIds.Clear();
+
+        // ---- Sẵn sàng ----
+
+        /// <summary>Yêu cầu trỏ lại thư mục workspace (cửa sổ chính mở hộp chọn thư mục).</summary>
+        public event Action RelocateRequested;
+
+        /// <summary>Yêu cầu mở một tool trong Thư viện để sửa đường dẫn hoặc cài đặt.</summary>
+        public event Action<string> OpenToolRequested;
+
+        /// <summary>Kiểm workspace này chạy được trên máy này không và hiện kết quả ở đầu tab Chạy.</summary>
+        public void RefreshReadiness()
+        {
+            if (_workspace == null)
+                return;
+            try
+            {
+                ReadyPanel.Show(Readiness.Check(_workspace, ToolStore.Peek(ToolStore.DefaultPath)));
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                ReadyPanel.Show(null);
+            }
+        }
+
+        private void OnReadinessFix(ReadinessIssue issue)
+        {
+            switch (issue.Fix)
+            {
+                case ReadinessFix.RelocateWorkspace:
+                    RelocateRequested?.Invoke();
+                    break;
+                case ReadinessFix.EditTool:
+                case ReadinessFix.InstallTool:
+                    OpenToolRequested?.Invoke(issue.TargetId);
+                    break;
+                case ReadinessFix.UnbindTool:
+                    var binding = _workspace.Binding(issue.TargetId);
+                    if (binding != null && Mutate(() => _workspace.Bindings.Remove(binding), () => _workspace.Bindings.Add(binding)))
+                        Rebuild();
+                    break;
+                case ReadinessFix.OpenProfile:
+                    var profile = _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Id, issue.TargetId, StringComparison.OrdinalIgnoreCase));
+                    RunSearch.Text = profile?.Label ?? "";
+                    break;
+                case ReadinessFix.OpenWorkflow:
+                    SelectTop(_topTabs.First(t => t.IsStacks));
+                    break;
+            }
+        }
 
         // ---- Bàn phím ----
 

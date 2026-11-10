@@ -67,7 +67,8 @@ namespace Toolbox.Core
             UsageStore usage,
             DateTime now,
             Func<string, bool> pathExists = null,
-            int pendingRunRequests = 0)
+            int pendingRunRequests = 0,
+            IReadOnlyDictionary<string, int> readinessIssues = null)
         {
             var exists = pathExists ?? (p => File.Exists(p) || Directory.Exists(p));
             var feed = new HomeFeed();
@@ -96,6 +97,15 @@ namespace Toolbox.Core
                     Glyph = "", Title = $"\"{task.Spec.Label}\" bị lỗi" + (task.ExitCode.HasValue ? $" (mã {task.ExitCode})" : ""),
                     Detail = WorkspaceName(workspaces, task.Spec.WorkspaceId) + " · " + Text.Duration(now - (task.EndedAt ?? now)) + " trước",
                     Target = HomeTarget.Task, Task = task, ActionText = "Xem log",
+                });
+
+            foreach (var workspace in workspaces.Where(w => !w.Archived && readinessIssues != null && w.PathExists
+                                                       && readinessIssues.TryGetValue(w.Id, out var n) && n > 0))
+                feed.Attention.Add(new HomeItem
+                {
+                    Glyph = "E7BA", Title = $"\"{workspace.Name}\" chưa sẵn sàng: {readinessIssues[workspace.Id]} việc",
+                    Detail = "Còn thiếu tool, lệnh hoặc có profile hỏng trên máy này. Mở workspace để xem và sửa.",
+                    Target = HomeTarget.Workspace, WorkspaceId = workspace.Id, ActionText = "Xem việc cần làm",
                 });
 
             foreach (var workspace in workspaces.Where(w => !w.Archived && !w.PathExists))
