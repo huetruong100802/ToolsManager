@@ -91,10 +91,10 @@
 
                     <Grid>
                         <TextBox x:Name="SearchBox" Padding="32,6,8,6" TextChanged="OnFilterChanged"
-                                 AutomationProperties.Name="Tìm" ToolTip="Ctrl+K hoặc Ctrl+F để tìm nhanh, Esc để xoá" />
+                                 AutomationProperties.Name="Tìm" ToolTip="Ctrl+F để tìm trong Thư viện, Esc để xoá. Ctrl+K tìm và chạy mọi thứ" />
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Faint}"
                                    HorizontalAlignment="Left" Margin="11,0,0,0" IsHitTestVisible="False" />
-                        <TextBlock Text="Tìm theo tên, mô tả, tag…  (Ctrl+K)" Foreground="{DynamicResource Faint}" Margin="34,0,0,0"
+                        <TextBlock Text="Tìm theo tên, mô tả, tag…  (Ctrl+F)" Foreground="{DynamicResource Faint}" Margin="34,0,0,0"
                                    VerticalAlignment="Center" IsHitTestVisible="False">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">

@@ -4,6 +4,7 @@
         xmlns:views="clr-namespace:Toolbox.Views"
         Title="Toolbox" Width="1180" Height="680" MinWidth="1000" MinHeight="460"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterScreen">
+    <Grid>
     <DockPanel>
         <!-- Thanh trạng thái: số tác vụ đang chạy và cổng đang dùng. -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
@@ -31,6 +32,14 @@
                         </Border>
                         <TextBlock Text="Toolbox" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
+                    <Button x:Name="PaletteButton" DockPanel.Dock="Top" Style="{StaticResource GhostButton}" Click="OnPaletteClick" Margin="0,0,0,12"
+                            HorizontalContentAlignment="Stretch" AutomationProperties.Name="Tìm hoặc chạy (Ctrl+K)" ToolTip="Tìm và chạy mọi thứ: Ctrl+K">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="Ctrl+K" FontSize="11" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" />
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" FontSize="12" Foreground="{DynamicResource Faint}" Margin="0,0,7,0" />
+                            <TextBlock Text="Tìm hoặc chạy…" Foreground="{DynamicResource Muted}" />
+                        </DockPanel>
+                    </Button>
 
                     <Button x:Name="ThemeButton" DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Click="OnThemeClick"
                             Margin="0,6,0,0" HorizontalContentAlignment="Left" ToolTip="Đổi giao diện: theo hệ thống, sáng, tối"
@@ -198,4 +207,6 @@
             </Grid>
         </Grid>
     </DockPanel>
+        <views:CommandPalette x:Name="Palette" />
+    </Grid>
 </Window>

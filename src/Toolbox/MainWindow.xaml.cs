@@ -47,6 +47,10 @@ namespace Toolbox
             WorkspaceList.ItemsSource = _rowsView;
             ThemeText.Text = Theme.Label(Theme.Mode);
             Views.Toasts.Host = ToastLayer;
+            Palette.Initialize(BuildSearchIndex);
+            Palette.Activated += OnPaletteActivated;
+            Palette.RevealRequested += OnPaletteReveal;
+            PreviewKeyDown += OnWindowPreviewKeyDown;
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
@@ -190,6 +194,91 @@ namespace Toolbox
             row.TogglePin();
             TrySave();
             _rowsView.Refresh();
+        }
+
+        // ---- Bảng lệnh Ctrl+K ----
+
+        private void OnPaletteClick(object sender, RoutedEventArgs e) => Palette.Open();
+
+        /// <summary>Ctrl+K mở bảng lệnh ở mọi trang (kể cả khi đang gõ trong một ô); Ctrl+F vẫn là tìm trong trang.</summary>
+        private void OnWindowPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.K && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0)
+            {
+                Palette.Toggle();
+                e.Handled = true;
+            }
+        }
+
+        private SearchIndex BuildSearchIndex() =>
+            SearchIndex.Build(Library.Tools, _workspaces?.Workspaces, PaletteActions());
+
+        private static IEnumerable<SearchEntry> PaletteActions()
+        {
+            SearchEntry Act(string code, string title, string keywords = null) =>
+                new SearchEntry { Kind = SearchKind.Action, Key = UsageStore.Key("action", code), Title = title, Subtitle = "Hành động", TargetId = code, Keywords = keywords };
+            yield return Act("go-library", "Mở Thư viện", "tool danh sách");
+            yield return Act("go-overview", "Mở Tổng quan", "trang chủ");
+            yield return Act("go-tasks", "Mở Tác vụ", "đang chạy log");
+            yield return Act("go-agents", "Mở Agent", "duyệt đề xuất");
+            yield return Act("add-workspace", "Thêm workspace", "thư mục repo");
+            yield return Act("connect-agent", "Kết nối agent…", "claude cursor mcp");
+            yield return Act("theme", "Đổi giao diện sáng/tối", "dark light theme");
+        }
+
+        private void ExecuteAction(string code)
+        {
+            switch (code)
+            {
+                case "go-library": Navigate(null); break;
+                case "go-overview": GoTo(Area.Overview); break;
+                case "go-tasks": GoTo(Area.Tasks); break;
+                case "go-agents": GoTo(Area.Agents); break;
+                case "add-workspace": OnAddWorkspace(this, new RoutedEventArgs()); break;
+                case "connect-agent": Library.OpenAgentWindow(); break;
+                case "theme": OnThemeClick(this, new RoutedEventArgs()); break;
+            }
+        }
+
+        private WorkspaceRow RowOf(string workspaceId) =>
+            _rows.FirstOrDefault(r => string.Equals(r.Workspace.Id, workspaceId, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Enter: chạy mục chạy được (đi tới workspace rồi chạy đúng đường nút Chạy), mở các mục còn lại.</summary>
+        private void OnPaletteActivated(SearchEntry entry) => OpenEntry(entry, run: entry.Runnable);
+
+        /// <summary>Ctrl+Enter: chỉ mở nơi chứa, không chạy.</summary>
+        private void OnPaletteReveal(SearchEntry entry) => OpenEntry(entry, run: false);
+
+        private void OpenEntry(SearchEntry entry, bool run)
+        {
+            if (entry.Kind != SearchKind.Action && !string.IsNullOrEmpty(entry.Key))
+                UsageStore.Shared.Record(entry.Key);
+            switch (entry.Kind)
+            {
+                case SearchKind.Action:
+                    ExecuteAction(entry.TargetId);
+                    return;
+                case SearchKind.Tool:
+                    Navigate(null);
+                    Library.FocusTool(entry.TargetId);
+                    return;
+                case SearchKind.Workspace:
+                    break;
+            }
+
+            var row = RowOf(entry.WorkspaceId);
+            if (row == null)
+            {
+                Dialogs.Error(this, "Không tìm thấy workspace của mục này. Có thể nó vừa bị gỡ.");
+                return;
+            }
+            Navigate(row);
+            if (entry.Kind == SearchKind.Workspace)
+                return;
+            if (!run)
+                WorkspaceContent.Reveal(entry.Kind, entry.TargetId);
+            else if (!WorkspaceContent.RunTarget(entry.Kind, entry.TargetId))
+                Dialogs.Error(this, $"Không tìm thấy \"{entry.Title}\" trong workspace. Có thể nó vừa bị xoá.");
         }
 
         private void OnThemeClick(object sender, RoutedEventArgs e)

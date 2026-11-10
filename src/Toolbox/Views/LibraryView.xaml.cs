@@ -56,6 +56,20 @@ namespace Toolbox.Views
         /// <summary>File .toolbox truyền qua dòng lệnh; nhập ngay khi trang tải xong.</summary>
         public string FileToOpen { get; set; }
 
+        /// <summary>Tool trong thư viện (cho chỉ mục tìm toàn app). Rỗng nếu chưa nạp được.</summary>
+        public IReadOnlyList<ToolEntry> Tools => _store?.Tools ?? (IReadOnlyList<ToolEntry>)new List<ToolEntry>();
+
+        /// <summary>Bảng lệnh mở một tool: lọc danh sách về đúng tool đó và đưa con trỏ tới đó.</summary>
+        public void FocusTool(string toolId)
+        {
+            var item = _items.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+                return;
+            SearchBox.Text = item.Tool.Name;
+            ToolList.SelectedItem = item;
+            ToolList.ScrollIntoView(item);
+        }
+
         /// <summary>Cửa sổ chủ, dùng làm owner cho hộp thoại.</summary>
         private Window Host => Window.GetWindow(this);
 
@@ -223,13 +237,13 @@ namespace Toolbox.Views
         }
 
         /// <summary>
-        /// Phím tắt: Ctrl+K / Ctrl+F nhảy vào ô tìm; Esc trong ô tìm xoá chữ; Enter trên dòng đang chọn thì chạy
+        /// Phím tắt: Ctrl+F nhảy vào ô tìm (Ctrl+K là bảng lệnh toàn app, xử lý ở cửa sổ chính); Esc trong ô tìm xoá chữ; Enter trên dòng đang chọn thì chạy
         /// (tương đương double-click, để dùng được hoàn toàn bằng bàn phím).
         /// </summary>
         private void OnWindowKeyDown(object sender, KeyEventArgs e)
         {
             var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
-            if (ctrl && (e.Key == Key.K || e.Key == Key.F))
+            if (ctrl && e.Key == Key.F)
             {
                 SearchBox.Focus();
                 SearchBox.SelectAll();
@@ -578,6 +592,7 @@ namespace Toolbox.Views
             try
             {
                 _runs.Start(item.Tool);
+                UsageStore.Shared.Record(UsageStore.Key("tool", item.Tool.Id));
                 StatusText.Text = $"Đã mở \"{item.Tool.Name}\".";
             }
             catch (Exception ex) when (ex is FileNotFoundException || ex is System.ComponentModel.Win32Exception)

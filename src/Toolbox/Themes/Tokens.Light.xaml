@@ -38,4 +38,5 @@
     <SolidColorBrush x:Key="ScrollThumbHover" Color="#A7B0C0" />
     <SolidColorBrush x:Key="ItemHover" Color="#FBFCFF" />
     <SolidColorBrush x:Key="ItemSelected" Color="#F7F8FF" />
+    <SolidColorBrush x:Key="Scrim" Color="#66000000" />
 </ResourceDictionary>

@@ -557,9 +557,11 @@ namespace Toolbox.Views
                     RunAction(action);
                     break;
                 case ProfileRow profile:
+                    Used("profile", profile.Profile.Id);
                     RunProfile(profile);
                     break;
                 case CustomRow custom:
+                    Used("custom", custom.Command.Id);
                     RunCustom(custom);
                     break;
             }
@@ -666,19 +668,79 @@ namespace Toolbox.Views
             return answers;
         }
 
-        private void RunCustom(CustomRow row)
+        private void RunCustom(CustomRow row) => RunCustomCommand(row.Command);
+
+        private void RunCustomCommand(CustomCommand command)
         {
-            if (!CanStartIn(row.Command.Cwd))
+            if (!CanStartIn(command.Cwd))
                 return;
             Start(new TaskSpec
             {
                 WorkspaceId = _workspace.Id,
-                Label = row.Command.Label,
-                CommandLine = row.Command.CommandLine,
-                Cwd = _workspace.ResolveCwd(row.Command.Cwd),
-                Window = row.Command.Window,
-                Key = TaskKey.ForCustom(_workspace.Id, row.Command.Id),
+                Label = command.Label,
+                CommandLine = command.CommandLine,
+                Cwd = _workspace.ResolveCwd(command.Cwd),
+                Window = command.Window,
+                Key = TaskKey.ForCustom(_workspace.Id, command.Id),
             });
+        }
+
+        private void Used(string kind, string id)
+        {
+            if (_workspace != null)
+                UsageStore.Shared.Record(UsageStore.Key(kind, id, _workspace.Id));
+        }
+
+        /// <summary>Bảng lệnh Ctrl+Enter: đưa người dùng tới mục (không chạy): profile và workflow ở tab Chạy, lệnh riêng ở tab Lệnh riêng.</summary>
+        public void Reveal(SearchKind kind, string id)
+        {
+            if (_workspace == null)
+                return;
+            if (kind == SearchKind.Custom)
+            {
+                Select(_tabs.FirstOrDefault(t => t.IsCustom) ?? _tabs[0]);
+                return;
+            }
+            var label = kind == SearchKind.Profile ? _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))?.Label : "";
+            RunSearch.Text = label ?? "";
+            Select(_tabs[0]);
+        }
+
+        /// <summary>
+        /// Chạy một mục từ bảng lệnh Ctrl+K: mở tab Chạy rồi chạy profile, workflow hoặc lệnh riêng theo id,
+        /// dùng đúng đường chạy của nút Chạy (hỏi giá trị lúc chạy, kiểm cổng, kiểm thư mục).
+        /// </summary>
+        public bool RunTarget(SearchKind kind, string id)
+        {
+            if (_workspace == null || _tasks == null)
+                return false;
+            RunSearch.Text = "";
+            Select(_tabs[0]);
+            switch (kind)
+            {
+                case SearchKind.Profile:
+                    var profile = _profiles.FirstOrDefault(p => string.Equals(p.Profile.Id, id, StringComparison.OrdinalIgnoreCase));
+                    if (profile == null)
+                        return false;
+                    Used("profile", id);
+                    RunProfile(profile);
+                    return true;
+                case SearchKind.Workflow:
+                    var stack = _stacks.FirstOrDefault(r => string.Equals(r.Stack.Id, id, StringComparison.OrdinalIgnoreCase));
+                    if (stack == null)
+                        return false;
+                    StartStack(stack);
+                    return true;
+                case SearchKind.Custom:
+                    var custom = _workspace.Customs.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+                    if (custom == null)
+                        return false;
+                    Used("custom", id);
+                    RunCustomCommand(custom);
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private TaskSpec SpecFor(ToolDef tool, ToolBinding binding, ActionDef action, VariantDef variant,
@@ -831,8 +893,15 @@ namespace Toolbox.Views
 
         private void OnRunStack(object sender, RoutedEventArgs e)
         {
-            if (!((sender as FrameworkElement)?.DataContext is StackRow row) || !row.CanRun || row.Run?.IsActive == true)
+            if ((sender as FrameworkElement)?.DataContext is StackRow row)
+                StartStack(row);
+        }
+
+        private void StartStack(StackRow row)
+        {
+            if (!row.CanRun || row.Run?.IsActive == true)
                 return;
+            Used("workflow", row.Stack.Id);
             var run = _runner.Start(_workspace, row.Stack);
             _runs[RunKey(row.Stack.Id)] = run;
             // Tiến độ đến từ luồng nền: chuyển về luồng giao diện.
