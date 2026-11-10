@@ -9,39 +9,44 @@
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Đóng" IsCancel="True" IsDefault="True" MinWidth="90" Margin="12,0,0,0"
-                        Style="{StaticResource PrimaryButton}" Click="OnClose" />
+                        Style="{StaticResource PrimaryButton}" Click="OnClose" VerticalAlignment="Bottom" />
+                <!-- Cùng lưới cột với bảng bên trên (Cổng | Lệnh | Giá trị | Mô tả | nút) để các ô thẳng hàng. -->
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="64" />
                         <ColumnDefinition Width="190" />
-                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="70" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" x:Name="AddLabel" Style="{StaticResource FieldLabel}" />
-                    <TextBox Grid.Row="1" Grid.Column="0" x:Name="NameBox" ToolTip="Ví dụ serve, --port hoặc -p" FontFamily="Consolas" Margin="0,4,0,0" />
-                    <CheckBox Grid.Row="1" Grid.Column="1" x:Name="TakesBox" Content="Có giá trị" Margin="12,4,12,0" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" x:Name="AddLabel" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Lệnh" FontSize="11" Foreground="{DynamicResource Muted}" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Giá trị" FontSize="11" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="Mô tả" FontSize="11" Foreground="{DynamicResource Muted}" />
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="NameBox" ToolTip="Ví dụ serve, --port hoặc -p" FontFamily="Consolas" Margin="0,4,12,0" />
+                    <CheckBox Grid.Row="2" Grid.Column="2" x:Name="TakesBox" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,0"
                               ToolTip="Cờ có đi kèm giá trị không (--port 4200). Lệnh con không có giá trị." />
-                    <TextBox Grid.Row="1" Grid.Column="2" x:Name="DescBox" Margin="0,4,12,0" ToolTip="Mô tả ngắn, không bắt buộc" />
-                    <Button Grid.Row="1" Grid.Column="3" Content="Thêm" MinWidth="80" Margin="0,4,0,0" Click="OnAdd" />
+                    <TextBox Grid.Row="2" Grid.Column="3" x:Name="DescBox" Margin="0,4,12,0" ToolTip="Mô tả ngắn, không bắt buộc" />
+                    <Button Grid.Row="2" Grid.Column="4" Content="Thêm" MinWidth="80" Margin="0,4,0,0" Click="OnAdd" />
                 </Grid>
             </DockPanel>
         </Border>
 
         <!-- Đầu: chọn lệnh, quét lại, trạng thái. -->
         <StackPanel DockPanel.Dock="Top" Margin="20,16,20,12">
-            <TextBlock x:Name="TitleText" FontSize="15" FontWeight="SemiBold" />
-            <DockPanel Margin="0,12,0,0">
+            <DockPanel Margin="0,0,0,0">
                 <Button DockPanel.Dock="Right" x:Name="AskButton" Content="Nhờ agent…" MinWidth="100" Margin="12,0,0,0" Click="OnAsk" Visibility="Collapsed"
                         ToolTip="Sao chép prompt nhờ agent đọc lệnh của tool này" />
                 <Button DockPanel.Dock="Right" x:Name="RescanButton" Content="Quét lại" MinWidth="100" Margin="12,0,0,0"
                         Style="{StaticResource PrimaryButton}" Click="OnRescan" />
                 <Button DockPanel.Dock="Right" x:Name="ImportButton" Content="Nhập…" MinWidth="80" Margin="12,0,0,0" Click="OnImportClick"
                         ToolTip="Nhập lệnh từ file (package.json, Makefile…) hoặc danh sách dán, thay cho quét help." />
-                <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="14,0,0,0" />
+                <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0" />
             </DockPanel>
             <v:SearchField x:Name="Search" Placeholder="Tìm lệnh con hoặc cờ…" Margin="0,10,0,0" />
         </StackPanel>

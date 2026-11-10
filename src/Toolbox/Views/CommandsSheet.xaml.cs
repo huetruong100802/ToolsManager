@@ -43,8 +43,9 @@ namespace Toolbox.Views
             _changed = changed;
             _directory = CapabilityStore.DefaultDirectory;
             Search.TextChanged += OnSearchChanged;
-            TitleText.Text = "Lệnh · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
-            SheetTitle = TitleText.Text;
+            // Tiêu đề nằm trên thanh của cửa sổ; tên tool và lệnh gốc chỉ hiện hai lần khi khác nhau (vd. git · git).
+            SheetTitle = "Lệnh · " + tool.Name + (tool.Command == null || string.Equals(tool.Command, tool.Name, StringComparison.OrdinalIgnoreCase)
+                ? "" : " · " + tool.Command);
             AddLabel.Text = tool.Command == null ? "" : "Thêm lệnh sau " + tool.Command;
 
             try
@@ -135,9 +136,10 @@ namespace Toolbox.Views
         {
             var grid = Grid5();
             grid.Margin = new Thickness(0, 10, 0, 4);
-            Place(grid, Caption("Cổng"), 0);
+            // Cột cờ (Cổng, Giá trị) căn giữa như ô checkbox bên dưới; các cột chữ căn trái.
+            Place(grid, Caption("Cổng", center: true), 0);
             Place(grid, Caption("Lệnh"), 1);
-            Place(grid, Caption("Giá trị"), 2);
+            Place(grid, Caption("Giá trị", center: true), 2);
             Place(grid, Caption("Mô tả"), 3);
             return grid;
         }
@@ -238,12 +240,14 @@ namespace Toolbox.Views
             foreach (var flag in flags)
                 panel.Children.Add(EntryRow(scope, flag));
 
-            var add = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-            var addButton = new Button { Content = "Thêm", MinWidth = 80, Margin = new Thickness(12, 0, 0, 0) };
-            DockPanel.SetDock(addButton, Dock.Right);
-            var takes = new CheckBox { Content = "Có giá trị", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
-            DockPanel.SetDock(takes, Dock.Right);
-            var name = new TextBox { FontFamily = new FontFamily("Consolas"), ToolTip = "Cờ của " + scope + ", ví dụ --port" };
+            // Cùng lưới cột với các cờ phía trên: tên ở cột Lệnh, checkbox ở cột Giá trị, nút ở cột cuối.
+            var add = Grid5();
+            add.Margin = new Thickness(0, 8, 0, 0);
+            var name = new TextBox { FontFamily = new FontFamily("Consolas"), Margin = new Thickness(0, 0, 12, 0),
+                ToolTip = "Cờ của " + scope + ", ví dụ --port" };
+            var takes = new CheckBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Cờ có đi kèm giá trị không (--port 4200)." };
+            var addButton = new Button { Content = "Thêm", MinWidth = 80, Margin = new Thickness(0, 0, 0, 0) };
             addButton.Click += (s, e) =>
             {
                 try
@@ -257,9 +261,9 @@ namespace Toolbox.Views
                 }
                 Persist(null);
             };
-            add.Children.Add(addButton);
-            add.Children.Add(takes);
-            add.Children.Add(name);
+            Place(add, name, 1);
+            Place(add, takes, 2);
+            Place(add, addButton, 4);
             panel.Children.Add(add);
             return panel;
         }
@@ -375,9 +379,10 @@ namespace Toolbox.Views
             grid.Children.Add(element);
         }
 
-        private TextBlock Caption(string text) => new TextBlock
+        private TextBlock Caption(string text, bool center = false) => new TextBlock
         {
             Text = text, FontSize = 11, Foreground = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = center ? HorizontalAlignment.Center : HorizontalAlignment.Left,
         };
 
         private TextBlock Note(string text) => new TextBlock
