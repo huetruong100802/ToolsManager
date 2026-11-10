@@ -86,7 +86,7 @@ namespace Toolbox
                     StepTitle.Text = "1 · Chọn tool";
                     StepHint.Text = ToolList.Items.Count == 0
                         ? "Workspace chưa có tool nào. Thêm tool hoặc lệnh riêng trước."
-                        : "Profile chạy được với mọi tool đã gắn (lệnh gốc hoặc một hậu tố) và lệnh riêng của workspace.";
+                        : "Profile chạy được với mọi tool đã gắn (lệnh gốc hoặc một lệnh) và lệnh riêng của workspace.";
                     NextButton.IsEnabled = _choice != null && _choice.Problem == null;
                     break;
                 case 1:
@@ -103,7 +103,7 @@ namespace Toolbox
             }
         }
 
-        /// <summary>Đúng khi người dùng chọn "+ Tool riêng…": đóng hộp thoại để WorkspaceView mở trình tạo lệnh riêng.</summary>
+        /// <summary>Đúng khi người dùng chọn "+ Lệnh riêng…": đóng hộp thoại để WorkspaceView mở trình tạo lệnh riêng.</summary>
         public bool RequestCustomTool { get; private set; }
 
         /// <summary>Mở danh sách gợi ý của một ô tham số (nút ▾).</summary>
@@ -136,7 +136,7 @@ namespace Toolbox
             {
                 if (_choice.Source == Source.Tool)
                 {
-                    StepHint.Text = "Chọn lệnh gốc hoặc một hậu tố của " + _choice.Tool.Name + ".";
+                    StepHint.Text = "Chọn lệnh gốc hoặc một lệnh của " + _choice.Tool.Name + ".";
                     FixedCommandNote.Visibility = Visibility.Collapsed;
                     ActionBox.Visibility = Visibility.Visible;
                     ActionBox.ItemsSource = ToolCatalog.ActionsFor(_workspace, _choice.Binding);

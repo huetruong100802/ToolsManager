@@ -31,7 +31,7 @@ namespace Toolbox.Views
         private List<CustomRow> _customs = new List<CustomRow>();
         private List<StackRow> _stacks = new List<StackRow>();
 
-        // Lần chạy gần nhất của từng bộ chạy ("workspaceId|stackId"), giữ khi chuyển trang để còn thấy kết quả.
+        // Lần chạy gần nhất của từng workflow ("workspaceId|stackId"), giữ khi chuyển trang để còn thấy kết quả.
         private readonly Dictionary<string, StackRun> _runs = new Dictionary<string, StackRun>(StringComparer.OrdinalIgnoreCase);
         private StackRunner _runner;
 
@@ -127,7 +127,7 @@ namespace Toolbox.Views
                 _tabs.Add(new TabRow(ToolCatalog.Find(binding.ToolId)?.Name ?? binding.ToolId, binding));
             _tabs.Add(TabRow.Stacks());
             _tabs.Add(new TabRow("Lệnh riêng", null));
-            _tabs.Add(new TabRow("Đóng gói", null, PackTab.TabId));
+            _tabs.Add(new TabRow("Chia sẻ", null, PackTab.TabId));
 
             _selectedTab.TryGetValue(ws.Id, out var remembered);
             var pick = _tabs.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "\u0001", StringComparison.OrdinalIgnoreCase))
@@ -202,12 +202,12 @@ namespace Toolbox.Views
             actionView.Filter = o => MatchesActionSearch((ActionRow)o);
             ActionSearchEmpty.Visibility = Visibility.Collapsed;
 
-            // Dòng chạy lệnh gốc luôn có; chỉ báo "chưa có hậu tố" khi ngoài nó không còn gì.
+            // Dòng chạy lệnh gốc luôn có; chỉ báo "chưa có lệnh" khi ngoài nó không còn gì.
             var onlyBase = _actions.Count <= 1;
             NoActions.Visibility = onlyBase ? Visibility.Visible : Visibility.Collapsed;
             NoActions.Text = tool?.ActionsFrom != null
-                ? "Không đọc được lệnh nào từ " + tool.ActionsFrom.Source.File + " tại thư mục chạy. Bấm \"Khả năng…\" để quét hoặc nhập tay."
-                : "Tool chưa có hậu tố nào (lệnh con, cờ). Bấm \"Khả năng…\" để quét từ trợ giúp hoặc nhập tay; hậu tố khai ở đó sẽ hiện thành lệnh và dùng được trong profile.";
+                ? "Không đọc được lệnh nào từ " + tool.ActionsFrom.Source.File + " tại thư mục chạy. Bấm \"Lệnh…\" để quét hoặc nhập tay."
+                : "Tool chưa có lệnh nào. Bấm \"Lệnh…\" để quét từ trợ giúp hoặc nhập tay; lệnh khai ở đó sẽ hiện thành lệnh và dùng được trong profile.";
 
             BuildProfiles(binding.ToolId);
         }
@@ -216,7 +216,7 @@ namespace Toolbox.Views
         private string ToolDir(ToolBinding binding) =>
             CommandBuilder.ToolCwd(_workspace, binding, ToolCatalog.FindEntry(binding.ToolId));
 
-        /// <summary>Tab Chạy: mọi bộ chạy và profile của workspace (lọc theo ô tìm), dùng lại dòng của các tab khác.</summary>
+        /// <summary>Tab Chạy: mọi workflow và profile của workspace (lọc theo ô tìm), dùng lại dòng của các tab khác.</summary>
         private void BuildRun()
         {
             _actions = new List<ActionRow>();
@@ -367,7 +367,7 @@ namespace Toolbox.Views
         /// <summary>Gắn tool có sẵn trong thư viện vào workspace này. Tool vẫn nằm trong thư viện, không copy.</summary>
         /// <summary>Trang một tool thư viện: đường dẫn, tham số riêng của workspace, nút chạy và gỡ.</summary>
         /// <summary>
-        /// Nhập gói vào workspace này: tool vào thư viện (theo lựa chọn ở hộp thoại), còn profile, bộ chạy, lệnh riêng
+        /// Nhận gói vào workspace này: tool vào thư viện (theo lựa chọn ở hộp thoại), còn profile, workflow, lệnh riêng
         /// vào workspace. Lưu thư viện trước, rồi workspace; lỗi thì báo, không ghi đè thầm.
         /// </summary>
         private void ImportPackIntoWorkspace()
@@ -414,7 +414,7 @@ namespace Toolbox.Views
 
             PackPage.Load(_workspace, LoadLibraryStore);
             Refresh();
-            var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} profile, {result.StacksAdded} bộ chạy, {result.CustomsAdded} lệnh riêng.";
+            var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} profile, {result.StacksAdded} workflow, {result.CustomsAdded} lệnh riêng.";
             if (result.Warnings.Count > 0)
                 summary += "\n\nCảnh báo:\n" + string.Join("\n", result.Warnings);
             if (result.Warnings.Count == 0)
@@ -436,7 +436,7 @@ namespace Toolbox.Views
             }
         }
 
-        /// <summary>Mở bảng khả năng của tool (cờ đọc từ trợ giúp, cờ cổng, mục nhập tay). Đóng cửa sổ thì vẽ lại tab.</summary>
+        /// <summary>Mở bảng lệnh của tool (cờ đọc từ trợ giúp, cờ cổng, mục nhập tay). Đóng cửa sổ thì vẽ lại tab.</summary>
         private void OnCapabilities(object sender, RoutedEventArgs e)
         {
             var binding = _tab?.Binding;
@@ -524,7 +524,7 @@ namespace Toolbox.Views
             if (profileCount > 0)
                 message += $"\n\n{profileCount} profile của tool này cũng bị xoá.";
             if (stackSteps > 0)
-                message += $"\n\n{stackSteps} bước trong bộ chạy đang dùng tool này sẽ không chạy được cho tới khi gắn lại.";
+                message += $"\n\n{stackSteps} bước trong workflow đang dùng tool này sẽ không chạy được cho tới khi gắn lại.";
             if (running.Count > 0)
                 message += $"\n\nĐang có {running.Count} tác vụ của tool này chạy ngầm; gỡ sẽ dừng chúng.";
             if (!Dialogs.Confirm(Host, message, running.Count > 0 || stackSteps > 0))
@@ -597,7 +597,7 @@ namespace Toolbox.Views
                 return;
             if (ProfileKind.IsCustom(row.Profile.Kind))
             {
-                // Lệnh riêng: không thuộc tool nào, resolve qua bộ chạy.
+                // Lệnh riêng: không thuộc tool nào, resolve qua workflow.
                 var resolved = ResolveProfile(row.Profile, answers);
                 if (resolved.IsBroken)
                 {
@@ -687,7 +687,7 @@ namespace Toolbox.Views
             var hasPairs = pairs != null && pairs.Count > 0;
             var port = CommandBuilder.PortOf(variant, vals);
             var label = profileLabel ?? StackResolver.ActionLabel(tool, action, variant, port);
-            // Lệnh gốc (hậu tố rỗng) dựng qua đường chung của mọi tool để tool file chạy cũng đúng cách chạy theo đuôi file.
+            // Lệnh gốc (lệnh rỗng) dựng qua đường chung của mọi tool để tool file chạy cũng đúng cách chạy theo đuôi file.
             var commandLine = action.Id.Length == 0
                 ? CommandBuilder.ToolCommandLine(ToolCatalog.FindEntry(binding.ToolId), binding, hasPairs ? PairLine.Render(pairs) : Values(vals, "args"))
                 : hasPairs ? CommandBuilder.BuildWithPairs(variant, vals, pairs) : CommandBuilder.Build(variant, vals);
@@ -744,7 +744,7 @@ namespace Toolbox.Views
             }
         }
 
-        // ---- Bộ chạy ----
+        // ---- Workflow ----
 
         private string RunKey(string stackId) => _workspace.Id + "|" + stackId;
 
@@ -763,7 +763,7 @@ namespace Toolbox.Views
             Refresh();
         }
 
-        /// <summary>Dựng bộ chạy mới bằng sơ đồ.</summary>
+        /// <summary>Dựng workflow mới bằng sơ đồ.</summary>
         private void OnDiagramNew(object sender, RoutedEventArgs e)
         {
             var stack = StackDiagram.ShowDialog(Host, _workspace, null);
@@ -776,7 +776,7 @@ namespace Toolbox.Views
             Refresh();
         }
 
-        /// <summary>Sửa bộ chạy bằng sơ đồ; cửa sổ danh sách (Sửa) vẫn là dạng xem thứ hai của cùng dữ liệu.</summary>
+        /// <summary>Sửa workflow bằng sơ đồ; cửa sổ danh sách (Sửa) vẫn là dạng xem thứ hai của cùng dữ liệu.</summary>
         private void OnDiagramStack(object sender, RoutedEventArgs e)
         {
             if (!((sender as FrameworkElement)?.DataContext is StackRow row))
@@ -817,9 +817,9 @@ namespace Toolbox.Views
         {
             if (!((sender as FrameworkElement)?.DataContext is StackRow row))
                 return;
-            var message = $"Xoá bộ chạy \"{row.Title}\"?";
+            var message = $"Xoá workflow \"{row.Title}\"?";
             if (row.CanStop)
-                message += "\n\nCác tác vụ đã bật vẫn đang chạy; xoá bộ chạy không dừng chúng.";
+                message += "\n\nCác tác vụ đã bật vẫn đang chạy; xoá workflow không dừng chúng.";
             if (!Dialogs.Confirm(Host, message))
                 return;
             if (!Mutate(() => _workspace.Stacks.Remove(row.Stack)))
@@ -1038,7 +1038,7 @@ namespace Toolbox.Views
             var usedBy = _workspace.Stacks.Count(s => s.Steps.Any(st => string.Equals(st.ProfileId, row.Profile.Id, StringComparison.OrdinalIgnoreCase)));
             var message = $"Xoá profile \"{row.Profile.Label}\"?";
             if (usedBy > 0)
-                message += $"\n\n{usedBy} bộ chạy đang dùng profile này; các bước đó sẽ chạy với tham số mặc định.";
+                message += $"\n\n{usedBy} workflow đang dùng profile này; các bước đó sẽ chạy với tham số mặc định.";
             if (!Dialogs.Confirm(Host, message, usedBy > 0))
                 return;
 
@@ -1104,7 +1104,7 @@ namespace Toolbox.Views
                 && string.Equals(st.ActionId, row.Command.Id, StringComparison.OrdinalIgnoreCase)));
             var message = $"Xoá lệnh \"{row.Command.Label}\"?";
             if (usedBy > 0)
-                message += $"\n\n{usedBy} bộ chạy đang dùng lệnh này; các bước đó sẽ không chạy được.";
+                message += $"\n\n{usedBy} workflow đang dùng lệnh này; các bước đó sẽ không chạy được.";
             if (row.IsRunning)
                 message += "\n\nLệnh đang chạy ngầm; xoá sẽ dừng nó.";
             if (!Dialogs.Confirm(Host, message, row.IsRunning || usedBy > 0))

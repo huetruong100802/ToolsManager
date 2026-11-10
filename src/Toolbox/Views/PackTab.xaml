@@ -12,7 +12,7 @@
         <DockPanel Grid.Column="0">
             <TextBlock DockPanel.Dock="Top" Text="Chọn thứ cần đóng gói" FontSize="15" FontWeight="SemiBold" />
             <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,10"
-                       Text="Chọn bộ chạy thì profile nó dùng được tự chọn theo; chọn profile thì tool hoặc lệnh riêng nó dùng cũng vậy." />
+                       Text="Chọn workflow thì profile nó dùng được tự chọn theo; chọn profile thì tool hoặc lệnh riêng nó dùng cũng vậy." />
             <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,0,0,8" TextChanged="OnSearch"
                      ToolTip="Tìm theo tên" AutomationProperties.Name="Tìm trong cây chọn" />
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -27,10 +27,10 @@
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                     <TextBlock Text="Tên gói" Style="{StaticResource FieldLabel}" />
                     <TextBox x:Name="PackName" AutomationProperties.Name="Tên gói" TextChanged="OnNameChanged" />
-                    <Button x:Name="PackButton" Style="{StaticResource PrimaryButton}" Content="Đóng gói" Click="OnPack"
+                    <Button x:Name="PackButton" Style="{StaticResource PrimaryButton}" Content="Chia sẻ" Click="OnPack"
                             Margin="0,10,0,0" IsEnabled="False" />
-                    <Button x:Name="ImportButton" Style="{StaticResource GhostButton}" Content="Nhập gói vào workspace…" Click="OnImport"
-                            Margin="0,8,0,0" ToolTip="Nhập gói .toolbox từ máy khác: tool vào thư viện, profile và bộ chạy vào workspace này." />
+                    <Button x:Name="ImportButton" Style="{StaticResource GhostButton}" Content="Nhận gói vào workspace…" Click="OnImport"
+                            Margin="0,8,0,0" ToolTip="Nhận gói .toolbox từ máy khác: tool vào thư viện, profile và workflow vào workspace này." />
                 </StackPanel>
                 <TextBlock DockPanel.Dock="Top" Text="GÓI SẼ CÓ" FontSize="11" FontWeight="SemiBold"
                            Foreground="{DynamicResource Faint}" Margin="0,0,0,8" />

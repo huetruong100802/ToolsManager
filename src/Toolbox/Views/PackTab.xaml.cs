@@ -10,8 +10,8 @@ using Toolbox.Core.Workspaces;
 namespace Toolbox.Views
 {
     /// <summary>
-    /// Tab Đóng gói của workspace: cây chọn bộ chạy, profile, tool thư viện, lệnh riêng; khung "Gói sẽ có"; nút Đóng gói.
-    /// Mục tick tay lưu trong <see cref="_manual"/>; mục được kéo theo (vd. profile của bộ chạy) hiện đã chọn và khoá, kèm lý do.
+    /// Tab Chia sẻ của workspace: cây chọn workflow, profile, tool thư viện, lệnh riêng; khung "Gói sẽ có"; nút Chia sẻ.
+    /// Mục tick tay lưu trong <see cref="_manual"/>; mục được kéo theo (vd. profile của workflow) hiện đã chọn và khoá, kèm lý do.
     /// </summary>
     public partial class PackTab : UserControl
     {
@@ -38,7 +38,7 @@ namespace Toolbox.Views
 
         private Window Host => Window.GetWindow(this);
 
-        /// <summary>Người dùng bấm "Nhập gói vào workspace…": WorkspaceView mở hộp thoại và nhập.</summary>
+        /// <summary>Người dùng bấm "Nhận gói vào workspace…": WorkspaceView mở hộp thoại và nhập.</summary>
         public event Action ImportRequested;
 
         private void OnImport(object sender, RoutedEventArgs e) => ImportRequested?.Invoke();
@@ -199,7 +199,7 @@ namespace Toolbox.Views
 
                 Summary.Text = resolved.IsEmpty
                     ? "Chưa chọn gì."
-                    : $"{_preview.StackCount} bộ chạy · {_preview.ProfileCount} profile · {_preview.ToolCount} tool · {_preview.CustomCount} lệnh riêng";
+                    : $"{_preview.StackCount} workflow · {_preview.ProfileCount} profile · {_preview.ToolCount} tool · {_preview.CustomCount} lệnh riêng";
                 Pulled.Text = pulled.Count == 0 ? "" : "Tự thêm theo:\n" + string.Join("\n", pulled);
                 Warnings.Text = _preview.Warnings == null || _preview.Warnings.Count == 0 ? "" : string.Join("\n", _preview.Warnings.Select(w => "⚠ " + w));
             }
@@ -244,7 +244,7 @@ namespace Toolbox.Views
             var name = string.Concat(PackName.Text.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Title = "Đóng gói workspace",
+                Title = "Chia sẻ workspace",
                 FileName = name + Packer.FileExtension,
                 DefaultExt = Packer.FileExtension,
                 Filter = $"Gói Toolbox (*{Packer.FileExtension})|*{Packer.FileExtension}",
@@ -256,7 +256,7 @@ namespace Toolbox.Views
             {
                 var result = Packer.PackWorkspace(_workspace, SafeLibrary(), Clone(_manual), dialog.FileName);
                 Dialogs.Success(
-                    $"Đã đóng gói {result.StackCount} bộ chạy, {result.ProfileCount} profile, {result.ToolCount} tool, {result.CustomCount} lệnh riêng.\n{dialog.FileName}", seconds: 10);
+                    $"Đã đóng gói {result.StackCount} workflow, {result.ProfileCount} profile, {result.ToolCount} tool, {result.CustomCount} lệnh riêng.\n{dialog.FileName}", seconds: 10);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidDataException)
             {

@@ -31,7 +31,7 @@
                 <ListBox x:Name="ToolList" DisplayMemberPath="Display" SelectionChanged="OnToolChanged"
                          AutomationProperties.Name="Chọn tool" />
             </DockPanel>
-            <Button x:Name="CustomToolLink" Content="Không có trong danh sách? + Tool riêng…" Click="OnCustomTool"
+            <Button x:Name="CustomToolLink" Content="Không có trong danh sách? + Lệnh riêng…" Click="OnCustomTool"
                     Style="{StaticResource GhostButton}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                     ToolTip="Tạo lệnh riêng trong workspace này, rồi quay lại tạo profile cho nó." />
 

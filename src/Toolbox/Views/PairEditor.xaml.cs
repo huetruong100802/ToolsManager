@@ -10,7 +10,7 @@ using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Views
 {
-    /// <summary>Một dòng của trình sửa cặp: key (gợi ý từ bảng khả năng), value, cờ hỏi lúc chạy.</summary>
+    /// <summary>Một dòng của trình sửa cặp: key (gợi ý từ bảng lệnh), value, cờ hỏi lúc chạy.</summary>
     public sealed class PairRow : INotifyPropertyChanged
     {
         private readonly PairEditor _owner;
@@ -135,7 +135,7 @@ namespace Toolbox.Views
 
     /// <summary>
     /// Trình sửa danh sách cặp tham số: dòng <c>[key ▾] [giá trị] [Hỏi] ▲ ▼ ✕</c> và nút ＋ để thêm.
-    /// Gợi ý key lấy từ bảng khả năng (quét --help) của action; vẫn gõ tự do được. Không biết tên tool nào.
+    /// Gợi ý key lấy từ bảng lệnh (quét --help) của action; vẫn gõ tự do được. Không biết tên tool nào.
     /// </summary>
     public partial class PairEditor : UserControl
     {
@@ -160,7 +160,7 @@ namespace Toolbox.Views
         private string _workingDirectory = "";
 
         /// <summary>
-        /// Nguồn gợi ý cho dòng không có key: bảng khả năng của tool (lệnh con và mục "Arguments:" đã quét), id action của thẻ
+        /// Nguồn gợi ý cho dòng không có key: bảng lệnh của tool (lệnh con và mục "Arguments:" đã quét), id action của thẻ
         /// và thư mục chạy (để liệt kê file). Không đặt thì dòng key trống không có nút gợi ý.
         /// </summary>
         public void SetPositionalSource(ToolCapabilities data, string actionId, string workingDirectory)
@@ -226,7 +226,7 @@ namespace Toolbox.Views
             Reload(GetPairs());
         }
 
-        /// <summary>Cờ đã quét của một action (bảng khả năng của tool); rỗng nếu chưa quét hoặc file hỏng.</summary>
+        /// <summary>Cờ đã quét của một action (bảng lệnh của tool); rỗng nếu chưa quét hoặc file hỏng.</summary>
         public static IReadOnlyList<CapabilityEntry> SuggestionsFor(string toolKind, string actionId) =>
             SuggestionsFor(toolKind, actionId, out _);
 
@@ -255,7 +255,7 @@ namespace Toolbox.Views
             }
         }
 
-        /// <summary>Bảng khả năng của tool để tính gợi ý đối số vị trí; null nếu file hỏng.</summary>
+        /// <summary>Bảng lệnh của tool để tính gợi ý đối số vị trí; null nếu file hỏng.</summary>
         public static ToolCapabilities LoadCapabilities(string toolKind)
         {
             try

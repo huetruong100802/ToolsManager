@@ -15,10 +15,10 @@
                             <TextBlock Text="Kết nối agent…" />
                         </StackPanel>
                     </Button>
-                    <Button Click="OnImport" Margin="0,0,8,0" AutomationProperties.Name="Nhập gói…">
+                    <Button Click="OnImport" Margin="0,0,8,0" AutomationProperties.Name="Nhận gói…">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" Margin="0,0,7,0" />
-                            <TextBlock Text="Nhập gói…" />
+                            <TextBlock Text="Nhận gói…" />
                         </StackPanel>
                     </Button>
                     <Button Click="OnPickApp" Margin="0,0,8,0" AutomationProperties.Name="App đã cài…"
@@ -48,7 +48,7 @@
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,10">
             <DockPanel>
-                <Button x:Name="PackButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Đóng gói"
+                <Button x:Name="PackButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Chia sẻ"
                         Click="OnPack" IsEnabled="False" />
                 <Button x:Name="RemoveButton" DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Content="Xoá khỏi danh sách"
                         Click="OnRemove" IsEnabled="False" Margin="0,0,8,0" />

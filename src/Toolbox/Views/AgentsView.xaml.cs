@@ -145,8 +145,8 @@ namespace Toolbox.Views
             var panel = new StackPanel();
             panel.Children.Add(Section(agent.IsGlobal ? "PHẠM VI: TOÀN MÁY" : "TRONG WORKSPACE NÀY"));
             panel.Children.Add(agent.IsGlobal
-                ? PermRow("Quản lý thư viện tool", "Thêm, sửa, xoá tool dùng chung. Không đụng profile hay bộ chạy của workspace nào.", "cố định")
-                : PermRow("Thêm, sửa, xoá tool riêng, profile, bộ chạy, lệnh riêng", null, "luôn bật"));
+                ? PermRow("Quản lý thư viện tool", "Thêm, sửa, xoá tool dùng chung. Không đụng profile hay workflow của workspace nào.", "cố định")
+                : PermRow("Thêm, sửa, xoá lệnh riêng, profile, workflow, lệnh riêng", null, "luôn bật"));
             panel.Children.Add(Section("THƯ VIỆN TOOL"));
             panel.Children.Add(agent.IsGlobal
                 ? PermRow("Xem, thêm, sửa, xoá tool dùng chung", null, "cố định")
@@ -155,7 +155,7 @@ namespace Toolbox.Views
                 panel.Children.Add(PermRow("Sửa, xoá tool dùng chung", "Không trực tiếp. Agent chỉ gửi đề xuất để bạn duyệt.", "qua duyệt"));
 
             panel.Children.Add(Section("CHẠY LỆNH"));
-            var auto = new RadioButton { Content = "Tự chạy profile, bộ chạy và tool đã có", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
+            var auto = new RadioButton { Content = "Tự chạy profile, workflow và tool đã có", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var ask = new RadioButton { Content = "Hỏi bạn trước mỗi lần chạy (lệnh được duyệt đúng một lần)", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var none = new RadioButton { Content = "Không cho chạy", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var current = RunModes.Normalize(agent.RunMode);
@@ -399,9 +399,9 @@ namespace Toolbox.Views
             ["add_tool"] = "Thêm tool dự án", ["remove_tool"] = "Gỡ tool dự án", ["bind_library_tool"] = "Gắn tool thư viện", ["attach"] = "Gắn tool thư viện",
             ["create_profile"] = "Tạo profile", ["update_profile"] = "Sửa profile", ["delete_profile"] = "Xoá profile",
             ["create_custom"] = "Tạo lệnh riêng", ["update_custom"] = "Sửa lệnh riêng", ["delete_custom"] = "Xoá lệnh riêng",
-            ["create_stack"] = "Tạo bộ chạy", ["update_stack"] = "Sửa bộ chạy", ["delete_stack"] = "Xoá bộ chạy",
+            ["create_stack"] = "Tạo workflow", ["update_stack"] = "Sửa workflow", ["delete_stack"] = "Xoá workflow",
             ["set_worktree"] = "Cấu hình worktree", ["prepare_worktree"] = "Chuẩn bị worktree",
-            ["run_tool"] = "Chạy tool", ["run_profile"] = "Chạy profile", ["run_custom"] = "Chạy lệnh riêng", ["run_stack"] = "Chạy bộ chạy", ["run_action"] = "Chạy lệnh", ["run"] = "Chạy",
+            ["run_tool"] = "Chạy tool", ["run_profile"] = "Chạy profile", ["run_custom"] = "Chạy lệnh riêng", ["run_stack"] = "Chạy workflow", ["run_action"] = "Chạy lệnh", ["run"] = "Chạy",
             ["save"] = "Lưu", ["delete"] = "Xoá", ["propose"] = "Đề xuất", ["undo"] = "Hoàn tác", ["approve"] = "Bạn duyệt đề xuất", ["reject"] = "Bạn từ chối đề xuất",
         };
 

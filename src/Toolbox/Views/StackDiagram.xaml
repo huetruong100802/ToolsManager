@@ -4,8 +4,8 @@
              xmlns:local="clr-namespace:Toolbox.Views">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="Tên bộ chạy *" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="LabelBox" AutomationProperties.Name="Tên bộ chạy" />
+            <TextBlock Text="Tên workflow *" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="LabelBox" AutomationProperties.Name="Tên workflow" />
         </StackPanel>
 
         <!-- Bên trái: profile của workspace, kéo vào dấu + hoặc bấm đúp để thêm vào cuối -->

@@ -9,7 +9,7 @@ namespace Toolbox
 {
     /// <summary>
     /// Nhập lệnh con và cờ từ nguồn khác ngoài quét help: file JSON (khoá của object), file văn bản + regex (nhóm 1),
-    /// hoặc văn bản dán. Chỉ dựng <see cref="Imported"/>; bên gọi ghi vào bảng khả năng.
+    /// hoặc văn bản dán. Chỉ dựng <see cref="Imported"/>; bên gọi ghi vào bảng lệnh.
     /// </summary>
     public partial class CapabilityImportWindow : Window
     {

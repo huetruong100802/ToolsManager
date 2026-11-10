@@ -90,7 +90,7 @@
                     </DockPanel>
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Khi agent chạy" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, bộ chạy và tool đã có" Margin="0,0,18,0" />
+                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, workflow và tool đã có" Margin="0,0,18,0" />
                         <RadioButton x:Name="RunAsk" GroupName="NewAgentRun" Content="Hỏi trước mỗi lần chạy" Margin="0,0,18,0" />
                         <RadioButton x:Name="RunNone" GroupName="NewAgentRun" Content="Không cho chạy" />
                     </StackPanel>

@@ -32,7 +32,7 @@ namespace Toolbox
         public string Text { get; set; }
     }
 
-    /// <summary>Một dòng bước trong trình sửa bộ chạy; chọn lệnh thì danh sách profile/biến thể đổi theo.</summary>
+    /// <summary>Một dòng bước trong trình sửa workflow; chọn lệnh thì danh sách profile/biến thể đổi theo.</summary>
     public sealed class StepEditRow : INotifyPropertyChanged
     {
         public static readonly IReadOnlyList<WaitOption> WaitChoices = new[]
@@ -248,7 +248,7 @@ namespace Toolbox
         private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
-    /// <summary>Thêm hoặc sửa một bộ chạy của workspace.</summary>
+    /// <summary>Thêm hoặc sửa một workflow của workspace.</summary>
     public partial class StackEditWindow : Window
     {
         private readonly Workspace _workspace;
@@ -268,7 +268,7 @@ namespace Toolbox
 
             if (existing != null)
             {
-                Title = "Sửa bộ chạy";
+                Title = "Sửa workflow";
                 LabelBox.Text = existing.Label;
                 foreach (var step in existing.Steps)
                     _rows.Add(new StepEditRow(workspace, _targets, step));
@@ -278,7 +278,7 @@ namespace Toolbox
             UpdateState();
         }
 
-        /// <summary>Bộ chạy sau khi lưu; Id giữ nguyên khi sửa, rỗng khi thêm mới (người gọi cấp).</summary>
+        /// <summary>Workflow sau khi lưu; Id giữ nguyên khi sửa, rỗng khi thêm mới (người gọi cấp).</summary>
         public StackDef Result { get; private set; }
 
         private void BuildTargets()

@@ -277,7 +277,7 @@ namespace Toolbox.Views
         private void UpdateFooter()
         {
             var checkedCount = CheckedItems().Count;
-            PackButton.Content = checkedCount > 0 ? $"Đóng gói ({checkedCount})" : "Đóng gói";
+            PackButton.Content = checkedCount > 0 ? $"Chia sẻ ({checkedCount})" : "Chia sẻ";
             PackButton.IsEnabled = checkedCount > 0;
             RemoveButton.IsEnabled = checkedCount > 0;
             var visible = _view.Cast<ToolItem>().ToList();
@@ -708,7 +708,7 @@ namespace Toolbox.Views
             return path.EndsWith(Packer.FileExtension, StringComparison.OrdinalIgnoreCase) ? path : path + Packer.FileExtension;
         }
 
-        // ---------- Nhập gói ----------
+        // ---------- Nhận gói ----------
 
         private void OnImport(object sender, RoutedEventArgs e)
         {

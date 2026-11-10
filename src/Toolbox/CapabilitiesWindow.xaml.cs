@@ -12,8 +12,8 @@ using Toolbox.Core.Workspaces;
 namespace Toolbox
 {
     /// <summary>
-    /// Bảng hậu tố của một tool: mọi thứ nối được vào sau lệnh gốc, gồm lệnh con (<c>serve</c>) và cờ (<c>--port</c>).
-    /// Không có danh sách ghi sẵn trong code: hậu tố đến từ trợ giúp của tool (Quét lại) hoặc từ bạn (Thêm).
+    /// Bảng lệnh của một tool: mọi thứ nối được vào sau lệnh gốc, gồm lệnh con (<c>serve</c>) và cờ (<c>--port</c>).
+    /// Không có danh sách ghi sẵn trong code: lệnh đến từ trợ giúp của tool (Quét lại) hoặc từ bạn (Thêm).
     /// Bấm một lệnh con để xem và quét cờ riêng của nó. Đánh dấu « Cổng » ở cờ đặt cổng của lệnh con đó.
     /// Mỗi thay đổi lưu ngay vào <c>capabilities\&lt;kind&gt;.json</c> rồi gọi <paramref name="changed"/> để tab làm mới.
     /// </summary>
@@ -35,8 +35,8 @@ namespace Toolbox
             _changed = changed;
             _directory = CapabilityStore.DefaultDirectory;
             Search.TextChanged += OnSearchChanged;
-            TitleText.Text = "Khả năng · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
-            AddLabel.Text = tool.Command == null ? "" : "Thêm hậu tố sau " + tool.Command;
+            TitleText.Text = "Lệnh · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
+            AddLabel.Text = tool.Command == null ? "" : "Thêm lệnh sau " + tool.Command;
 
             try
             {
@@ -80,8 +80,8 @@ namespace Toolbox
             if (entries.Count == 0)
             {
                 RowsPanel.Children.Add(Note(_tool.Command == null
-                    ? "Không có hậu tố nào."
-                    : "Chưa có hậu tố nào. Bấm Quét lại để đọc từ trợ giúp của tool, hoặc thêm tay ở chân cửa sổ."));
+                    ? "Không có lệnh nào."
+                    : "Chưa có lệnh nào. Bấm Quét lại để đọc từ trợ giúp của tool, hoặc thêm tay ở chân cửa sổ."));
                 return;
             }
 
@@ -113,7 +113,7 @@ namespace Toolbox
                 RenderRows();
         }
 
-        /// <summary>Hậu tố của một phạm vi: lệnh con trước, cờ sau.</summary>
+        /// <summary>Lệnh của một phạm vi: lệnh con trước, cờ sau.</summary>
         private List<CapabilityEntry> EntriesOf(string scope) =>
             _data.Entries
                 .Where(en => string.Equals(en.Action ?? "", scope, StringComparison.OrdinalIgnoreCase))
@@ -127,7 +127,7 @@ namespace Toolbox
             var grid = Grid5();
             grid.Margin = new Thickness(0, 10, 0, 4);
             Place(grid, Caption("Cổng"), 0);
-            Place(grid, Caption("Hậu tố"), 1);
+            Place(grid, Caption("Lệnh"), 1);
             Place(grid, Caption("Giá trị"), 2);
             Place(grid, Caption("Mô tả"), 3);
             return grid;
@@ -186,7 +186,7 @@ namespace Toolbox
                 buttons.Children.Add(flags);
             }
             var remove = new Button { Content = "Xoá", Style = (Style)FindResource("GhostButton"), Padding = new Thickness(10, 2, 10, 2),
-                VerticalAlignment = VerticalAlignment.Center, ToolTip = "Bỏ hậu tố này khỏi bảng" };
+                VerticalAlignment = VerticalAlignment.Center, ToolTip = "Bỏ lệnh này khỏi bảng" };
             remove.Click += (s, e) => Persist(() =>
             {
                 CapabilityStore.Remove(_data, scope, entry.Name);
@@ -329,7 +329,7 @@ namespace Toolbox
             }
             catch (IOException ex)
             {
-                Dialogs.Error(this, "Không ghi được bảng khả năng: " + ex.Message);
+                Dialogs.Error(this, "Không ghi được bảng lệnh: " + ex.Message);
             }
             _changed?.Invoke();
             RenderRows();

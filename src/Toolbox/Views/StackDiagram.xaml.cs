@@ -10,7 +10,7 @@ using Toolbox.Core.Workspaces;
 namespace Toolbox.Views
 {
     /// <summary>
-    /// Sơ đồ bộ chạy sửa trực tiếp: Bắt đầu → các bước → Kết thúc. Bước nằm trong khung SONG SONG thì chạy cùng lúc.
+    /// Sơ đồ workflow sửa trực tiếp: Bắt đầu → các bước → Kết thúc. Bước nằm trong khung SONG SONG thì chạy cùng lúc.
     /// Mô hình trong bộ nhớ là danh sách đợt; mỗi đợt một bước (tuần tự) hoặc nhiều bước (một nhóm song song).
     /// Khi lưu, đợt nhiều bước được gán <see cref="StackStep.Group"/> 1, 2, 3… theo thứ tự.
     /// </summary>
@@ -96,10 +96,10 @@ namespace Toolbox.Views
         public string Check()
         {
             if (string.IsNullOrWhiteSpace(LabelBox.Text))
-                return "Bộ chạy cần có tên.";
+                return "Workflow cần có tên.";
             var steps = FlatSteps();
             if (steps.Count == 0)
-                return "Bộ chạy cần ít nhất một bước. Kéo profile vào dấu +.";
+                return "Workflow cần ít nhất một bước. Kéo profile vào dấu +.";
             for (var i = 0; i < steps.Count; i++)
             {
                 var resolved = StackResolver.Resolve(_workspace, steps[i], i);
@@ -116,13 +116,13 @@ namespace Toolbox.Views
             Steps = FlatSteps(),
         };
 
-        /// <summary>Mở sơ đồ trong cửa sổ; trả về bộ chạy đã sửa, hoặc null nếu huỷ.</summary>
+        /// <summary>Mở sơ đồ trong cửa sổ; trả về workflow đã sửa, hoặc null nếu huỷ.</summary>
         public static StackDef ShowDialog(Window owner, Workspace workspace, StackDef stack)
         {
             var diagram = new StackDiagram(workspace, stack);
             var window = new Window
             {
-                Title = stack == null ? "Bộ chạy mới" : "Sơ đồ bộ chạy",
+                Title = stack == null ? "Workflow mới" : "Sơ đồ workflow",
                 Owner = owner, Width = 860, Height = 640, MinWidth = 640, MinHeight = 460,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false,
                 Style = (Style)Application.Current.Resources["AppWindow"],

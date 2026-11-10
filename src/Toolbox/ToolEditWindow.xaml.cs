@@ -182,7 +182,7 @@ namespace Toolbox
             DialogResult = true;
         }
 
-        /// <summary>Nguồn hậu tố từ ô nhập; giữ nguyên nguồn dạng pattern/values (chỉnh trong tools.json) nếu có.</summary>
+        /// <summary>Nguồn lệnh từ ô nhập; giữ nguyên nguồn dạng pattern/values (chỉnh trong tools.json) nếu có.</summary>
         private SuffixSource BuildSuffixSource()
         {
             var current = _entry.SuffixSource;
