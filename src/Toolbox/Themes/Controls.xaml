@@ -317,6 +317,13 @@
             </Setter>
         </Style>
 
+        <!-- RadioButton không có style riêng (vd. chế độ chạy của agent): đặt Ink để chữ không rơi về màu tối mặc định. -->
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
         <!-- Danh sách dạng card: mỗi item là một khối trắng bo góc trên nền xám. -->
         <Style TargetType="ListBox">
             <Setter Property="Background" Value="Transparent" />
