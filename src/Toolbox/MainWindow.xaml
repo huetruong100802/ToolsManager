@@ -125,6 +125,10 @@
                                                 </ContextMenu>
                                             </RadioButton.ContextMenu>
                                             <DockPanel>
+                                                <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Fill="{DynamicResource Accent}" Visibility="{Binding NewActivityVisibility}"
+                                                         Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Agent vừa thay đổi gì đó ở đây" />
+                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE716;" FontSize="12" Foreground="{DynamicResource Ok}"
+                                                           Visibility="{Binding AgentVisibility}" Margin="6,0,0,0" ToolTip="Agent đang kết nối với workspace này" />
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE735;" FontSize="11"
                                                            Foreground="{DynamicResource Accent}" Visibility="{Binding PinVisibility}"
                                                            Margin="6,0,0,0" ToolTip="Đã ghim" />
@@ -185,6 +189,7 @@
                                 </StackPanel>
                                 <TextBlock x:Name="WsPath" Foreground="{DynamicResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"
                                            Margin="22,2,0,0" />
+                                <TextBlock x:Name="WsAgent" Foreground="{DynamicResource Ok}" FontSize="12" Margin="22,2,0,0" Visibility="Collapsed" />
                             </StackPanel>
                         </DockPanel>
                     </Border>

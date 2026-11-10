@@ -54,6 +54,11 @@
                                         <StackPanel VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
+                                                        Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
+                                                        ToolTip="Agent vừa thêm hoặc sửa mục này">
+                                                    <TextBlock Text="mới" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" />
+                                                </Border>
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
@@ -84,7 +89,14 @@
                                                         Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
+                                                        Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
+                                                        ToolTip="Agent vừa thêm hoặc sửa mục này">
+                                                    <TextBlock Text="mới" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" />
+                                                </Border>
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}" />
                                             </StackPanel>
                                         </DockPanel>

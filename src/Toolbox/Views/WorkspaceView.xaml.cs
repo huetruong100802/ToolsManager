@@ -18,6 +18,7 @@ namespace Toolbox.Views
         private Workspace _workspace;
         private readonly List<TabRow> _tabs = new List<TabRow>();
         private List<TabRow> _topTabs = new List<TabRow>();
+        private readonly HashSet<string> _newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private List<TabRow> _toolNav = new List<TabRow>();
         private readonly Dictionary<string, string> _selectedTool = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private TabRow _tab;
@@ -252,9 +253,9 @@ namespace Toolbox.Views
             var query = Core.Text.Fold(RunSearch.Text ?? "");
             _profiles = _workspace.Profiles
                 .Where(p => query.Length == 0 || Core.Text.Fold(p.Label ?? "").Contains(query))
-                .Select(p => new ProfileRow(_workspace, p))
+                .Select(p => new ProfileRow(_workspace, p) { IsNew = _newIds.Contains(p.Id) })
                 .ToList();
-            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s)).ToList();
+            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s) { IsNew = _newIds.Contains(s.Id) }).ToList();
 
             RunStackList.ItemsSource = null;
             RunStackList.ItemsSource = _stacks;
@@ -283,7 +284,7 @@ namespace Toolbox.Views
             }
             _profiles = _workspace.Profiles
                 .Where(p => string.Equals(p.Kind, kind, StringComparison.OrdinalIgnoreCase))
-                .Select(p => new ProfileRow(_workspace, p))
+                .Select(p => new ProfileRow(_workspace, p) { IsNew = _newIds.Contains(p.Id) })
                 .ToList();
             ProfileList.ItemsSource = null;
             ProfileList.ItemsSource = _profiles;
@@ -310,7 +311,7 @@ namespace Toolbox.Views
             _actions = new List<ActionRow>();
             _profiles = new List<ProfileRow>();
             _customs = new List<CustomRow>();
-            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s)).ToList();
+            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s) { IsNew = _newIds.Contains(s.Id) }).ToList();
             StackList.ItemsSource = null;
             StackList.ItemsSource = _stacks;
             NoStacks.Visibility = _stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -611,6 +612,19 @@ namespace Toolbox.Views
             _selectedTab.Remove(_workspace.Id);
             Rebuild();
         }
+
+        /// <summary>Agent vừa đổi các mục này (id profile, workflow...): đánh dấu "mới" cho tới khi bạn xem xong (rời trang).</summary>
+        public void MarkNew(IEnumerable<string> ids)
+        {
+            var added = false;
+            foreach (var id in ids ?? new string[0])
+                added |= _newIds.Add(id);
+            if (added && _workspace != null && _tab != null)
+                Select(_tab);
+        }
+
+        /// <summary>Bỏ các dấu "mới" (người dùng đã xem trang này).</summary>
+        public void ClearNew() => _newIds.Clear();
 
         // ---- Bàn phím ----
 

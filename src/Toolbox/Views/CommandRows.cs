@@ -369,6 +369,11 @@ namespace Toolbox.Views
     /// <summary>Một profile đã lưu: cách chạy có tên. Hỏng khi tool/action/biến thể của nó không còn.</summary>
     public sealed class ProfileRow : RunRow
     {
+        /// <summary>Agent vừa thêm hoặc sửa profile này và bạn chưa xem.</summary>
+        public bool IsNew { get; set; }
+
+        public Visibility NewVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
         public ProfileRow(Workspace workspace, Profile profile)
         {
             Profile = profile;
@@ -573,6 +578,11 @@ namespace Toolbox.Views
     /// <summary>Thẻ một workflow: các bước, kết quả lần chạy gần nhất và nút Chạy/Dừng.</summary>
     public sealed class StackRow : INotifyPropertyChanged
     {
+        /// <summary>Agent vừa thêm hoặc sửa workflow này và bạn chưa xem.</summary>
+        public bool IsNew { get; set; }
+
+        public Visibility NewVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
         private readonly Workspace _workspace;
         private List<StackStepRow> _steps = new List<StackStepRow>();
         private StackRun _run;

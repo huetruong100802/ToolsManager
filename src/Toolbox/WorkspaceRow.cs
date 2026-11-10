@@ -71,6 +71,37 @@ namespace Toolbox
             Raise(nameof(PinMenuText));
         }
 
+        private bool _agentConnected;
+        private int _newActivity;
+
+        /// <summary>Có agent đang kết nối và thấy workspace này.</summary>
+        public bool AgentConnected => _agentConnected;
+
+        public Visibility AgentVisibility => _agentConnected ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>Số việc agent vừa làm ở workspace này mà bạn chưa xem.</summary>
+        public int NewActivity => _newActivity;
+
+        public Visibility NewActivityVisibility => _newActivity > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        public void SetAgentConnected(bool connected)
+        {
+            if (_agentConnected == connected)
+                return;
+            _agentConnected = connected;
+            Raise(nameof(AgentConnected));
+            Raise(nameof(AgentVisibility));
+        }
+
+        public void SetNewActivity(int count)
+        {
+            if (_newActivity == count)
+                return;
+            _newActivity = count;
+            Raise(nameof(NewActivity));
+            Raise(nameof(NewActivityVisibility));
+        }
+
         public bool IsMissing => _isMissing;
 
         public int RunningCount => _running;

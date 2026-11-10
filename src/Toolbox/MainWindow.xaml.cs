@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using Toolbox.Core;
+using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox
@@ -101,6 +102,7 @@ namespace Toolbox
                 _rows.Add(new WorkspaceRow(workspace));
             RefreshRows();
             StartWatching();
+            StartPresence();
             // Mở app là thấy việc cần làm, trừ khi được mở bằng file .toolbox (đi thẳng tới Thư viện để nhập).
             if (string.IsNullOrEmpty(Library.FileToOpen))
                 GoTo(Area.Overview);
@@ -127,6 +129,11 @@ namespace Toolbox
             if (_area == Area.Workspace && _current != null
                 && (toolsChanged || changed.Contains(_current.Workspace.Id, StringComparer.OrdinalIgnoreCase)))
                 WorkspaceContent.Load(_current.Workspace);
+
+            if (files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
+                ShowAgentActivity();
+            if (files.Contains("agents.json", StringComparer.OrdinalIgnoreCase) || files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
+                RefreshPresence();
 
             RefreshRows();
             if (_area == Area.Agents)
@@ -276,6 +283,118 @@ namespace Toolbox
         {
             var windowActive = IsActive && WindowState != WindowState.Minimized;
             _notifier.Check(_tasks.Snapshot(), NotifyEnabled, windowActive);
+        }
+
+        // ---- Agent hiện diện ----
+
+        /// <summary>Mốc đã đọc tới đâu trong activity.jsonl: chỉ báo việc agent làm sau mốc này.</summary>
+        private DateTime _activityMark = DateTime.MaxValue;
+        private readonly System.Windows.Threading.DispatcherTimer _presenceTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+
+        private void StartPresence()
+        {
+            _activityMark = AgentPresence.Watermark(ReadActivity());
+            _presenceTimer.Tick += (s, e) => RefreshPresence();
+            _presenceTimer.Start();
+            RefreshPresence();
+        }
+
+        private static List<ActivityEntry> ReadActivity()
+        {
+            try { return ActivityLog.Read(ActivityLog.DefaultPath, 200); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { return new List<ActivityEntry>(); }
+        }
+
+        /// <summary>Chấm "agent đang kết nối" ở rail và dưới tên workspace đang mở.</summary>
+        private void RefreshPresence()
+        {
+            IReadOnlyList<AgentRecord> agents;
+            try { agents = AgentStore.Load(AgentStore.DefaultPath).Agents; }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return; }
+            var now = DateTime.UtcNow;
+            var connected = AgentPresence.ConnectedWorkspaces(agents, _rows.Select(r => r.Workspace.Id), now);
+            foreach (var row in _rows)
+                row.SetAgentConnected(connected.Contains(row.Workspace.Id));
+            if (_current != null)
+            {
+                var names = AgentPresence.ConnectedFor(agents, _current.Workspace.Id, now).Select(a => a.Name).Distinct().ToList();
+                WsAgent.Text = names.Count == 0 ? "" : "● Agent " + string.Join(", ", names) + " đang kết nối";
+                WsAgent.Visibility = names.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+
+        /// <summary>
+        /// activity.jsonl đổi: việc agent vừa làm ở trang đang mở hiện thành thông báo "Agent X vừa… · Hoàn tác" và đánh dấu "mới" trên mục đó;
+        /// ở workspace khác thì bật chấm trên rail cho tới khi bạn mở workspace đó.
+        /// </summary>
+        private void ShowAgentActivity()
+        {
+            var log = ReadActivity();
+            var fresh = AgentPresence.Fresh(log, _activityMark);
+            _activityMark = AgentPresence.Watermark(log);
+            if (fresh.Count == 0)
+                return;
+
+            var here = _area == Area.Workspace && _current != null ? _current.Workspace.Id : null;
+            foreach (var group in fresh.GroupBy(e => e.WorkspaceId ?? ""))
+            {
+                var row = RowOf(group.Key);
+                if (row == null)
+                    continue;
+                if (string.Equals(group.Key, here, StringComparison.OrdinalIgnoreCase))
+                {
+                    WorkspaceContent.MarkNew(group.SelectMany(AgentPresence.TouchedIds));
+                    AnnounceAgentWork(group.ToList());
+                }
+                else
+                    row.SetNewActivity(row.NewActivity + group.Count());
+            }
+        }
+
+        private void AnnounceAgentWork(List<ActivityEntry> entries)
+        {
+            if (entries.Count > 2)
+            {
+                var who = string.Join(", ", entries.Select(e => e.AgentName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+                Dialogs.Info($"{(who.Length == 0 ? "Agent" : who)} vừa thay đổi {entries.Count} mục ở workspace này.");
+                return;
+            }
+            foreach (var entry in entries)
+            {
+                var message = AgentPresence.Describe(entry);
+                if (CanUndoEntry(entry))
+                    Dialogs.Success(message, "Hoàn tác", () => UndoAgentEntry(entry), 12);
+                else
+                    Dialogs.Success(message, "Xem", () => GoTo(Area.Agents), 8);
+            }
+        }
+
+        private bool CanUndoEntry(ActivityEntry entry)
+        {
+            if (entry.Undo == null || !ActivityUndo.UndoableActions.Contains(entry.Action ?? ""))
+                return false;
+            try
+            {
+                var workspace = WorkspaceStore.Peek(WorkspaceStore.DefaultPath).Find(entry.WorkspaceId);
+                return ActivityUndo.CanUndo(entry, workspace, ToolStore.Peek(ToolStore.DefaultPath), out _);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        private void UndoAgentEntry(ActivityEntry entry)
+        {
+            try
+            {
+                var message = ActivityUndo.Undo(entry, WorkspaceStore.DefaultPath, ToolStore.DefaultPath, ActivityLog.DefaultPath);
+                Dialogs.Success(message, seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(this, "Không hoàn tác được: " + ex.Message);
+            }
         }
 
         // ---- Trang chủ ----
@@ -541,8 +660,12 @@ namespace Toolbox
         {
             if (_workspaces != null)
                 SyncFromDisk();
+            // Rời trang workspace (hoặc sang workspace khác) là đã xem: bỏ dấu "mới" của agent.
+            if (_area == Area.Workspace && (area != Area.Workspace || !ReferenceEquals(row, _current)))
+                WorkspaceContent.ClearNew();
             _area = area;
             _current = area == Area.Workspace ? row : null;
+            _current?.SetNewActivity(0);
             foreach (var r in _rows)
                 r.IsSelected = ReferenceEquals(r, _current);
             LibraryNav.IsChecked = area == Area.Library;
