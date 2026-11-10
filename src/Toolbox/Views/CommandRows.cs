@@ -475,6 +475,7 @@ namespace Toolbox.Views
         public const string CustomId = "";
         public const string StacksId = ":stacks";
         public const string RunId = ":run";
+        public const string ToolsId = ":tools";
 
         public TabRow(string title, ToolBinding binding, string id = null)
         {
@@ -502,6 +503,8 @@ namespace Toolbox.Views
         public bool IsStacks => Id == StacksId;
 
         public bool IsRun => Id == RunId;
+
+        public bool IsTools => Id == ToolsId;
 
         public bool IsSelected
         {

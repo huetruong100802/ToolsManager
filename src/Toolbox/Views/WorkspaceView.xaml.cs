@@ -17,6 +17,9 @@ namespace Toolbox.Views
         private Func<bool> _save;
         private Workspace _workspace;
         private readonly List<TabRow> _tabs = new List<TabRow>();
+        private List<TabRow> _topTabs = new List<TabRow>();
+        private List<TabRow> _toolNav = new List<TabRow>();
+        private readonly Dictionary<string, string> _selectedTool = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private TabRow _tab;
 
         // Giữ form đã điền khi chuyển qua lại giữa các trang: workspaceId → "kind|action" → dòng.
@@ -141,8 +144,18 @@ namespace Toolbox.Views
             _selectedTab.TryGetValue(ws.Id, out var remembered);
             var pick = _tabs.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "\u0001", StringComparison.OrdinalIgnoreCase))
                        ?? _tabs[0];
+            _toolNav = _tabs.Where(t => t.Binding != null || t.IsCustom).ToList();
+            _topTabs = new List<TabRow>
+            {
+                new TabRow("Chạy", null, TabRow.RunId),
+                new TabRow("Tool", null, TabRow.ToolsId),
+                new TabRow("Workflow", null, TabRow.StacksId),
+                new TabRow("Chia sẻ", null, PackTab.TabId),
+            };
             TabStrip.ItemsSource = null;
-            TabStrip.ItemsSource = _tabs;
+            TabStrip.ItemsSource = _topTabs;
+            ToolNav.ItemsSource = null;
+            ToolNav.ItemsSource = _toolNav;
             Select(pick);
         }
 
@@ -154,6 +167,12 @@ namespace Toolbox.Views
             _selectedTab[_workspace.Id] = tab.Id;
 
             var isPack = string.Equals(tab.Id, PackTab.TabId, StringComparison.Ordinal);
+            var section = tab.IsRun ? TabRow.RunId : tab.IsStacks ? TabRow.StacksId : isPack ? PackTab.TabId : TabRow.ToolsId;
+            foreach (var top in _topTabs)
+                top.IsSelected = string.Equals(top.Id, section, StringComparison.Ordinal);
+            ToolNavPanel.Visibility = section == TabRow.ToolsId ? Visibility.Visible : Visibility.Collapsed;
+            if (section == TabRow.ToolsId)
+                _selectedTool[_workspace.Id] = tab.Id;
             ToolPage.Visibility = isPack || tab.IsRun || tab.IsCustom || tab.IsStacks ? Visibility.Collapsed : Visibility.Visible;
             PackPage.Visibility = isPack ? Visibility.Visible : Visibility.Collapsed;
             RunPage.Visibility = tab.IsRun ? Visibility.Visible : Visibility.Collapsed;
@@ -302,7 +321,31 @@ namespace Toolbox.Views
         private void OnTabClick(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is TabRow tab)
+                SelectTop(tab);
+        }
+
+        private void OnToolNavClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is TabRow tab)
                 Select(tab);
+        }
+
+        /// <summary>Chọn một trong bốn tab cố định. Tab Tool mở lại tool đã xem lần trước (hoặc tool đầu tiên).</summary>
+        private void SelectTop(TabRow top)
+        {
+            if (_workspace == null)
+                return;
+            if (top.IsRun)
+                Select(_tabs.First(t => t.IsRun));
+            else if (top.IsStacks)
+                Select(_tabs.First(t => t.IsStacks));
+            else if (string.Equals(top.Id, PackTab.TabId, StringComparison.Ordinal))
+                Select(_tabs.First(t => string.Equals(t.Id, PackTab.TabId, StringComparison.Ordinal)));
+            else
+            {
+                _selectedTool.TryGetValue(_workspace.Id, out var remembered);
+                Select(_toolNav.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "0001", StringComparison.OrdinalIgnoreCase)) ?? _toolNav.First());
+            }
         }
 
         /// <summary>Cấu hình worktree (file local, lệnh cài đặt) và chuẩn bị một worktree. Cùng dữ liệu với MCP prepare_worktree.</summary>
@@ -574,10 +617,10 @@ namespace Toolbox.Views
         /// <summary>Ctrl+Tab / Ctrl+Shift+Tab: sang tab kế hoặc trước, quay vòng.</summary>
         public void CycleTab(int delta)
         {
-            if (_workspace == null || _tabs.Count == 0)
+            if (_workspace == null || _topTabs.Count == 0)
                 return;
-            var index = _tab == null ? 0 : _tabs.IndexOf(_tab);
-            Select(_tabs[((index + delta) % _tabs.Count + _tabs.Count) % _tabs.Count]);
+            var index = Math.Max(0, _topTabs.FindIndex(t => t.IsSelected));
+            SelectTop(_topTabs[((index + delta) % _topTabs.Count + _topTabs.Count) % _topTabs.Count]);
         }
 
         /// <summary>F5: chạy dòng đang có con trỏ bàn phím (profile, lệnh, workflow, lệnh riêng). false nếu không có dòng nào.</summary>

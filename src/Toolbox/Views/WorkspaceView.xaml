@@ -162,7 +162,7 @@
     </UserControl.Resources>
 
     <DockPanel>
-        <!-- Thanh tab: các tool đã gắn + "Lệnh riêng". -->
+        <!-- Bốn tab cố định: Chạy, Tool, Workflow, Chia sẻ. -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
                 Padding="12,0,12,0">
             <DockPanel>
@@ -189,6 +189,26 @@
                             <DataTemplate>
                                 <RadioButton Style="{StaticResource TabButton}" Click="OnTabClick" Content="{Binding Title}"
                                              IsChecked="{Binding IsSelected, Mode=OneWay}" AutomationProperties.Name="{Binding Title}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- Tab Tool: danh sách tool đã gắn và Lệnh riêng ở bên trái, chi tiết ở bên phải (không còn mỗi tool một tab). -->
+        <Border x:Name="ToolNavPanel" DockPanel.Dock="Left" Width="210" Visibility="Collapsed" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="10,12,10,10">
+                <TextBlock DockPanel.Dock="Top" Text="TOOL" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="8,0,0,8" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="ToolNav">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton Style="{StaticResource RailItem}" Click="OnToolNavClick" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                             AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </RadioButton>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
