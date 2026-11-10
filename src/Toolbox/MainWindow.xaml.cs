@@ -44,6 +44,13 @@ namespace Toolbox
             Inspector.HintActionRequested += OnHintAction;
             Inspector.AskAgentRequested += OnAskAgentAboutTask;
             WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindow;
+            Library.WorkspaceImported += id =>
+            {
+                SyncFromDisk();
+                var row = RowOf(id);
+                if (row != null)
+                    Navigate(row);
+            };
             WorkspaceContent.RelocateRequested += () => OnRelocateWorkspace(this, new RoutedEventArgs());
             WorkspaceContent.OpenToolRequested += id => { Navigate(null); Library.FocusTool(id); };
             Dock.StopRequested += task => _tasks.Stop(task.Id);

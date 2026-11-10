@@ -27,6 +27,12 @@
 
             <v:SearchField x:Name="Search" DockPanel.Dock="Top" Placeholder="Tìm tool trong gói…" Margin="0,0,0,8" />
 
+            <StackPanel x:Name="TargetPanel" DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="Collapsed">
+                <TextBlock Text="Nhận profile, workflow, lệnh riêng vào workspace" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="TargetCombo" SelectionChanged="OnTargetChanged" AutomationProperties.Name="Workspace nhận" />
+                <TextBlock x:Name="TargetHint" Style="{StaticResource Hint}" />
+            </StackPanel>
+
             <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                 <TextBlock Text="Giải nén vào" Style="{StaticResource FieldLabel}" />
                 <DockPanel>

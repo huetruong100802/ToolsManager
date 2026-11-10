@@ -679,18 +679,9 @@ namespace Toolbox.Views
                 return;
             }
 
-            var summary = new StringBuilder();
-            foreach (var p in previews)
-            {
-                summary.Append("• ").Append(p.Tool.Name).Append(" — ");
-                summary.AppendLine(p.SourceRoot == null ? "chỉ gửi thông tin"
-                    : p.Tool.Pack == PackMode.Setup ? $"kèm bộ cài {Path.GetFileName(p.Tool.ResolvedSetup)}, {Format.Size(p.TotalBytes)}"
-                    : $"{p.FileCount} file, {Format.Size(p.TotalBytes)}");
-                if (p.IsBroadFolder)
-                    summary.AppendLine($"    ⚠ lấy cả thư mục rộng: {p.SourceRoot} — nên sửa tool, chọn \"Chỉ file\"");
-            }
-            summary.AppendLine().Append("Tổng: ").Append(Format.Size(previews.Sum(p => p.TotalBytes))).Append(". Tiếp tục?");
-            if (!Dialogs.Confirm(Host, summary.ToString(), previews.Any(p => p.IsBroadFolder)))
+            var share = new ShareWindow(ShareSummary.Header(tools.Count, 0, 0, 0), previews.Select(ShareSummary.ToolLine)
+                .Concat(new[] { "", "Tổng: " + ShareSummary.Format(previews.Sum(p => p.TotalBytes)) }), ShareSummary.Warnings(previews)) { Owner = Host };
+            if (share.ShowDialog() != true)
                 return;
 
             var dialog = new SaveFileDialog
@@ -725,6 +716,56 @@ namespace Toolbox.Views
 
         // ---------- Nhận gói ----------
 
+        /// <summary>Nhận gói xong: workspace đã nhận profile, workflow, lệnh riêng (có thể vừa được tạo). Cửa sổ chính mở nó để thấy khung "Chưa sẵn sàng".</summary>
+        public event Action<string> WorkspaceImported;
+
+        private static List<Workspace> QuietWorkspaces()
+        {
+            try { return WorkspaceStore.Peek(WorkspaceStore.DefaultPath).Workspaces.ToList(); }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return new List<Workspace>(); }
+        }
+
+        /// <summary>
+        /// Gói có phần workspace: tool vào thư viện, còn profile, workflow, lệnh riêng vào workspace đã chọn (hoặc workspace mới tạo từ thư mục).
+        /// Xong thì mở workspace đó, nơi khung "Chưa sẵn sàng" nêu thứ máy này còn thiếu.
+        /// </summary>
+        private async Task ImportIntoWorkspace(string zipPath, ImportWindow dialog)
+        {
+            WorkspaceImportResult result = null;
+            string workspaceId = null;
+            try
+            {
+                await RunBusy(() =>
+                {
+                    WorkspaceStore.Update(WorkspaceStore.DefaultPath, store =>
+                    {
+                        Workspace target;
+                        if (dialog.TargetWorkspaceId != null)
+                            target = store.Find(dialog.TargetWorkspaceId) ?? throw new InvalidDataException("Workspace nhận đã bị gỡ khỏi Toolbox.");
+                        else
+                            target = store.Add(new Workspace { Name = Path.GetFileName(dialog.NewWorkspaceFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)), Path = dialog.NewWorkspaceFolder });
+                        result = PackageImporter.ImportIntoWorkspace(_store, target, zipPath, dialog.Destination, dialog.Choices);
+                        workspaceId = target.Id;
+                        return true;
+                    });
+                    return 0;
+                });
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(Host, "Không nhập được gói: " + ex.Message);
+                return;
+            }
+
+            if (!Save())
+                return;
+            Reload();
+            Dialogs.Success("Đã nhận " + ShareSummary.Counts(result.Tools.Count, result.ProfilesAdded, result.StacksAdded, result.CustomsAdded)
+                + " từ " + Path.GetFileName(zipPath) + ". Kiểm xem máy này còn thiếu gì.", seconds: 8);
+            WorkspaceImported?.Invoke(workspaceId);
+        }
+
+
         private void OnImport(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
@@ -749,9 +790,14 @@ namespace Toolbox.Views
                 return;
             }
 
-            var dialog = new ImportWindow(manifest, _store) { Owner = Host };
+            var dialog = new ImportWindow(manifest, _store, QuietWorkspaces()) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
+            if (dialog.HasWorkspaceContent)
+            {
+                await ImportIntoWorkspace(zipPath, dialog);
+                return;
+            }
 
             IList<ToolEntry> imported;
             try

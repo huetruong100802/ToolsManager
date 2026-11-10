@@ -242,6 +242,10 @@ namespace Toolbox.Views
             if (_preview == null || _preview.Selection.IsEmpty)
                 return;
             var name = string.Concat(PackName.Text.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var share = new ShareWindow(ShareSummary.Header(_preview.ToolCount, _preview.ProfileCount, _preview.StackCount, _preview.CustomCount),
+                new[] { Summary.Text }.Concat((Pulled.Text ?? "").Split(new[] { (char)10 }, StringSplitOptions.RemoveEmptyEntries)), _preview.Warnings) { Owner = Host };
+            if (share.ShowDialog() != true)
+                return;
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "Chia sẻ workspace",
@@ -256,7 +260,7 @@ namespace Toolbox.Views
             {
                 var result = Packer.PackWorkspace(_workspace, SafeLibrary(), Clone(_manual), dialog.FileName);
                 Dialogs.Success(
-                    $"Đã đóng gói {result.StackCount} workflow, {result.ProfileCount} profile, {result.ToolCount} tool, {result.CustomCount} lệnh riêng.\n{dialog.FileName}", seconds: 10);
+                    $"Đã chia sẻ: {ShareSummary.Counts(result.ToolCount, result.ProfileCount, result.StackCount, result.CustomCount)}.\n{dialog.FileName}", seconds: 10);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidDataException)
             {
