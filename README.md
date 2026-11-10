@@ -125,7 +125,7 @@ Workspace là một thư mục dự án, ví dụ repo Angular hoặc solution .
 
 Tab **Workflow** gom nhiều lệnh thành một chuỗi, ví dụ bật API, chờ cổng mở, rồi mới bật web. Mở app là vào **Trang chủ**: việc cần bạn xử lý (đề xuất của agent chờ duyệt, tác vụ lỗi, thứ mất đường dẫn), thứ đang chạy, và chỗ để tiếp tục; lần đầu có ba bước làm quen. **Ctrl+K** tìm và chạy mọi thứ từ bất kỳ trang nào.
 
-![Tổng quan: số workspace, tác vụ đang chạy, cổng đang dùng và hoạt động gần đây](docs/images/overview.png)
+![Màn hình Trang chủ (ảnh chụp bản cũ, còn tên "Tổng quan"; bản mới có thêm "Cần bạn xử lý" và "Tiếp tục")](docs/images/overview.png)
 
 Tab **Chạy** là tab đầu của mỗi workspace: các workflow hiện kèm các bước, bên dưới là mọi profile (tìm theo tên). Workspace nhiều tool và profile thì không phải mở từng tab tool để tìm lệnh cần chạy.
 
@@ -315,14 +315,15 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 
 ## Giới hạn đã biết
 
-- **Cần sửa trước khi phát hành:** cửa sổ GUI giữ danh sách tool và workspace trong bộ nhớ, nên có thể ghi đè thay đổi mà agent vừa làm. Cách sửa là nạp lại `tools.json` và `workspaces.json` trước mỗi thao tác ghi.
+- GUI và agent cùng ghi `tools.json` và `workspaces.json`: GUI trộn ba chiều (theo từng trường và từng mục) với bản đã đọc lần trước rồi mới ghi, nên không còn ghi đè thay đổi của agent. Cơ chế này mới được kiểm bằng test tự động, chưa thử lâu dài với agent thật.
 - Cửa sổ **Worktree…** và việc tạo, sửa, xoá workspace, profile, lệnh riêng, workflow trên GUI mới được kiểm bằng test tự động, chưa thử tay đầy đủ trên màn hình.
-- Chưa có theo dõi file (`FileSystemWatcher`), nên GUI không tự cập nhật khi agent thay đổi danh sách.
+- GUI theo dõi `tools.json`, `workspaces.json`, `proposals.json` và `activity.jsonl` (debounce 300 ms) và tự cập nhật khi agent thay đổi. Thay đổi lớn cùng lúc có thể mất tới một giây mới hiện.
 - Chưa có tab Lịch sử trên GUI. Xem thay đổi của agent ở `changes.log`.
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
 - Với `.bat` và `.cmd`, `cmd.exe` diễn giải chuỗi `args`. Mô tả tool nên ghi rõ tham số hợp lệ.
-- **Chưa làm so với thiết kế mới** (`docs/plan-v10.md`, `docs/mockup/workspace-v10-wpf.html`): hộp thoại **Profile mới** ba bước, sơ đồ workflow sửa trực tiếp (dấu +, kéo thả), tab **Đóng gói** theo workspace, khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent.
-- Chế độ chạy của agent chỉ có *tự chạy* và *không cho chạy*. Chế độ *hỏi trước mỗi lần* chưa làm vì MCP chưa có cách hỏi người dùng.
+- **Chưa làm so với thiết kế cũ** (`docs/plan-v10.md`): sơ đồ workflow sửa trực tiếp (dấu +, kéo thả), khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent (hiện chỉ hoàn tác ngay trên thông báo).
+- **Bản đổi giao diện (`docs/plan-ux-overhaul.md`, P1–P21)** mới được kiểm bằng test tự động và khởi động thử, chưa chạy tay đủ 8 tiêu chí nghiệm thu trên màn hình thật; ảnh chụp trong README là bản cũ. `Toolbox.exe` lớn hơn bản trước khoảng 180 KB (vượt ngân sách 150 KB của kế hoạch) và dùng thêm vài MB RAM.
+- Chế độ chạy của agent có *tự chạy*, *hỏi trước mỗi lần* và *không cho chạy*. Ở chế độ hỏi trước, agent gửi yêu cầu, GUI hiện thông báo ba nút (Cho chạy, Luôn cho lệnh này, Từ chối); agent phải gọi lại đúng lệnh để chạy, vì MCP không có cách giữ cuộc gọi chờ người dùng. Luồng này đã có test tự động, chưa thử tay với agent thật.
 - Duyệt đề xuất chỉ có kiểu sửa hoặc xoá tool dùng chung. Chưa có kiểu "chỉ áp dụng cho workspace này".
 - Cột trái xếp workspace theo ghim rồi theo tên, không còn theo thứ tự thêm.
 - Trang **Agent**, tab **Chạy**, ô tìm và ghim workspace: phần dữ liệu và MCP có test tự động; giao diện mới chỉ dựng ra ảnh để xem, chưa thử tay đầy đủ (bấm Duyệt, Gỡ agent, ghim workspace).
