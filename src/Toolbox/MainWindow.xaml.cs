@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -24,6 +25,7 @@ namespace Toolbox
         private WorkspaceStore _workspaces;
         private WorkspaceRow _current;
         private Area _area = Area.Library;
+        private StoreWatcher _watcher;
 
         public MainWindow(string fileToOpen = null)
         {
@@ -79,6 +81,34 @@ namespace Toolbox
             foreach (var workspace in _workspaces.Workspaces)
                 _rows.Add(new WorkspaceRow(workspace));
             RefreshRows();
+            StartWatching();
+        }
+
+        // ---- Đồng bộ trực tiếp với agent ----
+
+        /// <summary>Theo dõi file dữ liệu: agent ghi qua MCP thì GUI nạp lại sau chừng 300 ms, không cần đổi trang.</summary>
+        private void StartWatching()
+        {
+            _watcher = new StoreWatcher(DataDir.Root, TimeSpan.FromMilliseconds(300));
+            _watcher.Changed += files => Dispatcher.BeginInvoke(new Action(() => OnStoreChanged(files)));
+            Closed += (s, e) => _watcher.Dispose();
+        }
+
+        private void OnStoreChanged(IReadOnlyList<string> files)
+        {
+            var toolsChanged = files.Contains("tools.json", StringComparer.OrdinalIgnoreCase) && Library.SyncFromDisk();
+
+            var changed = files.Contains("workspaces.json", StringComparer.OrdinalIgnoreCase)
+                ? SyncFromDisk()
+                : new List<string>();
+            // Tool đổi cũng làm đổi danh sách lệnh của workspace, nên nạp lại trang workspace khi workspace đó hoặc tool đổi.
+            if (_area == Area.Workspace && _current != null
+                && (toolsChanged || changed.Contains(_current.Workspace.Id, StringComparer.OrdinalIgnoreCase)))
+                WorkspaceContent.Load(_current.Workspace);
+
+            RefreshRows();
+            if (_area == Area.Agents)
+                AgentsPage.Refresh();
         }
 
         // ---- Rail ----
@@ -185,24 +215,24 @@ namespace Toolbox
         /// Agent qua MCP có thể đăng ký workspace hoặc gắn tool khi Toolbox đang mở. Nạp lại trước khi chuyển trang,
         /// để lần lưu sau của GUI không ghi đè các thay đổi đó.
         /// </summary>
-        private void SyncFromDisk()
+        private IReadOnlyList<string> SyncFromDisk()
         {
-            WorkspaceStore fresh;
+            IReadOnlyList<string> changed;
             try
             {
-                fresh = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
+                changed = _workspaces.Sync();
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
             {
-                return;
+                return new List<string>();
             }
-            _workspaces.MergeFrom(fresh);
             foreach (var workspace in _workspaces.Workspaces)
             {
                 if (!_rows.Any(r => ReferenceEquals(r.Workspace, workspace)))
                     _rows.Add(new WorkspaceRow(workspace));
             }
             RefreshRows();
+            return changed;
         }
 
         private void GoTo(Area area, WorkspaceRow row = null)

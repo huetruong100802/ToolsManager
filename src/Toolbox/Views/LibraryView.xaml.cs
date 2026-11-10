@@ -115,14 +115,39 @@ namespace Toolbox.Views
 
         private void Reload()
         {
+            // Giữ các tool đang được tick qua lần nạp lại (vd. agent vừa đổi tools.json khi người dùng đang chọn).
+            var checkedIds = new HashSet<string>(_items.Where(i => i.IsChecked).Select(i => i.Tool.Id), StringComparer.OrdinalIgnoreCase);
             foreach (var item in _items)
                 item.PropertyChanged -= OnItemChanged;
             _items.Clear();
             foreach (var tool in _store.Tools.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
                 AddItem(tool);
+                if (checkedIds.Contains(tool.Id))
+                    _items[_items.Count - 1].IsChecked = true;
+            }
 
             BuildTagChips();
             ApplyFilter();
+        }
+
+        /// <summary>Nạp thay đổi của agent (tools.json đổi ở ngoài) vào danh sách; giữ ô tìm, tag và các tool đang tick.</summary>
+        public bool SyncFromDisk()
+        {
+            if (_store == null)
+                return false;
+            try
+            {
+                if (!_store.Sync())
+                    return false;
+                Reload();
+                return true;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // File đang bị ghi dở hoặc hỏng: giữ danh sách hiện có, lần đổi kế tiếp sẽ nạp lại.
+            }
+            return false;
         }
 
         /// <summary>Dựng lại chip tag từ kho, kèm số tool mỗi tag; giữ các tag đang chọn nếu vẫn còn tồn tại.</summary>
@@ -331,7 +356,17 @@ namespace Toolbox.Views
             var dialog = new ToolEditWindow(copy, isNew: false) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
-            _store.Update(copy);
+            try
+            {
+                _store.Update(copy);
+            }
+            catch (KeyNotFoundException)
+            {
+                // Agent (hoặc người khác) đã xoá tool trong lúc đang sửa.
+                Dialogs.Error(Host, $"Tool \"{copy.Name}\" vừa bị xoá khỏi danh sách ở nơi khác nên không lưu được chỉnh sửa.");
+                Reload();
+                return;
+            }
             if (Save())
                 Reload();
         }

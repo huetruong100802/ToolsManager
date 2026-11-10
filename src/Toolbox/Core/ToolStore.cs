@@ -36,6 +36,12 @@ namespace Toolbox.Core
         private readonly List<ToolEntry> _tools;
         private readonly List<Change> _pending = new List<Change>();
 
+        /// <summary>Băm nội dung file ở lần đọc/ghi gần nhất; khác file hiện tại nghĩa là tiến trình khác (agent) vừa ghi.</summary>
+        private string _diskHash;
+
+        /// <summary>JSON của từng tool ở lần đọc/ghi gần nhất (theo id), để biết bên nào đã sửa tool khi gộp.</summary>
+        private Dictionary<string, string> _snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         private ToolStore(string filePath, List<ToolEntry> tools)
         {
             FilePath = filePath;
@@ -87,16 +93,90 @@ namespace Toolbox.Core
 
             try
             {
-                using (var stream = File.OpenRead(filePath))
-                {
-                    var file = Json.Read<ToolListFile>(stream);
-                    return new ToolStore(filePath, file?.Tools ?? new List<ToolEntry>());
-                }
+                var bytes = File.ReadAllBytes(filePath);
+                ToolListFile file;
+                using (var stream = new MemoryStream(bytes))
+                    file = Json.Read<ToolListFile>(stream);
+                var store = new ToolStore(filePath, file?.Tools ?? new List<ToolEntry>());
+                store._diskHash = Hash(bytes);
+                store.TakeSnapshot();
+                return store;
             }
             catch (SerializationException ex)
             {
                 throw new InvalidDataException($"Không đọc được {filePath}: {ex.Message}", ex);
             }
+        }
+
+        private static string Hash(byte[] bytes)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return Convert.ToBase64String(sha.ComputeHash(bytes));
+        }
+
+        private static string HashFile(string path)
+        {
+            if (!File.Exists(path))
+                return null;
+            try { return Hash(File.ReadAllBytes(path)); }
+            catch (IOException) { return null; }
+        }
+
+        private void TakeSnapshot()
+        {
+            _snapshot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var tool in _tools)
+                _snapshot[tool.Id ?? ""] = Json.Canonical(tool);
+        }
+
+        /// <summary>
+        /// Nạp thay đổi do tiến trình khác ghi vào bộ nhớ (không ghi file): tool mới hoặc đổi trong file được lấy, trừ tool đang sửa dở ở đây.
+        /// Trả về true nếu danh sách trong bộ nhớ đã đổi.
+        /// </summary>
+        public bool Sync()
+        {
+            var fresh = Peek(FilePath);
+            return fresh._diskHash != _diskHash && MergeFrom(fresh);
+        }
+
+        /// <summary>
+        /// Gộp bản trên đĩa vào bộ nhớ theo từng tool, so với ảnh chụp lần đọc/ghi trước: bên nào đổi tool thì bên đó thắng,
+        /// cả hai cùng đổi thì giữ bản trong bộ nhớ (thao tác của người dùng). Tool đã xoá ở đây không bị thêm lại.
+        /// </summary>
+        private bool MergeFrom(ToolStore fresh)
+        {
+            var changed = false;
+            foreach (var tool in _tools.ToList())
+            {
+                var onDisk = fresh.Find(tool.Id);
+                _snapshot.TryGetValue(tool.Id ?? "", out var before);
+                var unchangedHere = before != null && Json.Canonical(tool) == before;
+                if (onDisk == null)
+                {
+                    // Bị xoá ở ngoài mà ở đây chưa sửa: xoá theo. Đang sửa dở hoặc mới thêm thì giữ.
+                    if (unchangedHere)
+                    {
+                        _tools.Remove(tool);
+                        changed = true;
+                    }
+                }
+                else if (unchangedHere && Json.Canonical(onDisk) != before)
+                {
+                    _tools[_tools.IndexOf(tool)] = onDisk;
+                    changed = true;
+                }
+            }
+            foreach (var onDisk in fresh._tools)
+            {
+                if (Find(onDisk.Id) == null && !_snapshot.ContainsKey(onDisk.Id ?? ""))
+                {
+                    _tools.Add(onDisk);
+                    changed = true;
+                }
+            }
+            _diskHash = fresh._diskHash;
+            _snapshot = fresh._snapshot;
+            return changed;
         }
 
         /// <summary>
@@ -131,6 +211,9 @@ namespace Toolbox.Core
             {
                 var directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(FilePath));
                 Directory.CreateDirectory(directory);
+                // Agent có thể vừa ghi: gộp trước khi ghi để không đè mất thay đổi của họ.
+                if (HashFile(FilePath) != _diskHash)
+                    MergeFrom(ReadFile(FilePath));
                 if (_pending.Count > 0)
                     Backup(directory);
 
@@ -142,6 +225,8 @@ namespace Toolbox.Core
                     File.Replace(temp, FilePath, destinationBackupFileName: null);
                 else
                     File.Move(temp, FilePath);
+                _diskHash = HashFile(FilePath);
+                TakeSnapshot();
 
                 if (_pending.Count > 0)
                 {
