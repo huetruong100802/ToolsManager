@@ -495,6 +495,12 @@ namespace Toolbox.Core.Workspaces
         public string Detail { get; internal set; }
         /// <summary>Bước này dùng lại tác vụ cùng khoá đang chạy thay vì bật mới.</summary>
         public bool Reused { get; internal set; }
+
+        /// <summary>Id tác vụ của bước này (đã bật mới hoặc dùng lại); null nếu chưa bật. Dùng để mở log đúng bước.</summary>
+        public string TaskId { get; internal set; }
+
+        /// <summary>Lúc bước chuyển sang trạng thái hiện tại (UTC); giao diện dùng để hiện "đã chờ 45 giây".</summary>
+        public DateTime Since { get; internal set; } = DateTime.UtcNow;
     }
 
     /// <summary>Một lần chạy bộ chạy: tiến độ từng bước và kết quả. Đọc được từ mọi luồng; <see cref="Changed"/> bắn từ luồng nền.</summary>
@@ -518,6 +524,12 @@ namespace Toolbox.Core.Workspaces
 
         public string WorkspaceId { get; }
         public string StackId { get; }
+
+        /// <summary>Chỉ số bước đầu tiên được chạy (0 nếu chạy từ đầu). Các bước trước đó coi như đã xong ở lần chạy trước.</summary>
+        public int StartedFrom { get; internal set; }
+
+        /// <summary>Chỉ số bước lỗi đầu tiên, hoặc -1. Dùng cho "Chạy lại từ bước này" và "Mở log bước lỗi".</summary>
+        public int FirstFailedIndex { get { lock (_lock) return Steps.Select((s, i) => new { s, i }).Where(x => x.s.Status == StepStatus.Failed).Select(x => x.i).DefaultIfEmpty(-1).First(); } }
         public string Label { get; }
         public IReadOnlyList<StepProgress> Steps { get; }
         public Task Completion { get; internal set; } = Task.FromResult(0);
@@ -556,6 +568,8 @@ namespace Toolbox.Core.Workspaces
         {
             lock (_lock)
             {
+                if (Steps[index].Status != status)
+                    Steps[index].Since = DateTime.UtcNow;
                 Steps[index].Status = status;
                 Steps[index].Detail = detail;
             }
@@ -597,9 +611,21 @@ namespace Toolbox.Core.Workspaces
         public TimeSpan PollInterval { get; set; } = TimeSpan.FromMilliseconds(250);
 
         /// <summary>Bắt đầu chạy. Lỗi kiểm trước trả về run đã ở trạng thái <see cref="RunState.Failed"/>, không bật tiến trình nào.</summary>
-        public StackRun Start(Workspace ws, StackDef stack)
+        public StackRun Start(Workspace ws, StackDef stack) => Start(ws, stack, 0);
+
+        /// <summary>
+        /// Chạy từ bước <paramref name="fromIndex"/> (chỉ số 0): các bước trước đó coi như đã xong (không chạy, không kiểm lại cổng).
+        /// Bước rơi vào giữa một nhóm song song thì lùi về đầu nhóm.
+        /// </summary>
+        public StackRun Start(Workspace ws, StackDef stack, int fromIndex)
         {
             var run = new StackRun(_host, ws.Id, stack, StackResolver.ResolveAll(ws, stack));
+            run.StartedFrom = StartIndex(run, fromIndex);
+            for (var i = 0; i < run.StartedFrom; i++)
+            {
+                run.Steps[i].Status = StepStatus.Done;
+                run.Steps[i].Detail = "xong ở lần chạy trước";
+            }
             var problem = Precheck(ws, run);
             if (problem != null)
             {
@@ -608,6 +634,22 @@ namespace Toolbox.Core.Workspaces
             }
             run.Completion = Task.Run(() => Execute(run));
             return run;
+        }
+
+        private static int StartIndex(StackRun run, int fromIndex)
+        {
+            if (fromIndex <= 0 || run.Steps.Count == 0)
+                return 0;
+            fromIndex = Math.Min(fromIndex, run.Steps.Count - 1);
+            try
+            {
+                var batch = StackPlan.Batches(run.Steps.Select(s => s.Resolved.Step)).FirstOrDefault(b => b.Contains(fromIndex));
+                return batch == null ? fromIndex : batch[0];
+            }
+            catch (ArgumentException)
+            {
+                return 0; // nhóm sai: Precheck sẽ báo lỗi
+            }
         }
 
         private string Precheck(Workspace ws, StackRun run)
@@ -621,7 +663,7 @@ namespace Toolbox.Core.Workspaces
             if (!ws.PathExists)
                 return "Không tìm thấy thư mục workspace: " + ws.Path + ". Hãy trỏ lại thư mục trước khi chạy.";
 
-            var broken = steps.Where(s => s.Resolved.IsBroken).ToList();
+            var broken = steps.Where(s => s.Resolved.Index >= run.StartedFrom && s.Resolved.IsBroken).ToList();
             if (broken.Count > 0)
             {
                 foreach (var s in broken)
@@ -636,7 +678,7 @@ namespace Toolbox.Core.Workspaces
             var used = _host.UsedPorts();
             var claimed = new Dictionary<int, string>();
             var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in steps)
+            foreach (var s in steps.Where(x => x.Resolved.Index >= run.StartedFrom))
             {
                 var spec = s.Resolved.Spec;
                 var n = s.Resolved.Index + 1;
@@ -667,6 +709,8 @@ namespace Toolbox.Core.Workspaces
             {
                 foreach (var batch in StackPlan.Batches(run.Steps.Select(s => s.Resolved.Step)))
                 {
+                    if (batch[batch.Count - 1] < run.StartedFrom)
+                        continue;
                     current = batch[0];
                     run.Token.ThrowIfCancellationRequested();
                     if (batch.Count > 1)
@@ -777,6 +821,8 @@ namespace Toolbox.Core.Workspaces
                     run.Set(resolved.Index, StepStatus.Running, ReusedText);
                 }
             }
+
+            step.TaskId = task.Id;
 
             switch (resolved.Wait)
             {

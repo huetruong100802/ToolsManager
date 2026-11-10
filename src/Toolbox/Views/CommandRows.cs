@@ -530,6 +530,11 @@ namespace Toolbox.Views
             IsBroken = resolved.IsBroken;
             Note = resolved.IsBroken ? "Hỏng: " + resolved.Problem : progress?.Detail;
             WaitText = WaitTextFor(resolved);
+            TaskId = progress?.TaskId;
+            Status = status;
+            if (status == StepStatus.Running && progress != null)
+                Elapsed = Core.Text.Duration(DateTime.UtcNow - progress.Since);
+            Index = resolved.Index;
         }
 
         public string Title { get; }
@@ -540,6 +545,12 @@ namespace Toolbox.Views
         public string Glyph { get; }
         public string Note { get; }
         public string WaitText { get; }
+        public string TaskId { get; }
+        public StepStatus Status { get; }
+        public int Index { get; }
+        /// <summary>"45 giây" khi bước đang chạy hoặc đang chờ cổng; rỗng nếu không.</summary>
+        public string Elapsed { get; }
+        public string ElapsedText => string.IsNullOrEmpty(Elapsed) ? "" : "đã " + Elapsed;
 
         private static string WaitTextFor(ResolvedStep r)
         {
@@ -619,6 +630,19 @@ namespace Toolbox.Views
                 }
             }
         }
+
+        /// <summary>Chỉ số bước lỗi của lần chạy gần nhất, hoặc -1.</summary>
+        public int FailedIndex => _run == null || _run.IsActive ? -1 : _run.FirstFailedIndex;
+
+        public bool HasFailedStep => FailedIndex >= 0;
+
+        public Visibility FailedVisibility => HasFailedStep ? Visibility.Visible : Visibility.Collapsed;
+
+        public string RetryText => HasFailedStep ? $"Chạy lại từ bước {FailedIndex + 1}" : "";
+
+        public string FailedTaskId => HasFailedStep ? _run.Steps[FailedIndex].TaskId : null;
+
+        public Visibility FailedLogVisibility => FailedTaskId != null ? Visibility.Visible : Visibility.Collapsed;
 
         public string RunTip => _brokenCount > 0 ? "Có bước hỏng; sửa workflow trước khi chạy" : "Chạy lần lượt các bước";
 

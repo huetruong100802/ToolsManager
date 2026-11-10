@@ -35,6 +35,7 @@ namespace Toolbox
             Inspector.Initialize(_tasks);
             TasksPage.Initialize(_tasks, _rows);
             Dock.LogRequested += Inspector.Show;
+            WorkspaceContent.ShowLogRequested += ShowLog;
             Dock.StopRequested += task => _tasks.Stop(task.Id);
             Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
             Dock.AllRequested += () => GoTo(Area.Tasks);

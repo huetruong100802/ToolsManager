@@ -111,6 +111,8 @@
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding ElapsedText}" FontSize="12"
+                                                                   Foreground="{DynamicResource Accent}" Margin="12,0,0,0" />
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding WaitText}" FontSize="12"
                                                                    Foreground="{DynamicResource Faint}" Margin="12,0,0,0" />
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="12" TextTrimming="CharacterEllipsis"
@@ -148,6 +150,12 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding FailedVisibility}">
+                                            <Button Style="{StaticResource SoftButton}" Content="{Binding RetryText}" Click="OnRetryStack"
+                                                    AutomationProperties.Name="Chạy lại từ bước lỗi" />
+                                            <Button Style="{StaticResource GhostButton}" Content="Mở log bước lỗi" Click="OnFailedLog" Margin="8,0,0,0"
+                                                    Visibility="{Binding FailedLogVisibility}" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

@@ -69,6 +69,15 @@ namespace Toolbox.Views
             _tasks = tasks;
             _save = save;
             _runner = new StackRunner(tasks);
+            // Thời gian đã chờ của bước đang chạy tăng theo giây: chỉ chạy khi có workflow đang chạy.
+            var clock = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            clock.Tick += (s, e) =>
+            {
+                if (IsVisible && _stacks.Any(r => r.Run?.IsActive == true))
+                    foreach (var stack in _stacks)
+                        stack.Update(RunOf(stack.Stack.Id));
+            };
+            clock.Start();
         }
 
         /// <summary>Hiện workspace này. Gọi lại cho cùng workspace thì giữ tab và form đã điền.</summary>
@@ -948,12 +957,30 @@ namespace Toolbox.Views
                 StartStack(row);
         }
 
-        private void StartStack(StackRow row)
+        /// <summary>Yêu cầu mở log một tác vụ (panel log của cửa sổ chính).</summary>
+        public event Action<TaskInfo> ShowLogRequested;
+
+        private void OnRetryStack(object sender, RoutedEventArgs e)
         {
-            if (!row.CanRun || row.Run?.IsActive == true)
+            if ((sender as FrameworkElement)?.DataContext is StackRow row && row.HasFailedStep)
+                StartStack(row, row.FailedIndex);
+        }
+
+        private void OnFailedLog(object sender, RoutedEventArgs e)
+        {
+            if (!((sender as FrameworkElement)?.DataContext is StackRow row) || row.FailedTaskId == null)
+                return;
+            var task = _tasks.Find(row.FailedTaskId);
+            if (task != null)
+                ShowLogRequested?.Invoke(task);
+        }
+
+        private void StartStack(StackRow row, int fromIndex = 0)
+        {
+            if (!row.CanRun && fromIndex == 0 || row.Run?.IsActive == true)
                 return;
             Used("workflow", row.Stack.Id);
-            var run = _runner.Start(_workspace, row.Stack);
+            var run = _runner.Start(_workspace, row.Stack, fromIndex);
             _runs[RunKey(row.Stack.Id)] = run;
             // Tiến độ đến từ luồng nền: chuyển về luồng giao diện.
             run.Changed += () => Dispatcher.BeginInvoke(new Action(Refresh));
