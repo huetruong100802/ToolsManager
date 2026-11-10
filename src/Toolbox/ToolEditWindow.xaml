@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Thêm tool" Width="600" SizeToContent="Height" ResizeMode="NoResize"
-        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop">
     <DockPanel>
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
@@ -12,85 +13,83 @@
             </StackPanel>
         </Border>
 
-        <StackPanel Margin="20,18,20,8">
-            <TextBlock Text="Đường dẫn" Style="{StaticResource FieldLabel}" />
-            <DockPanel Margin="0,0,0,14">
-                <Button DockPanel.Dock="Right" Content="Thư mục…" Click="OnBrowseFolder" Margin="6,0,0,0" />
-                <Button DockPanel.Dock="Right" Content="File…" Click="OnBrowseFile" Margin="8,0,0,0" />
-                <TextBox x:Name="PathBox" LostFocus="OnPathChanged" />
-            </DockPanel>
-
-            <TextBlock Text="Lệnh (tuỳ chọn)" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="CommandBox" TextChanged="OnCommandChanged" ToolTip="vd: python -m ai_autopilot" />
-            <TextBlock Text="Có lệnh thì đường dẫn ở trên là thư mục chạy lệnh (để trống: chạy tại thư mục workspace). Không có lệnh thì đường dẫn là file chạy, bắt buộc. Tool lệnh không được chép hay đóng gói." Style="{StaticResource Hint}" TextWrapping="Wrap"
-                       Margin="0,4,0,14" />
-
-            <Grid Margin="0,0,0,14">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="14" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="Tên *" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="NameBox" />
-                </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="Tham số" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="ArgsBox" ToolTip="Tham số dòng lệnh mặc định khi chạy" />
-                </StackPanel>
-            </Grid>
-
-            <TextBlock Text="Mô tả" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="DescriptionBox" Height="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
-                     VerticalScrollBarVisibility="Auto" />
-            <TextBlock Text="Viết rõ tool làm gì — agent đọc mô tả này để biết khi nào dùng." Style="{StaticResource Hint}"
-                       Margin="0,4,0,14" />
-
-            <TextBlock Text="Tag" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="TagsBox" />
-            <TextBlock Text="Cách nhau bởi dấu phẩy, vd: modbus, plc" Style="{StaticResource Hint}" Margin="0,4,0,14" />
-
-            <Expander Header="Lệnh đọc từ file (tuỳ chọn)" Margin="0,0,0,14">
-                <StackPanel Margin="0,8,0,0">
-                    <TextBlock Text="File (tương đối với thư mục chạy)" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="SuffixFileBox" ToolTip="vd: package.json" />
-                    <TextBlock Text="Khoá JSON chứa danh sách" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
-                    <TextBox x:Name="SuffixPathBox" ToolTip="vd: scripts" />
-                    <TextBlock Text="Mẫu lệnh (dùng {id} cho tên)" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
-                    <TextBox x:Name="SuffixTemplateBox" ToolTip="vd: npm run {id}; để trống thì dùng: lệnh gốc {id}" />
-                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
-                               Text="Mỗi khoá trong file thành một lệnh của tool. Để trống nếu lệnh lấy từ trợ giúp hoặc nhập tay ở nút Lệnh… của trang tool." />
-                </StackPanel>
-            </Expander>
-
-            <Expander Header="Lệnh lấy trợ giúp (tuỳ chọn)" Margin="0,0,0,14">
-                <StackPanel Margin="0,8,0,0">
-                    <TextBlock Text="Mẫu lệnh" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="HelpTemplateBox" ToolTip="vd: {base} help {tokens}" AutomationProperties.Name="Mẫu lệnh lấy trợ giúp" />
-                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
-                               Text="Toolbox chạy lệnh này để đọc danh sách lệnh con và cờ. {base} là lệnh gốc, {tokens} là lệnh đang quét (vd. ef migrations add). Để trống thì dùng: {base} {tokens} --help." />
-                </StackPanel>
-            </Expander>
-
-            <TextBlock Text="Khi đóng gói" Style="{StaticResource FieldLabel}" />
-            <ComboBox x:Name="PackCombo" Margin="0,0,0,8" SelectionChanged="OnPackChanged">
-                <!-- Thứ tự khớp enum PackMode: Folder, File, None, Setup -->
-                <ComboBoxItem Content="Lấy cả thư mục chứa tool" />
-                <ComboBoxItem Content="Chỉ lấy file này" />
-                <ComboBoxItem Content="Chỉ gửi thông tin (người nhận tự cài app)" />
-                <ComboBoxItem Content="Kèm bộ cài (app phải cài đặt, vd: VSPE)" />
-            </ComboBox>
-
-            <StackPanel x:Name="SetupPanel" Visibility="Collapsed" Margin="0,6,0,8">
-                <TextBlock Text="File bộ cài *" Style="{StaticResource FieldLabel}" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="640">
+            <StackPanel Margin="20,18,20,8">
+                <!-- Cơ bản: chỉ những thứ cần để dùng được tool. Thả file hoặc thư mục vào cửa sổ cũng được. -->
+                <TextBlock Text="Đường dẫn" Style="{StaticResource FieldLabel}" />
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Chọn…" Click="OnBrowseSetup" Margin="8,0,0,0" />
-                    <TextBox x:Name="SetupBox" />
+                    <Button DockPanel.Dock="Right" Content="Thư mục…" Click="OnBrowseFolder" Margin="6,0,0,0" />
+                    <Button DockPanel.Dock="Right" Content="File…" Click="OnBrowseFile" Margin="8,0,0,0" />
+                    <TextBox x:Name="PathBox" LostFocus="OnPathChanged" TextChanged="OnFieldEdited" AutomationProperties.Name="Đường dẫn" />
                 </DockPanel>
-                <TextBlock Style="{StaticResource Hint}"
-                           Text="File setup (.exe/.msi) gửi kèm trong gói. Máy nhận chưa có app thì card hiện nút Cài đặt; cài xong là chạy được." />
+                <TextBlock x:Name="PathError" Foreground="{DynamicResource Danger}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                <TextBlock x:Name="TypeHint" Style="{StaticResource Hint}" Margin="0,4,0,14"
+                           Text="Chọn file chạy (exe, script, shortcut) hoặc thư mục. Có thể kéo thả vào cửa sổ này." />
+
+                <TextBlock Text="Lệnh (tuỳ chọn)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="CommandBox" TextChanged="OnCommandChanged" ToolTip="vd: python -m ai_autopilot" AutomationProperties.Name="Lệnh" />
+                <TextBlock Text="Có lệnh thì đường dẫn ở trên là thư mục chạy lệnh (để trống: chạy tại thư mục workspace). Không có lệnh thì đường dẫn là file chạy, bắt buộc."
+                           Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,14" />
+
+                <TextBlock Text="Tên *" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="NameBox" TextChanged="OnFieldEdited" AutomationProperties.Name="Tên" />
+                <TextBlock x:Name="NameError" Foreground="{DynamicResource Danger}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                <Border Height="14" />
+
+                <TextBlock Text="Mô tả" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="DescriptionBox" Height="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
+                         VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Mô tả" />
+                <TextBlock Text="Viết rõ tool làm gì: agent đọc mô tả này để biết khi nào dùng." Style="{StaticResource Hint}" Margin="0,4,0,14" />
+
+                <TextBlock Text="Tag" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="TagsBox" AutomationProperties.Name="Tag" />
+                <TextBlock Text="Cách nhau bởi dấu phẩy, vd: modbus, plc" Style="{StaticResource Hint}" Margin="0,4,0,14" />
+
+                <!-- Nâng cao: gập lại, tự mở khi tool đang sửa đã có giá trị ở đây. -->
+                <Expander x:Name="Advanced" Header="Nâng cao" Margin="0,0,0,14">
+                    <StackPanel Margin="0,10,0,0">
+                        <TextBlock Text="Tham số mặc định" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="ArgsBox" ToolTip="Tham số dòng lệnh mặc định khi chạy" AutomationProperties.Name="Tham số mặc định" />
+                        <Border Height="14" />
+
+                        <TextBlock Text="Lệnh đọc từ file" Style="{StaticResource FieldLabel}" />
+                        <TextBlock Text="File (tương đối với thư mục chạy)" Style="{StaticResource Hint}" Margin="0,0,0,4" />
+                        <TextBox x:Name="SuffixFileBox" ToolTip="vd: package.json" />
+                        <TextBlock Text="Khoá JSON chứa danh sách" Style="{StaticResource Hint}" Margin="0,8,0,4" />
+                        <TextBox x:Name="SuffixPathBox" ToolTip="vd: scripts" />
+                        <TextBlock Text="Mẫu lệnh (dùng {id} cho tên)" Style="{StaticResource Hint}" Margin="0,8,0,4" />
+                        <TextBox x:Name="SuffixTemplateBox" ToolTip="vd: npm run {id}; để trống thì dùng: lệnh gốc {id}" />
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,14"
+                                   Text="Mỗi khoá trong file thành một lệnh của tool. Để trống nếu lệnh lấy từ trợ giúp hoặc nhập tay ở nút Lệnh… của trang tool." />
+
+                        <TextBlock Text="Lệnh lấy trợ giúp" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="HelpTemplateBox" ToolTip="vd: {base} help {tokens}" TextChanged="OnFieldEdited" AutomationProperties.Name="Mẫu lệnh lấy trợ giúp" />
+                        <TextBlock x:Name="HelpError" Foreground="{DynamicResource Danger}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,14"
+                                   Text="Toolbox chạy lệnh này để đọc danh sách lệnh con và cờ. {base} là lệnh gốc, {tokens} là lệnh đang quét (vd. ef migrations add). Để trống thì dùng: {base} {tokens} --help." />
+
+                        <TextBlock Text="Khi chia sẻ" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="PackCombo" Margin="0,0,0,8" SelectionChanged="OnPackChanged">
+                            <!-- Thứ tự khớp enum PackMode: Folder, File, None, Setup -->
+                            <ComboBoxItem Content="Lấy cả thư mục chứa tool" />
+                            <ComboBoxItem Content="Chỉ lấy file này" />
+                            <ComboBoxItem Content="Chỉ gửi thông tin (người nhận tự cài app)" />
+                            <ComboBoxItem Content="Kèm bộ cài (app phải cài đặt, vd: VSPE)" />
+                        </ComboBox>
+
+                        <StackPanel x:Name="SetupPanel" Visibility="Collapsed" Margin="0,6,0,8">
+                            <TextBlock Text="File bộ cài *" Style="{StaticResource FieldLabel}" />
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Chọn…" Click="OnBrowseSetup" Margin="8,0,0,0" />
+                                <TextBox x:Name="SetupBox" TextChanged="OnFieldEdited" />
+                            </DockPanel>
+                            <TextBlock x:Name="SetupError" Foreground="{DynamicResource Danger}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="File setup (.exe/.msi) gửi kèm trong gói. Máy nhận chưa có app thì card hiện nút Cài đặt; cài xong là chạy được." />
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
             </StackPanel>
-        </StackPanel>
+        </ScrollViewer>
     </DockPanel>
 </Window>
