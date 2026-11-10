@@ -26,12 +26,17 @@ namespace Toolbox.Views
         private readonly HashSet<string> _open = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _scanning = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private ToolCapabilities _data;
+        private readonly Action _ask;
+
+        private void OnAsk(object sender, RoutedEventArgs e) => _ask?.Invoke();
 
         public override double SheetWidth => 720;
 
-        public CommandsSheet(ToolDef tool, string workingDirectory, Action changed)
+        public CommandsSheet(ToolDef tool, string workingDirectory, Action changed, Action ask = null)
         {
             InitializeComponent();
+            _ask = ask;
+            AskButton.Visibility = ask == null ? Visibility.Collapsed : Visibility.Visible;
             SheetTitle = "Lệnh của tool";
             _tool = tool;
             _cwd = workingDirectory;

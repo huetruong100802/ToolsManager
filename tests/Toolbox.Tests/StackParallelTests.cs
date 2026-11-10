@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Toolbox.Tests
 {
+    [Collection("ChayTienTrinh")] // các test bật tiến trình thật chạy lần lượt, không tranh CPU nhau
     public class StackParallelTests : IDisposable
     {
         private const string LongRunning = "ping -n 60 127.0.0.1 >nul";

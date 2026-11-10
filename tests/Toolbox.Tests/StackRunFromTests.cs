@@ -8,6 +8,7 @@ using Xunit;
 namespace Toolbox.Tests
 {
     /// <summary>"Chạy lại từ bước này": bỏ qua các bước đã xong, chỉ kiểm và chạy từ bước chọn; nhóm song song lùi về đầu nhóm.</summary>
+    [Collection("ChayTienTrinh")] // các test bật tiến trình thật chạy lần lượt, không tranh CPU nhau
     public class StackRunFromTests : IDisposable
     {
         private readonly TempDir _dir = new TempDir();

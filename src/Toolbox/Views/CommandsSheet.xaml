@@ -35,6 +35,8 @@
         <StackPanel DockPanel.Dock="Top" Margin="20,16,20,12">
             <TextBlock x:Name="TitleText" FontSize="15" FontWeight="SemiBold" />
             <DockPanel Margin="0,12,0,0">
+                <Button DockPanel.Dock="Right" x:Name="AskButton" Content="Nhờ agent…" MinWidth="100" Margin="12,0,0,0" Click="OnAsk" Visibility="Collapsed"
+                        ToolTip="Sao chép prompt nhờ agent đọc lệnh của tool này" />
                 <Button DockPanel.Dock="Right" x:Name="RescanButton" Content="Quét lại" MinWidth="100" Margin="12,0,0,0"
                         Style="{StaticResource PrimaryButton}" Click="OnRescan" />
                 <Button DockPanel.Dock="Right" x:Name="ImportButton" Content="Nhập…" MinWidth="80" Margin="12,0,0,0" Click="OnImportClick"

@@ -329,6 +329,9 @@
                                    Margin="2,0,0,0" VerticalAlignment="Center" />
                     </DockPanel>
                     <TextBlock x:Name="NoRunProfiles" Style="{StaticResource Hint}" Margin="0,0,0,8" />
+                    <Button x:Name="AskSetupButton" Style="{StaticResource SoftButton}" Content="Nhờ agent thiết lập workspace…" Click="OnAskSetup"
+                            HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed"
+                            ToolTip="Sao chép prompt có sẵn ngữ cảnh workspace để dán cho agent" />
                     <ItemsControl x:Name="RunProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
                 </StackPanel>
 
@@ -390,6 +393,8 @@
                     <DockPanel Margin="0,0,0,12">
                         <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Dựng bằng sơ đồ" Click="OnDiagramNew"
                                 VerticalAlignment="Top" Margin="8,0,0,0" AutomationProperties.Name="Dựng workflow bằng sơ đồ" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Nhờ agent dựng…" Click="OnAskWorkflow" VerticalAlignment="Top"
+                                Margin="8,0,0,0" ToolTip="Mô tả workflow bạn muốn, Toolbox soạn prompt cho agent" AutomationProperties.Name="Nhờ agent dựng workflow" />
                         <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddStack" VerticalAlignment="Top"
                                 AutomationProperties.Name="Thêm workflow">
                             <StackPanel Orientation="Horizontal">

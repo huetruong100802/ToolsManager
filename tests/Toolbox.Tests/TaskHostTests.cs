@@ -8,6 +8,7 @@ using Xunit;
 
 namespace Toolbox.Tests
 {
+    [Collection("ChayTienTrinh")] // các test bật tiến trình thật chạy lần lượt, không tranh CPU nhau
     public class TaskHostTests
     {
         private static TaskSpec Spec(string line, int? port = null, string cwd = null) =>

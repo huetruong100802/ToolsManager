@@ -42,6 +42,8 @@ namespace Toolbox
             WorkspaceContent.SheetRequested += (sheet, done) => Sheet.Open(sheet, done);
             Inspector.SetWorkspaceRootResolver(id => _workspaces?.Find(id)?.ResolvedPath);
             Inspector.HintActionRequested += OnHintAction;
+            Inspector.AskAgentRequested += OnAskAgentAboutTask;
+            WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindow;
             Dock.StopRequested += task => _tasks.Stop(task.Id);
             Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
             Dock.AllRequested += () => GoTo(Area.Tasks);
@@ -224,6 +226,21 @@ namespace Toolbox
         {
             Dock.MarkSeen(task.Id);
             Inspector.Show(task);
+        }
+
+        /// <summary>"Nhờ agent…" trên thẻ lỗi: dựng prompt có ngữ cảnh workspace, lệnh, thư mục tương đối và log cuối.</summary>
+        private void OnAskAgentAboutTask(TaskInfo task)
+        {
+            var workspace = _workspaces?.Find(task.Spec.WorkspaceId);
+            if (workspace == null)
+            {
+                Dialogs.Error(this, "Workspace của tác vụ này đã bị gỡ khỏi Toolbox.");
+                return;
+            }
+            var tail = task.Lines().Reverse().Take(FailureHints.CopyLogLines).Reverse().ToList();
+            var hint = FailureHints.Analyze(task.ExitCode, tail, task.Spec.Cwd);
+            Views.AgentAsk.Send(AgentPrompts.DiagnoseFailure(workspace, task.Spec.Label, task.Spec.CommandLine, task.Spec.Cwd, task.ExitCode, tail, hint),
+                Library.OpenAgentWindow);
         }
 
         /// <summary>Nút hành động của thẻ lỗi trong panel log.</summary>

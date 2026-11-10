@@ -99,6 +99,15 @@ namespace Toolbox.Views
                 HintActionRequested?.Invoke(_hint, _task);
         }
 
+        /// <summary>Người dùng bấm "Nhờ agent…" trên thẻ lỗi; cửa sổ chính dựng prompt có ngữ cảnh workspace.</summary>
+        public event Action<TaskInfo> AskAgentRequested;
+
+        private void OnAskAgent(object sender, RoutedEventArgs e)
+        {
+            if (_task != null)
+                AskAgentRequested?.Invoke(_task);
+        }
+
         private void OnCopyForAgent(object sender, RoutedEventArgs e)
         {
             if (_task == null)

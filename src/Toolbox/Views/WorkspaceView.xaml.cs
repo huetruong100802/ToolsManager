@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Toolbox.Core;
+using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Views
@@ -263,6 +264,7 @@ namespace Toolbox.Views
             RunProfileList.ItemsSource = _profiles;
             NoRunStacks.Visibility = _stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             NoRunProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            AskSetupButton.Visibility = _workspace.Profiles.Count == 0 && _workspace.Stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             NoRunProfiles.Text = _workspace.Profiles.Count == 0
                 ? "Chưa có profile. Mở tab của một tool, chọn biến thể và tham số rồi bấm \"Lưu profile\"."
                 : $"Không có profile nào khớp \"{RunSearch.Text}\". Workspace có {_workspace.Profiles.Count} profile.";
@@ -492,6 +494,29 @@ namespace Toolbox.Views
         /// <summary>Cửa sổ chính mở một sheet bên phải (thay cho hộp thoại modal); <c>done</c> chạy khi sheet xong.</summary>
         public event Action<SheetBase, Action<bool>> SheetRequested;
 
+        /// <summary>Người dùng bấm "Nhờ agent…" mà chưa có agent nào: mở cửa sổ Kết nối agent.</summary>
+        public event Action ConnectAgentRequested;
+
+        private void AskAgent(string prompt) => AgentAsk.Send(prompt, () => ConnectAgentRequested?.Invoke());
+
+        private void OnAskSetup(object sender, RoutedEventArgs e)
+        {
+            if (_workspace == null)
+                return;
+            var detected = _workspace.Bindings.Select(b => ToolCatalog.Find(b.ToolId)?.Name ?? b.ToolId).ToList();
+            AskAgent(AgentPrompts.SetupWorkspace(_workspace, detected));
+        }
+
+        private void OnAskWorkflow(object sender, RoutedEventArgs e)
+        {
+            if (_workspace == null)
+                return;
+            var prompt = new PromptWindow("Nhờ agent dựng workflow", "Bạn muốn workflow làm gì?", "", "Ví dụ: bật API, chờ cổng 5000 mở, rồi bật web. Có thể để trống để agent hỏi lại.") { Owner = Host };
+            if (prompt.ShowDialog() != true)
+                return;
+            AskAgent(AgentPrompts.BuildWorkflow(_workspace, prompt.Value));
+        }
+
         private void OpenSheet(SheetBase sheet, Action<bool> done)
         {
             if (SheetRequested == null)
@@ -507,7 +532,8 @@ namespace Toolbox.Views
             if (binding == null || tool == null)
                 return;
             var kind = binding.ToolId;
-            var sheet = new CommandsSheet(tool, _workspace.ResolveCwd(binding.Cwd), () => ClearActionCache(kind));
+            var sheet = new CommandsSheet(tool, _workspace.ResolveCwd(binding.Cwd), () => ClearActionCache(kind),
+                ask: () => AskAgent(AgentPrompts.ReadToolCommands(_workspace, tool.Name, tool.Command, FailureHints.RelativeCwd(_workspace.ResolvedPath, _workspace.ResolveCwd(binding.Cwd)))));
             OpenSheet(sheet, ok =>
             {
                 ClearActionCache(kind);

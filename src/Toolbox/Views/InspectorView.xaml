@@ -31,6 +31,8 @@
                     <TextBlock x:Name="HintExplain" Margin="0,3,0,0" FontSize="12" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                         <Button x:Name="HintActionButton" Style="{StaticResource SoftButton}" Click="OnHintAction" Padding="12,3" MinHeight="26" />
+                        <Button x:Name="AskAgentButton" Style="{StaticResource SoftButton}" Content="Nhờ agent…" Click="OnAskAgent" Padding="12,3" MinHeight="26" Margin="8,0,0,0"
+                                ToolTip="Soạn prompt nhờ agent tìm nguyên nhân tác vụ lỗi này" />
                         <Button x:Name="CopyAgentButton" Style="{StaticResource GhostButton}" Content="Sao chép cho agent" Click="OnCopyForAgent"
                                 Padding="12,3" MinHeight="26" Margin="8,0,0,0"
                                 ToolTip="Sao chép lệnh, thư mục tương đối và 40 dòng log cuối để dán cho agent" />
