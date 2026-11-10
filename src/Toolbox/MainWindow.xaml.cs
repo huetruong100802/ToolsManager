@@ -105,6 +105,7 @@ namespace Toolbox
             RefreshRows();
             StartWatching();
             StartPresence();
+            MarkRunRequestsAnnounced();
             // Mở app là thấy việc cần làm, trừ khi được mở bằng file .toolbox (đi thẳng tới Thư viện để nhập).
             if (string.IsNullOrEmpty(Library.FileToOpen))
                 GoTo(Area.Overview);
@@ -134,6 +135,8 @@ namespace Toolbox
 
             if (files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
                 ShowAgentActivity();
+            if (files.Contains("proposals.json", StringComparer.OrdinalIgnoreCase))
+                AnnounceRunRequests();
             if (files.Contains("agents.json", StringComparer.OrdinalIgnoreCase) || files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
                 RefreshPresence();
 
@@ -302,6 +305,62 @@ namespace Toolbox
             _notifier.Check(_tasks.Snapshot(), NotifyEnabled, windowActive);
         }
 
+        // ---- Hỏi trước khi chạy ----
+
+        private readonly HashSet<string> _announcedRuns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private static List<Proposal> PendingRunProposals()
+        {
+            try { return ProposalStore.Load(ProposalStore.DefaultPath).Pending.Where(p => p.Kind == ProposalKinds.Run).ToList(); }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return new List<Proposal>(); }
+        }
+
+        private static int PendingRunRequests() => PendingRunProposals().Count;
+
+        /// <summary>Lúc mở app: yêu cầu đã chờ từ trước hiện ở Trang chủ, không bật thông báo dồn.</summary>
+        private void MarkRunRequestsAnnounced()
+        {
+            foreach (var proposal in PendingRunProposals())
+                _announcedRuns.Add(proposal.Id);
+        }
+
+        /// <summary>
+        /// Agent ở chế độ "Hỏi trước mỗi lần chạy" vừa xin chạy một lệnh: hiện thông báo có ba nút ngay tại trang đang mở,
+        /// không bắt người dùng đi tìm trang Agent.
+        /// </summary>
+        private void AnnounceRunRequests()
+        {
+            foreach (var proposal in PendingRunProposals().Where(p => _announcedRuns.Add(p.Id)))
+            {
+                var captured = proposal;
+                var where = RowOf(captured.WorkspaceId)?.Name;
+                var print = RunApprovals.PrintOf(captured);
+                if (print.Length > 90)
+                    print = print.Substring(0, 87) + "…";
+                Dialogs.Ask($"{captured.AgentName} xin chạy{(where == null ? "" : " ở " + where)}: {print}",
+                    "Cho chạy", () => DecideRun(captured, approve: true, always: false),
+                    new Views.ToastAction("Luôn cho lệnh này", () => DecideRun(captured, approve: true, always: true)),
+                    new Views.ToastAction("Từ chối", () => DecideRun(captured, approve: false, always: false)));
+            }
+        }
+
+        private void DecideRun(Proposal proposal, bool approve, bool always)
+        {
+            try
+            {
+                RunApprovals.Decide(ProposalStore.DefaultPath, AgentStore.DefaultPath, ActivityLog.DefaultPath, proposal, approve, always);
+                Dialogs.Success(!approve ? "Đã từ chối. Agent sẽ nhận lý do ở lần gọi sau."
+                    : always ? "Đã nhớ: agent chạy lệnh này luôn, không hỏi lại." : "Đã cho phép. Agent gọi lại đúng lệnh này để chạy một lần.", seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(this, "Không xử lý được yêu cầu chạy: " + ex.Message);
+            }
+            RefreshRows();
+            if (_area == Area.Agents)
+                AgentsPage.Refresh();
+        }
+
         // ---- Agent hiện diện ----
 
         /// <summary>Mốc đã đọc tới đâu trong activity.jsonl: chỉ báo việc agent làm sau mốc này.</summary>
@@ -423,7 +482,7 @@ namespace Toolbox
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { hasAgent = false; }
             var index = BuildSearchIndex();
             return HomeFeed.Build(_workspaces?.Workspaces ?? new List<Workspace>(), Library.Tools, _tasks.Snapshot(),
-                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow);
+                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, null, PendingRunRequests());
         }
 
         private void OnHomeItem(HomeItem item, bool secondary)

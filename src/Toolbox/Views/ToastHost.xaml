@@ -20,6 +20,18 @@
                                 AutomationProperties.Name="Đóng thông báo" ToolTip="Đóng" />
                         <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="{Binding ActionText}" Click="OnAction" Tag="{Binding}"
                                 Visibility="{Binding ActionVisibility}" Padding="12,3" MinHeight="26" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Extra}" Margin="0,8,0,0" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource GhostButton}" Content="{Binding Text}" Click="OnExtra" Tag="{Binding}" Padding="12,3" MinHeight="26" Margin="0,0,8,0" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" />
                     </DockPanel>
                 </Border>

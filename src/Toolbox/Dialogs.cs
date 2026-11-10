@@ -23,6 +23,10 @@ namespace Toolbox
         public static void Success(string message, string actionText = null, System.Action action = null, double? seconds = null) =>
             Views.Toasts.Show(message, Views.ToastKind.Success, actionText, action, seconds);
 
+        /// <summary>Thông báo kèm nhiều nút (vd. Cho chạy, Luôn cho lệnh này, Từ chối).</summary>
+        public static void Ask(string message, string primaryText, System.Action primary, params Views.ToastAction[] extra) =>
+            Views.Toasts.Show(message, Views.ToastKind.Info, primaryText, primary, 30, extra);
+
         public static void Info(string message) => Views.Toasts.Show(message);
 
         public static bool Confirm(Window owner, string message, bool warning = false) =>

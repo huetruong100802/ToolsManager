@@ -185,6 +185,13 @@ namespace Toolbox.Views
                 });
                 Refresh();
             }));
+            if (agent.AllowRuns != null && agent.AllowRuns.Count > 0)
+                actions.Children.Add(Btn($"Quên {agent.AllowRuns.Count} lệnh đã cho phép", "GhostButton", (s, e) =>
+                {
+                    RunApprovals.ForgetAllowed(AgentStore.DefaultPath, agent.Id);
+                    Dialogs.Success("Đã quên. Agent phải xin duyệt lại từng lệnh.", seconds: 5);
+                    Refresh();
+                }));
             actions.Children.Add(Btn("Gỡ agent", "DangerButton", (s, e) =>
             {
                 if (!Dialogs.Confirm(Host, $"Gỡ agent \"{agent.Name}\" khỏi Toolbox?\n\nAgent này sẽ bị từ chối ở lần gọi sau. Nhật ký việc nó đã làm vẫn giữ."))
@@ -305,9 +312,26 @@ namespace Toolbox.Views
             string Scope() => workspaceScope.IsEnabled && workspaceScope.IsChecked == true ? ProposalScopes.Workspace : ProposalScopes.Shared;
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
             actions.Children.Add(Btn("Duyệt", "PrimaryButton", (s, e) => Decide(proposal, approve: true, scope: Scope())));
+            if (proposal.Kind == ProposalKinds.Run)
+                actions.Children.Add(Btn("Luôn cho lệnh này", "SoftButton", (s, e) => AlwaysAllow(proposal)));
             actions.Children.Add(Btn("Từ chối", "GhostButton", (s, e) => Decide(proposal, approve: false)));
             panel.Children.Add(actions);
             return Card(panel, bottom: 10);
+        }
+
+        /// <summary>Duyệt và nhớ: lần sau agent chạy đúng lệnh này không phải hỏi lại. Bỏ ghi nhớ ở nút "Quên lệnh đã cho phép" của agent.</summary>
+        private void AlwaysAllow(Proposal proposal)
+        {
+            try
+            {
+                RunApprovals.Decide(ProposalStore.DefaultPath, AgentStore.DefaultPath, ActivityLog.DefaultPath, proposal, approve: true, always: true);
+                Dialogs.Success("Đã nhớ: agent chạy lệnh này luôn, không hỏi lại.", seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(Host, "Không áp dụng được: " + ex.Message);
+            }
+            Refresh();
         }
 
         private void Decide(Proposal proposal, bool approve, string scope = null)

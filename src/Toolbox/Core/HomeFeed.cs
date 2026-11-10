@@ -66,7 +66,8 @@ namespace Toolbox.Core
             IEnumerable<SearchEntry> entries,
             UsageStore usage,
             DateTime now,
-            Func<string, bool> pathExists = null)
+            Func<string, bool> pathExists = null,
+            int pendingRunRequests = 0)
         {
             var exists = pathExists ?? (p => File.Exists(p) || Directory.Exists(p));
             var feed = new HomeFeed();
@@ -75,10 +76,17 @@ namespace Toolbox.Core
             tasks = tasks ?? new List<TaskInfo>();
 
             // ---- Cần bạn xử lý ----
-            if (pendingProposals > 0)
+            if (pendingRunRequests > 0)
                 feed.Attention.Add(new HomeItem
                 {
-                    Glyph = "", Title = $"{pendingProposals} đề xuất của agent đang chờ bạn duyệt",
+                    Glyph = "", Title = pendingRunRequests == 1 ? "Agent xin chạy một lệnh" : $"Agent xin chạy {pendingRunRequests} lệnh",
+                    Detail = "Chỉ chạy khi bạn cho phép: duyệt một lần, luôn cho lệnh đó, hoặc từ chối.", Target = HomeTarget.Agents, ActionText = "Duyệt",
+                });
+            var otherProposals = Math.Max(0, pendingProposals - pendingRunRequests);
+            if (otherProposals > 0)
+                feed.Attention.Add(new HomeItem
+                {
+                    Glyph = "", Title = $"{otherProposals} đề xuất của agent đang chờ bạn duyệt",
                     Detail = "Agent muốn thêm hoặc sửa tool; bạn quyết định.", Target = HomeTarget.Agents, ActionText = "Xem và duyệt",
                 });
 

@@ -24,6 +24,9 @@ namespace Toolbox.Core.Agents
         {
             var print = Print(toolName, arguments);
             string message = null;
+            // Đã chọn "Luôn cho lệnh này": chạy ngay, không tạo đề xuất.
+            if (agent.AllowRuns != null && agent.AllowRuns.Contains(print, StringComparer.Ordinal))
+                return null;
             ProposalStore.Update(proposalsPath, store =>
             {
                 var approved = store.Proposals.FirstOrDefault(p => p.Kind == ProposalKinds.Run && p.State == ProposalStates.Approved
@@ -32,6 +35,16 @@ namespace Toolbox.Core.Agents
                 {
                     approved.State = ProposalStates.Used;
                     approved.DecidedAt = ListFile.Now();
+                    return true;
+                }
+
+                // Lệnh vừa bị từ chối: nói lý do cho agent một lần, không tạo đề xuất mới ngay (tránh hỏi dồn người dùng).
+                var rejected = store.Proposals.FirstOrDefault(p => p.Kind == ProposalKinds.Run && p.State == ProposalStates.Rejected
+                    && p.AgentId == agent.Id && p.Fields != null && p.Fields.TryGetValue(PrintField, out var r) && r == print);
+                if (rejected != null)
+                {
+                    rejected.State = ProposalStates.Used;
+                    message = RejectedMessage;
                     return true;
                 }
 
@@ -51,6 +64,69 @@ namespace Toolbox.Core.Agents
                 return true;
             });
             return message;
+        }
+
+        public const string RejectedMessage = "Người dùng đã từ chối cho chạy lệnh này. Đừng gọi lại nếu chưa hỏi người dùng; hãy hỏi họ muốn làm gì khác.";
+
+        /// <summary>Lệnh chuẩn hoá của một đề xuất chạy lệnh (rỗng nếu không phải đề xuất chạy).</summary>
+        public static string PrintOf(Proposal proposal) =>
+            proposal?.Fields != null && proposal.Fields.TryGetValue(PrintField, out var print) ? print : "";
+
+        /// <summary>Số đề xuất chạy lệnh đang chờ duyệt.</summary>
+        public static int PendingCount(IEnumerable<Proposal> proposals) =>
+            (proposals ?? Enumerable.Empty<Proposal>()).Count(p => p.Kind == ProposalKinds.Run && p.IsPending);
+
+        /// <summary>Ghi nhớ lệnh này cho agent: lần sau chạy luôn. Tối đa 100 lệnh mỗi agent.</summary>
+        public static void AllowAlways(string agentsPath, string agentId, string print)
+        {
+            if (string.IsNullOrEmpty(print))
+                return;
+            AgentStore.Update(agentsPath, store =>
+            {
+                var agent = store.Find(agentId);
+                if (agent == null)
+                    return false;
+                var list = agent.AllowRuns ?? (agent.AllowRuns = new List<string>());
+                if (list.Contains(print, StringComparer.Ordinal))
+                    return false;
+                list.Add(print);
+                if (list.Count > 100)
+                    list.RemoveAt(0);
+                return true;
+            });
+        }
+
+        /// <summary>Quên mọi lệnh đã cho phép luôn của agent. Trả về số lệnh đã quên.</summary>
+        public static int ForgetAllowed(string agentsPath, string agentId)
+        {
+            var count = 0;
+            AgentStore.Update(agentsPath, store =>
+            {
+                var agent = store.Find(agentId);
+                count = agent?.AllowRuns?.Count ?? 0;
+                if (count == 0)
+                    return false;
+                agent.AllowRuns = null;
+                return true;
+            });
+            return count;
+        }
+
+        /// <summary>
+        /// Quyết định một đề xuất chạy lệnh: duyệt một lần, duyệt luôn (<paramref name="always"/>), hoặc từ chối. Ghi nhật ký.
+        /// Dùng chung cho trang Agent và nút trên thông báo.
+        /// </summary>
+        public static void Decide(string proposalsPath, string agentsPath, string activityPath, Proposal proposal, bool approve, bool always = false)
+        {
+            if (approve && always)
+                AllowAlways(agentsPath, proposal.AgentId, PrintOf(proposal));
+            ProposalStore.Update(proposalsPath, store => { store.Decide(proposal.Id, approve, null); return true; });
+            ActivityLog.Append(activityPath, new ActivityEntry
+            {
+                AgentId = proposal.AgentId, AgentName = proposal.AgentName, WorkspaceId = proposal.WorkspaceId,
+                Action = approve ? "approve" : "reject", Target = proposal.ToolName ?? proposal.ToolId,
+                Result = approve ? "applied" : "rejected",
+            });
         }
 
         /// <summary>Chuỗi chuẩn hoá tên lệnh và tham số, dùng để so khớp đề xuất với lần gọi lại.</summary>

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Linq;
 using System.Windows.Threading;
 
 namespace Toolbox.Views
@@ -9,6 +11,19 @@ namespace Toolbox.Views
     public enum ToastKind { Info, Success, Error }
 
     /// <summary>Một thông báo nổi. Hết <see cref="Seconds"/> thì tự đóng; có nút hành động (vd. Hoàn tác) thì bấm là đóng luôn.</summary>
+    /// <summary>Một nút hành động thêm trên thông báo (vd. "Luôn cho lệnh này", "Từ chối").</summary>
+    public sealed class ToastAction
+    {
+        public ToastAction(string text, Action action)
+        {
+            Text = text;
+            Action = action;
+        }
+
+        public string Text { get; }
+        public Action Action { get; }
+    }
+
     public sealed class ToastItem
     {
         public string Message { get; set; }
@@ -16,6 +31,9 @@ namespace Toolbox.Views
         public string ActionText { get; set; }
         public Action Action { get; set; }
         public double Seconds { get; set; }
+
+        /// <summary>Các nút phụ sau nút chính; bấm nút nào cũng đóng thông báo.</summary>
+        public IReadOnlyList<ToastAction> Extra { get; set; } = new ToastAction[0];
         public Visibility ActionVisibility => string.IsNullOrEmpty(ActionText) ? Visibility.Collapsed : Visibility.Visible;
         internal DispatcherTimer Timer { get; set; }
     }
@@ -38,7 +56,7 @@ namespace Toolbox.Views
         /// <summary>Số thông báo đang hiện.</summary>
         public int Count => _items.Count;
 
-        public ToastItem Show(string message, ToastKind kind = ToastKind.Info, string actionText = null, Action action = null, double? seconds = null)
+        public ToastItem Show(string message, ToastKind kind = ToastKind.Info, string actionText = null, Action action = null, double? seconds = null, IReadOnlyList<ToastAction> extra = null)
         {
             var item = new ToastItem
             {
@@ -47,6 +65,7 @@ namespace Toolbox.Views
                 ActionText = actionText,
                 Action = action,
                 Seconds = seconds ?? (kind == ToastKind.Error ? 12 : action != null ? 8 : 4.5),
+                Extra = extra ?? new ToastAction[0],
             };
             while (_items.Count >= MaxToasts)
                 Dismiss(_items[0]);
@@ -66,6 +85,14 @@ namespace Toolbox.Views
 
         private void OnClose(object sender, RoutedEventArgs e) => Dismiss((sender as FrameworkElement)?.Tag as ToastItem);
 
+        private void OnExtra(object sender, RoutedEventArgs e)
+        {
+            var action = (sender as FrameworkElement)?.Tag as ToastAction;
+            var item = _items.FirstOrDefault(i => i.Extra.Contains(action));
+            Dismiss(item);
+            action?.Action?.Invoke();
+        }
+
         private void OnAction(object sender, RoutedEventArgs e)
         {
             var item = (sender as FrameworkElement)?.Tag as ToastItem;
@@ -79,15 +106,15 @@ namespace Toolbox.Views
     {
         public static ToastHost Host { get; set; }
 
-        public static bool Show(string message, ToastKind kind = ToastKind.Info, string actionText = null, Action action = null, double? seconds = null)
+        public static bool Show(string message, ToastKind kind = ToastKind.Info, string actionText = null, Action action = null, double? seconds = null, IReadOnlyList<ToastAction> extra = null)
         {
             var host = Host;
             if (host == null)
                 return false;
             if (host.Dispatcher.CheckAccess())
-                host.Show(message, kind, actionText, action, seconds);
+                host.Show(message, kind, actionText, action, seconds, extra);
             else
-                host.Dispatcher.BeginInvoke(new Action(() => host.Show(message, kind, actionText, action, seconds)));
+                host.Dispatcher.BeginInvoke(new Action(() => host.Show(message, kind, actionText, action, seconds, extra)));
             return true;
         }
     }
