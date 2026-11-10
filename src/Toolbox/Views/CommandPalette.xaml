@@ -13,7 +13,7 @@
             <DockPanel>
                 <Grid DockPanel.Dock="Top" Margin="14,12,14,8">
                     <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Faint}" Margin="2,0,0,0" />
-                    <TextBox x:Name="Input" Margin="26,0,0,0" BorderThickness="0" Background="Transparent" FontSize="15"
+                    <TextBox x:Name="Input" Margin="26,0,0,0" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource Ink}" FontSize="15"
                              PreviewKeyDown="OnInputKeyDown" TextChanged="OnTextChanged"
                              AutomationProperties.Name="Tìm hoặc chạy" />
                     <TextBlock x:Name="Hint" Text="Gõ tên profile, workflow, tool, workspace hoặc hành động…" IsHitTestVisible="False"
@@ -60,7 +60,7 @@
                                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Glyph}" Foreground="{DynamicResource Accent}"
                                                    Width="24" Margin="0,0,10,0" />
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Entry.Title}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Entry.Title}" Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Entry.Subtitle}" FontSize="11" Foreground="{DynamicResource Muted}"
                                                        TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
