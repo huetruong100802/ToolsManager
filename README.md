@@ -123,7 +123,7 @@ Workspace là một thư mục dự án, ví dụ repo Angular hoặc solution .
 
 ![Workspace với tab Angular: lệnh chạy dev, build và test](docs/images/workspace.png)
 
-Tab **Workflow** gom nhiều lệnh thành một chuỗi, ví dụ bật API, chờ cổng mở, rồi mới bật web. Tab **Tổng quan** tóm tắt các workspace, số tác vụ đang chạy, cổng đang dùng và hoạt động gần đây.
+Tab **Workflow** gom nhiều lệnh thành một chuỗi, ví dụ bật API, chờ cổng mở, rồi mới bật web. Mở app là vào **Trang chủ**: việc cần bạn xử lý (đề xuất của agent chờ duyệt, tác vụ lỗi, thứ mất đường dẫn), thứ đang chạy, và chỗ để tiếp tục; lần đầu có ba bước làm quen. **Ctrl+K** tìm và chạy mọi thứ từ bất kỳ trang nào.
 
 ![Tổng quan: số workspace, tác vụ đang chạy, cổng đang dùng và hoạt động gần đây](docs/images/overview.png)
 

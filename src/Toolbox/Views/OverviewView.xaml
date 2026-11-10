@@ -1,86 +1,78 @@
 <UserControl x:Class="Toolbox.Views.OverviewView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Toolbox.Views">
+    <UserControl.Resources>
+        <!-- Dòng việc dùng chung cho ba nhóm: biểu tượng, tiêu đề, chi tiết, nút chính và nút phụ. -->
+        <DataTemplate x:Key="HomeRowTemplate">
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10"
+                    Padding="14,10" Margin="0,0,0,8">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="{Binding ActionText}" Click="OnPrimary" Tag="{Binding}"
+                            VerticalAlignment="Center" Margin="10,0,0,0" AutomationProperties.Name="{Binding ActionText}" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding SecondaryText}" Click="OnSecondary" Tag="{Binding}"
+                            Visibility="{Binding SecondaryVisibility}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Glyph}" FontSize="16" Width="26"
+                               Foreground="{Binding GlyphBrush}" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="24,20">
-            <TextBlock Text="Tổng quan" FontSize="18" FontWeight="SemiBold" />
+        <StackPanel Margin="24,20" MaxWidth="900" HorizontalAlignment="Stretch">
+            <TextBlock Text="Trang chủ" FontSize="18" FontWeight="SemiBold" />
             <TextBlock x:Name="Subtitle" Style="{StaticResource Hint}" Margin="0,4,0,16" />
 
-            <UniformGrid Columns="3">
-                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                        CornerRadius="10" Padding="16,14" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
-                        <TextBlock x:Name="WorkspaceCount" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
-                        <TextBlock x:Name="WorkspaceDetail" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                        CornerRadius="10" Padding="16,14" Margin="0,0,10,0">
-                    <StackPanel>
-                        <TextBlock Text="ĐANG CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
-                        <TextBlock x:Name="RunningCount" FontSize="26" FontWeight="SemiBold" Margin="0,4,0,0" />
-                        <TextBlock x:Name="RunningDetail" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                        CornerRadius="10" Padding="16,14">
-                    <StackPanel>
-                        <TextBlock Text="CỔNG ĐANG DÙNG" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" />
-                        <TextBlock x:Name="PortList" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" TextWrapping="Wrap" />
-                        <TextBlock Text="Cổng của các tác vụ đang chạy" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-            </UniformGrid>
+            <!-- Lần đầu mở: ba bước làm quen. -->
+            <Border x:Name="OnboardingCard" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1"
+                    CornerRadius="12" Padding="18,14" Margin="0,0,0,18" Visibility="Collapsed">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Ẩn" Click="OnDismissOnboarding" Padding="10,2" MinHeight="26"
+                                ToolTip="Ẩn hướng dẫn này" AutomationProperties.Name="Ẩn hướng dẫn" />
+                        <TextBlock Text="Bắt đầu với Toolbox" FontSize="15" FontWeight="SemiBold" />
+                    </DockPanel>
+                    <TextBlock Text="Ba bước để dùng được ngay. Làm xong bước nào, bước đó tự đánh dấu." Style="{StaticResource Hint}" Margin="0,2,0,10" />
+                    <ItemsControl x:Name="OnboardingList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,4">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="{Binding ActionText}" Click="OnStep" Tag="{Binding}"
+                                            Visibility="{Binding ActionVisibility}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Check}" FontSize="16" Width="26"
+                                               Foreground="{Binding CheckBrush}" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource Muted}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
 
-            <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,24,0,6" />
-            <ItemsControl x:Name="WorkspaceList">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Stretch" Click="OnWorkspaceClick"
-                                Margin="0,0,0,6" ToolTip="{Binding Tip}" AutomationProperties.Name="{Binding Name}">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Right" Visibility="{Binding RunningVisibility}" Background="{DynamicResource OkSoft}"
-                                        BorderBrush="{DynamicResource OkLine}" BorderThickness="1" CornerRadius="9" Padding="6,0"
-                                        Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Số tác vụ đang chạy ngầm">
-                                    <TextBlock Text="{Binding RunningCount}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Ok}" />
-                                </Border>
-                                <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"
-                                         VerticalAlignment="Center" />
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Path}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </DockPanel>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock x:Name="NoWorkspaceNote" Style="{StaticResource Hint}" Text="Chưa có workspace. Thêm một thư mục repo ở rail bên trái." />
+            <StackPanel x:Name="AttentionSection" Visibility="Collapsed">
+                <TextBlock Text="CẦN BẠN XỬ LÝ" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,0,0,8" />
+                <ItemsControl x:Name="AttentionList" ItemTemplate="{StaticResource HomeRowTemplate}" />
+            </StackPanel>
 
-            <TextBlock Text="GẦN ĐÂY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,24,0,6" />
-            <ItemsControl x:Name="RecentList">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <DockPanel Margin="0,0,0,6">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Xem log" Click="OnShowLog"
-                                    Margin="8,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Xem log tác vụ" />
-                            <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Fill="{Binding StateBrush}" Margin="4,0,10,0"
-                                     VerticalAlignment="Center" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis">
-                                    <Run Text="{Binding WorkspaceName, Mode=OneWay}" />
-                                    <Run Text=" · " />
-                                    <Run Text="{Binding StateText, Mode=OneWay}" />
-                                    <Run Text="{Binding PortText, Mode=OneWay}" />
-                                </TextBlock>
-                            </StackPanel>
-                        </DockPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock x:Name="NoRecentNote" Style="{StaticResource Hint}" Text="Chưa có tác vụ nào." />
+            <StackPanel x:Name="RunningSection" Visibility="Collapsed">
+                <TextBlock Text="ĐANG CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,10,0,8" />
+                <ItemsControl x:Name="RunningList" ItemTemplate="{StaticResource HomeRowTemplate}" />
+            </StackPanel>
+
+            <StackPanel x:Name="ContinueSection" Visibility="Collapsed">
+                <TextBlock Text="TIẾP TỤC" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,10,0,8" />
+                <ItemsControl x:Name="ContinueList" ItemTemplate="{StaticResource HomeRowTemplate}" />
+            </StackPanel>
+
+            <local:EmptyState x:Name="AllQuiet" Visibility="Collapsed" Margin="0,40,0,0" Glyph="&#xE73E;" Title="Mọi thứ đang yên ổn"
+                              Body="Không có việc nào cần bạn xử lý và chưa có gì đang chạy. Bấm Ctrl+K để tìm và chạy một profile hoặc workflow." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

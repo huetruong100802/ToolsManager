@@ -812,6 +812,9 @@ namespace Toolbox.Views
         /// <summary>Mở cửa sổ Kết nối agent từ trang Agent.</summary>
         public void OpenAgentWindow() => OnConnectAgent(null, null);
 
+        /// <summary>Mở hộp chọn app đã cài để thêm tool (cho bước làm quen ở Trang chủ).</summary>
+        public void StartPickApp() => OnPickApp(null, null);
+
         private void OnConnectAgent(object sender, RoutedEventArgs e)
         {
             var window = new AgentWindow(_installer) { Owner = Host };

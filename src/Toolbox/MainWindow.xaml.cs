@@ -33,11 +33,11 @@ namespace Toolbox
             Library.FileToOpen = fileToOpen;
             WorkspaceContent.Initialize(_tasks, TrySave);
             Inspector.Initialize(_tasks);
-            OverviewPage.Initialize(_tasks, _rows);
             TasksPage.Initialize(_tasks, _rows);
-            OverviewPage.ShowLogRequested += Inspector.Show;
+            OverviewPage.Initialize(BuildHomeFeed);
+            OverviewPage.ItemActivated += OnHomeItem;
+            OverviewPage.StepActivated += OnHomeStep;
             TasksPage.ShowLogRequested += Inspector.Show;
-            OverviewPage.OpenWorkspaceRequested += row => Navigate(row);
             AgentsPage.ConnectRequested += Library.OpenAgentWindow;
             // Rail: ghim lên đầu, còn lại theo tên; ô tìm lọc theo tên (hiện khi workspace nhiều).
             _rowsView = CollectionViewSource.GetDefaultView(_rows);
@@ -88,6 +88,9 @@ namespace Toolbox
                 _rows.Add(new WorkspaceRow(workspace));
             RefreshRows();
             StartWatching();
+            // Mở app là thấy việc cần làm, trừ khi được mở bằng file .toolbox (đi thẳng tới Thư viện để nhập).
+            if (string.IsNullOrEmpty(Library.FileToOpen))
+                GoTo(Area.Overview);
         }
 
         // ---- Đồng bộ trực tiếp với agent ----
@@ -196,6 +199,78 @@ namespace Toolbox
             _rowsView.Refresh();
         }
 
+        // ---- Trang chủ ----
+
+        private HomeFeed BuildHomeFeed()
+        {
+            bool hasAgent;
+            try { hasAgent = Core.Agents.AgentStore.Load(Core.Agents.AgentStore.DefaultPath).Agents.Count > 0; }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { hasAgent = false; }
+            var index = BuildSearchIndex();
+            return HomeFeed.Build(_workspaces?.Workspaces ?? new List<Workspace>(), Library.Tools, _tasks.Snapshot(),
+                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow);
+        }
+
+        private void OnHomeItem(HomeItem item, bool secondary)
+        {
+            switch (item.Target)
+            {
+                case HomeTarget.Agents:
+                    GoTo(Area.Agents);
+                    break;
+                case HomeTarget.Task:
+                    Inspector.Show(item.Task);
+                    break;
+                case HomeTarget.OpenPort:
+                    if (secondary || !item.Port.HasValue)
+                        Inspector.Show(item.Task);
+                    else
+                        OpenInBrowser("http://localhost:" + item.Port.Value);
+                    break;
+                case HomeTarget.Workspace:
+                    var row = RowOf(item.WorkspaceId);
+                    if (row != null)
+                        Navigate(row);
+                    break;
+                case HomeTarget.Library:
+                    Navigate(null);
+                    Library.FocusTool(item.ToolId);
+                    break;
+                case HomeTarget.Run:
+                    OpenEntry(item.Entry, run: !secondary);
+                    break;
+            }
+        }
+
+        private void OnHomeStep(OnboardingStep step)
+        {
+            switch (step.Target)
+            {
+                case HomeTarget.AddWorkspace:
+                    OnAddWorkspace(this, new RoutedEventArgs());
+                    break;
+                case HomeTarget.PickApp:
+                    Navigate(null);
+                    Library.StartPickApp();
+                    break;
+                case HomeTarget.ConnectAgent:
+                    Library.OpenAgentWindow();
+                    break;
+            }
+        }
+
+        private void OpenInBrowser(string url)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException)
+            {
+                Dialogs.Error(this, "Không mở được trình duyệt: " + ex.Message);
+            }
+        }
+
         // ---- Bảng lệnh Ctrl+K ----
 
         private void OnPaletteClick(object sender, RoutedEventArgs e) => Palette.Open();
@@ -218,7 +293,7 @@ namespace Toolbox
             SearchEntry Act(string code, string title, string keywords = null) =>
                 new SearchEntry { Kind = SearchKind.Action, Key = UsageStore.Key("action", code), Title = title, Subtitle = "Hành động", TargetId = code, Keywords = keywords };
             yield return Act("go-library", "Mở Thư viện", "tool danh sách");
-            yield return Act("go-overview", "Mở Tổng quan", "trang chủ");
+            yield return Act("go-overview", "Mở Trang chủ", "tổng quan việc cần làm");
             yield return Act("go-tasks", "Mở Tác vụ", "đang chạy log");
             yield return Act("go-agents", "Mở Agent", "duyệt đề xuất");
             yield return Act("add-workspace", "Thêm workspace", "thư mục repo");

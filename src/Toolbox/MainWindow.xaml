@@ -23,7 +23,7 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Rail trái: Thư viện, Tổng quan, Tác vụ, danh sách workspace. -->
+            <!-- Rail trái: Trang chủ, Thư viện, Tác vụ, danh sách workspace. -->
             <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
                 <DockPanel Margin="12,14,12,12">
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,16">
@@ -60,18 +60,18 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <RadioButton x:Name="LibraryNav" Style="{StaticResource RailItem}" Click="OnLibraryClick" IsChecked="True"
+                            <RadioButton x:Name="OverviewNav" Style="{StaticResource RailItem}" Click="OnOverviewClick"
+                                         AutomationProperties.Name="Trang chủ">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE80F;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
+                                    <TextBlock Text="Trang chủ" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="LibraryNav" Style="{StaticResource RailItem}" Click="OnLibraryClick"
                                          AutomationProperties.Name="Thư viện">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
                                     <TextBlock Text="Thư viện" />
-                                </StackPanel>
-                            </RadioButton>
-                            <RadioButton x:Name="OverviewNav" Style="{StaticResource RailItem}" Click="OnOverviewClick"
-                                         AutomationProperties.Name="Tổng quan">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE80F;" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" />
-                                    <TextBlock Text="Tổng quan" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton x:Name="TasksNav" Style="{StaticResource RailItem}" Click="OnTasksClick"

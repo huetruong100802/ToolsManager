@@ -9,6 +9,9 @@ namespace Toolbox.Core
     public class Settings
     {
         /// <summary>"system" (theo Windows), "light" hoặc "dark".</summary>
+        [DataMember(Name = "onboardingDismissed", EmitDefaultValue = false)]
+        public bool OnboardingDismissed { get; set; }
+
         [DataMember(Name = "theme", EmitDefaultValue = false)]
         public string Theme { get; set; }
 
