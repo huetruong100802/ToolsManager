@@ -17,7 +17,7 @@
                             <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Glyph}" FontSize="14" Width="22"
                                        Foreground="{Binding GlyphBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
                             <StackPanel>
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
                             </StackPanel>
                         </DockPanel>

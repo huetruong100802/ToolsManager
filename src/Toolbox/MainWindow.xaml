@@ -144,7 +144,7 @@
                                                            Margin="6,0,0,0" ToolTip="Không tìm thấy thư mục" />
                                                 <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"
                                                          VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                             </DockPanel>
                                         </RadioButton>
                                     </DataTemplate>

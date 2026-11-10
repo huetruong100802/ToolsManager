@@ -52,7 +52,7 @@
                             </Grid.ColumnDefinitions>
                             <CheckBox IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,12,0" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Tool.Name}" FontWeight="SemiBold" />
+                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Tool.Name}" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding Info}" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"

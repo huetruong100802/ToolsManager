@@ -15,7 +15,7 @@
                     <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Glyph}" FontSize="16" Width="26"
                                Foreground="{Binding GlyphBrush}" VerticalAlignment="Center" />
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </DockPanel>
@@ -46,7 +46,7 @@
                                     <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" Text="{Binding Check}" FontSize="16" Width="26"
                                                Foreground="{Binding CheckBrush}" VerticalAlignment="Center" />
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource Muted}" />
                                     </StackPanel>
                                 </DockPanel>

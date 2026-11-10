@@ -13,7 +13,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                 </StackPanel>
                 <Border x:Name="Chip" Grid.Column="1" CornerRadius="9" Padding="8,1" Margin="12,0" VerticalAlignment="Center"

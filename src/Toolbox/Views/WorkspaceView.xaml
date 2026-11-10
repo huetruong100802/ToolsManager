@@ -53,7 +53,7 @@
                                         </StackPanel>
                                         <StackPanel VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                 <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
                                                         Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
                                                         ToolTip="Agent vừa thêm hoặc sửa mục này">
@@ -90,7 +90,7 @@
                                             </StackPanel>
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                 <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
                                                         Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
                                                         ToolTip="Agent vừa thêm hoặc sửa mục này">
@@ -140,7 +140,7 @@
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
-                                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                                                     </DockPanel>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -219,7 +219,7 @@
                             <DataTemplate>
                                 <RadioButton Style="{StaticResource RailItem}" Click="OnToolNavClick" IsChecked="{Binding IsSelected, Mode=OneWay}"
                                              AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
-                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                                 </RadioButton>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -267,7 +267,7 @@
                                         </StackPanel>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
@@ -366,7 +366,7 @@
                                         </StackPanel>
                                         <StackPanel VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                 <Border Background="{DynamicResource TagBg}" CornerRadius="10" Padding="7,1" Margin="8,0,0,0"
                                                         VerticalAlignment="Center" Visibility="{Binding WindowVisibility}"
                                                         ToolTip="Chạy trong cửa sổ terminal riêng, không có log">

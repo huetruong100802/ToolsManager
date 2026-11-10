@@ -56,7 +56,7 @@
                                 <Image Source="{Binding Icon}" Width="24" Height="24" Margin="0,0,12,0" VerticalAlignment="Center"
                                        RenderOptions.BitmapScalingMode="HighQuality" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Info.Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Info.Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Info.TargetPath}" Foreground="{DynamicResource Muted}" FontSize="12"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
