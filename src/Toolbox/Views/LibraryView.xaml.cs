@@ -50,7 +50,6 @@ namespace Toolbox.Views
                 foreach (var item in _items)
                     item.Tick();
             };
-            _clock.Start();
         }
 
         /// <summary>File .toolbox truyền qua dòng lệnh; nhập ngay khi trang tải xong.</summary>
@@ -617,6 +616,11 @@ namespace Toolbox.Views
             var running = _runs.RunningCount;
             RunningText.Text = $"● {running} tool đang chạy";
             RunningText.Visibility = running > 0 ? Visibility.Visible : Visibility.Collapsed;
+            // Đồng hồ thời lượng chỉ chạy khi có tool đang chạy.
+            if (running > 0 && !_clock.IsEnabled)
+                _clock.Start();
+            else if (running == 0)
+                _clock.Stop();
         }
 
         private async void OnInstallSetup(object sender, RoutedEventArgs e)

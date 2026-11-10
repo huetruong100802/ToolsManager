@@ -20,7 +20,7 @@ namespace Toolbox.Views
         public const int ToolCountForAgent = 12;
 
         private static readonly TimeSpan ConnectedWindow = TimeSpan.FromMinutes(2);
-        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         private string _tab = "agents";
         private string _expanded;
         private Dictionary<string, string> _workspaceNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -32,8 +32,15 @@ namespace Toolbox.Views
         {
             InitializeComponent();
             // Agent gửi đề xuất từ tiến trình khác: làm mới định kỳ khi trang đang hiện.
+            // Thay đổi của agent đến qua StoreWatcher (MainWindow gọi Refresh); đồng hồ chỉ để cập nhật nhãn "đang kết nối" theo thời gian.
             _timer.Tick += (s, e) => { if (IsVisible) Refresh(); };
-            _timer.Start();
+            IsVisibleChanged += (s, e) =>
+            {
+                if (IsVisible)
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            };
         }
 
         private Window Host => Window.GetWindow(this);

@@ -180,6 +180,7 @@
                 </Border>
 
                 <ListBox x:Name="ToolList" HorizontalContentAlignment="Stretch" MouseDoubleClick="OnListDoubleClick"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate>

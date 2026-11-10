@@ -38,6 +38,21 @@ namespace Toolbox.Views
             TaskList.ItemsSource = _items.Items;
             _timer.Tick += (s, e) => { if (IsVisible) Refresh(); };
             _logTimer.Tick += (s, e) => LogTick();
+            // Đồng hồ chỉ chạy khi trang đang hiện; ẩn thì dừng hẳn, không đánh thức luồng giao diện mỗi giây.
+            IsVisibleChanged += (s, e) =>
+            {
+                if (IsVisible && _tasks != null)
+                {
+                    _timer.Start();
+                    _logTimer.Start();
+                    Refresh();
+                }
+                else
+                {
+                    _timer.Stop();
+                    _logTimer.Stop();
+                }
+            };
             RenderLog(toBottom: true);
         }
 
@@ -50,8 +65,11 @@ namespace Toolbox.Views
             tasks.LineAdded += task => _logDirty = true;
             // Kết thúc tác vụ không đi qua LineAdded, nên cần cờ riêng để có dòng trạng thái cuối.
             tasks.Changed += () => _logDirty = true;
-            _timer.Start();
-            _logTimer.Start();
+            if (IsVisible)
+            {
+                _timer.Start();
+                _logTimer.Start();
+            }
         }
 
         /// <summary>Đồng bộ danh sách với tác vụ hiện có. Gọi khi tác vụ đổi, và mỗi giây để cập nhật thời gian.</summary>

@@ -80,7 +80,7 @@ namespace Toolbox.Views
         private readonly List<HomeRow> _attention = new List<HomeRow>();
         private readonly List<HomeRow> _running = new List<HomeRow>();
         private readonly List<HomeRow> _continue = new List<HomeRow>();
-        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         private Func<HomeFeed> _feed;
         private bool _dismissed;
 
@@ -94,6 +94,13 @@ namespace Toolbox.Views
         {
             InitializeComponent();
             _timer.Tick += (s, e) => { if (IsVisible) Refresh(); };
+            IsVisibleChanged += (s, e) =>
+            {
+                if (IsVisible && _feed != null)
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            };
         }
 
         /// <param name="feed">Dựng nội dung Trang chủ từ dữ liệu hiện tại; gọi mỗi lần làm mới.</param>
@@ -101,7 +108,8 @@ namespace Toolbox.Views
         {
             _feed = feed;
             _dismissed = Settings.Load().OnboardingDismissed;
-            _timer.Start();
+            if (IsVisible)
+                _timer.Start();
         }
 
         /// <summary>Giữ số dòng đang hiện (để test).</summary>
