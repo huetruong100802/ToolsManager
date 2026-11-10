@@ -46,6 +46,7 @@ namespace Toolbox
             _rowsView.Filter = o => MatchesSearch(o as WorkspaceRow);
             WorkspaceList.ItemsSource = _rowsView;
             ThemeText.Text = Theme.Label(Theme.Mode);
+            Views.Toasts.Host = ToastLayer;
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
@@ -75,7 +76,7 @@ namespace Toolbox
             {
                 // Không ghi đè file hỏng; thư viện vẫn dùng được, chỉ tắt phần workspace.
                 AddWorkspaceButton.IsEnabled = false;
-                Dialogs.Error(this, ex.Message + "\n\nWorkspace tạm thời không dùng được. Hãy sửa hoặc xoá file này rồi mở lại Toolbox.");
+                Dialogs.Fatal(this, ex.Message + "\n\nWorkspace tạm thời không dùng được. Hãy sửa hoặc xoá file này rồi mở lại Toolbox.");
                 return;
             }
 

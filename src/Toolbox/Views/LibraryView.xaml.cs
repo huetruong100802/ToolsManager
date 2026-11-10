@@ -41,6 +41,8 @@ namespace Toolbox.Views
             TagChips.ItemsSource = _tagOptions;
             ActiveTags.ItemsSource = _activeTags;
             Loaded += OnLoaded;
+            EmptyHint.AddAction("App đã cài…", () => OnPickApp(null, null));
+            EmptyHint.AddAction("Thêm tool", () => OnAdd(null, null));
             // Exited/Changed đến từ luồng khác: chuyển về luồng giao diện rồi mới đụng vào item.
             _runs.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshRuns));
             _clock.Tick += (s, e) =>
@@ -75,7 +77,7 @@ namespace Toolbox.Views
             catch (InvalidDataException ex)
             {
                 // Không ghi đè file hỏng; để người dùng tự sửa hoặc xoá.
-                Dialogs.Error(Host, ex.Message + "\n\nHãy sửa hoặc xoá file này rồi mở lại Toolbox.");
+                Dialogs.Fatal(Host, ex.Message + "\n\nHãy sửa hoặc xoá file này rồi mở lại Toolbox.");
                 Host.Close();
                 return;
             }
@@ -439,40 +441,100 @@ namespace Toolbox.Views
             }
         }
 
+        /// <summary>
+        /// Xoá tool đã tick. Xoá khỏi danh sách là thao tác đảo được nên làm ngay rồi hiện thông báo có nút Hoàn tác (8 giây);
+        /// chỉ hỏi trước khi phải xoá cả bản chép trong thư viện Toolbox (không khôi phục được).
+        /// </summary>
         private void OnRemove(object sender, RoutedEventArgs e)
         {
             var items = CheckedItems();
             var tools = items.Select(i => i.Tool).ToList();
-            var names = string.Join("\n", tools.Select(t => "• " + t.Name));
-            var message = $"Xoá {tools.Count} tool khỏi danh sách?\n\n{names}\n\nFile gốc của tool không bị xoá. Tool đang gắn vào workspace nào sẽ được gỡ khỏi workspace đó.";
+            if (tools.Count == 0)
+                return;
 
-            // Chỉ hỏi về bản chép khi có bản chép thật trong thư viện; không thì giữ xác nhận đơn giản như trước.
-            var withCopies = tools.Count(t => Library.HasCopy(_store, t.Id));
             var deleteCopies = false;
+            var withCopies = tools.Count(t => Library.HasCopy(_store, t.Id));
             if (withCopies > 0)
             {
-                var answer = Dialogs.Choose(Host, message + $"\n\n{withCopies} tool có bản chép trong thư viện Toolbox."
-                    + "\n\nYes: xoá luôn bản chép trong thư viện."
+                var names = string.Join("\n", tools.Select(t => "• " + t.Name));
+                var answer = Dialogs.Choose(Host, $"Xoá {tools.Count} tool khỏi danh sách?\n\n{names}\n\n{withCopies} tool có bản chép trong thư viện Toolbox."
+                    + "\n\nYes: xoá luôn bản chép trong thư viện (không khôi phục được)."
                     + "\nNo: chỉ bỏ khỏi danh sách, giữ bản chép để khôi phục sau."
                     + "\nCancel: không làm gì.");
                 if (answer == null)
                     return;
                 deleteCopies = answer.Value;
             }
-            else if (!Dialogs.Confirm(Host, message))
-            {
-                return;
-            }
 
+            var removed = tools.Select(t => t.Clone()).ToList();
             foreach (var tool in tools)
                 _store.Remove(tool.Id);
             // Lưu danh sách trước: nếu lưu lỗi thì không xoá bản chép của tool vẫn còn trong tools.json.
             if (!Save())
                 return;
-            UnbindFromWorkspaces(tools.Select(t => t.Id));
+            var ids = tools.Select(t => t.Id).ToList();
+            var bound = CaptureBindings(ids);
+            UnbindFromWorkspaces(ids);
             if (deleteCopies)
                 DeleteCopies(tools);
             Reload();
+
+            var label = removed.Count == 1 ? $"Đã xoá \"{removed[0].Name}\"" : $"Đã xoá {removed.Count} tool";
+            if (deleteCopies)
+                Dialogs.Success(label + ".");
+            else
+                Dialogs.Success(label + ".", "Hoàn tác", () => RestoreTools(removed, bound));
+        }
+
+        /// <summary>Chỗ gắn của các tool trước khi gỡ khỏi workspace, để hoàn tác gắn lại đúng chỗ.</summary>
+        private List<KeyValuePair<string, ToolBinding>> CaptureBindings(IEnumerable<string> toolIds)
+        {
+            var result = new List<KeyValuePair<string, ToolBinding>>();
+            try
+            {
+                var store = WorkspaceStore.Peek(WorkspaceStore.DefaultPath);
+                foreach (var workspace in store.Workspaces)
+                    foreach (var binding in workspace.Bindings.Where(b => toolIds.Contains(b.ToolId, StringComparer.OrdinalIgnoreCase)))
+                        result.Add(new KeyValuePair<string, ToolBinding>(workspace.Id, new ToolBinding { ToolId = binding.ToolId, Cwd = binding.Cwd, Args = binding.Args }));
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+            return result;
+        }
+
+        /// <summary>Hoàn tác xoá: đưa tool trở lại danh sách và gắn lại vào các workspace cũ (trừ chỗ đã gắn lại bằng tay).</summary>
+        private void RestoreTools(List<ToolEntry> tools, List<KeyValuePair<string, ToolBinding>> bound)
+        {
+            try
+            {
+                foreach (var tool in tools)
+                    if (_store.Find(tool.Id) == null)
+                        _store.Add(tool);
+                if (!Save())
+                    return;
+                if (bound.Count > 0)
+                    WorkspaceStore.Update(WorkspaceStore.DefaultPath, store =>
+                    {
+                        var any = false;
+                        foreach (var pair in bound)
+                        {
+                            var workspace = store.Find(pair.Key);
+                            if (workspace == null || workspace.Binding(pair.Value.ToolId) != null)
+                                continue;
+                            workspace.Bindings.Add(pair.Value);
+                            any = true;
+                        }
+                        return any;
+                    });
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(Host, "Không hoàn tác được: " + ex.Message);
+                return;
+            }
+            Reload();
+            Dialogs.Success(tools.Count == 1 ? $"Đã khôi phục \"{tools[0].Name}\"." : $"Đã khôi phục {tools.Count} tool.");
         }
 
         /// <summary>Xoá bản chép sau khi danh sách đã lưu. Lỗi của một tool không chặn các tool còn lại.</summary>

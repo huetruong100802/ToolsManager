@@ -417,7 +417,10 @@ namespace Toolbox.Views
             var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} profile, {result.StacksAdded} bộ chạy, {result.CustomsAdded} lệnh riêng.";
             if (result.Warnings.Count > 0)
                 summary += "\n\nCảnh báo:\n" + string.Join("\n", result.Warnings);
-            MessageBox.Show(Host, summary, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+            if (result.Warnings.Count == 0)
+                Dialogs.Success(summary, seconds: 8);
+            else
+                MessageBox.Show(Host, summary, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private ToolStore LoadLibraryStore()

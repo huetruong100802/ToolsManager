@@ -326,7 +326,7 @@ namespace Toolbox.Views
                     Result = !approve ? "rejected" : ProposalScopes.Normalize(scope) == ProposalScopes.Workspace ? "applied-workspace" : "applied",
                 });
                 if (approve)
-                    MessageBox.Show(Host, result, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Dialogs.Success(result, seconds: 8);
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
             {
@@ -530,7 +530,7 @@ namespace Toolbox.Views
             try
             {
                 var message = ActivityUndo.Undo(entry, WorkspaceStore.DefaultPath, ToolStore.DefaultPath, ActivityLog.DefaultPath);
-                MessageBox.Show(Host, message, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                Dialogs.Success(message, seconds: 8);
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
             {

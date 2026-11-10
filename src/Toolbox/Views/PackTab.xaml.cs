@@ -255,9 +255,8 @@ namespace Toolbox.Views
             try
             {
                 var result = Packer.PackWorkspace(_workspace, SafeLibrary(), Clone(_manual), dialog.FileName);
-                MessageBox.Show(Host,
-                    $"Đã đóng gói {result.StackCount} bộ chạy, {result.ProfileCount} profile, {result.ToolCount} tool, {result.CustomCount} lệnh riêng.\n{dialog.FileName}",
-                    "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                Dialogs.Success(
+                    $"Đã đóng gói {result.StackCount} bộ chạy, {result.ProfileCount} profile, {result.ToolCount} tool, {result.CustomCount} lệnh riêng.\n{dialog.FileName}", seconds: 10);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidDataException)
             {
