@@ -34,10 +34,14 @@ namespace Toolbox
             WorkspaceContent.Initialize(_tasks, TrySave);
             Inspector.Initialize(_tasks);
             TasksPage.Initialize(_tasks, _rows);
+            Dock.LogRequested += Inspector.Show;
+            Dock.StopRequested += task => _tasks.Stop(task.Id);
+            Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
+            Dock.AllRequested += () => GoTo(Area.Tasks);
             OverviewPage.Initialize(BuildHomeFeed);
             OverviewPage.ItemActivated += OnHomeItem;
             OverviewPage.StepActivated += OnHomeStep;
-            TasksPage.ShowLogRequested += Inspector.Show;
+            TasksPage.ShowLogRequested += ShowLog;
             AgentsPage.ConnectRequested += Library.OpenAgentWindow;
             // Rail: ghim lên đầu, còn lại theo tên; ô tìm lọc theo tên (hiện khi workspace nhiều).
             _rowsView = CollectionViewSource.GetDefaultView(_rows);
@@ -133,7 +137,7 @@ namespace Toolbox
             ArchivedToggle.Content = _showArchived ? "Ẩn workspace đã lưu trữ" : $"Lưu trữ ({archived})";
             WorkspaceSearchBox.Visibility = _rows.Count >= SearchThreshold ? Visibility.Visible : Visibility.Collapsed;
 
-            StatusText.Text = TaskBoard.StatusLine(running);
+            Dock.Update(_tasks.Snapshot());
             TasksBadge.Visibility = running.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             TasksBadgeCount.Text = running.Count.ToString();
 
@@ -199,6 +203,13 @@ namespace Toolbox
             _rowsView.Refresh();
         }
 
+        /// <summary>Mở log một tác vụ; nếu đó là lỗi đang nhắc ở dock thì coi như đã xem.</summary>
+        private void ShowLog(TaskInfo task)
+        {
+            Dock.MarkSeen(task.Id);
+            Inspector.Show(task);
+        }
+
         // ---- Trang chủ ----
 
         private HomeFeed BuildHomeFeed()
@@ -219,11 +230,11 @@ namespace Toolbox
                     GoTo(Area.Agents);
                     break;
                 case HomeTarget.Task:
-                    Inspector.Show(item.Task);
+                    ShowLog(item.Task);
                     break;
                 case HomeTarget.OpenPort:
                     if (secondary || !item.Port.HasValue)
-                        Inspector.Show(item.Task);
+                        ShowLog(item.Task);
                     else
                         OpenInBrowser("http://localhost:" + item.Port.Value);
                     break;
@@ -421,7 +432,6 @@ namespace Toolbox
 
         private void OnTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
 
-        private void OnStatusTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
 
         private void OnAgentsClick(object sender, RoutedEventArgs e) => GoTo(Area.Agents);
 

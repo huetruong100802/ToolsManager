@@ -6,16 +6,8 @@
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterScreen">
     <Grid>
     <DockPanel>
-        <!-- Thanh trạng thái: số tác vụ đang chạy và cổng đang dùng. -->
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
-                BorderThickness="0,1,0,0" Padding="14,4">
-            <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnStatusTasksClick"
-                        Content="Xem tác vụ" Padding="10,2" AutomationProperties.Name="Mở trang Tác vụ" />
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource Muted}"
-                           TextTrimming="CharacterEllipsis" />
-            </DockPanel>
-        </Border>
+        <!-- Dock tác vụ: mỗi tác vụ đang chạy (hoặc vừa lỗi) là một chip. -->
+        <views:RunDock x:Name="Dock" DockPanel.Dock="Bottom" />
 
         <Grid>
             <Grid.ColumnDefinitions>
