@@ -404,7 +404,54 @@ namespace Toolbox.Core.Workspaces
                     Choices = value.Success ? ExtractChoices(value.Groups[2].Value + " " + description) : null,
                 });
             }
+
+            ParseUsageFlags(text, result);
             return result;
+        }
+
+        /// <summary>Cờ đứng trong dòng "usage: …" (kiểu git, argparse): nằm trong [ ] hoặc sau | nên không đứng đầu dòng.</summary>
+        private static readonly Regex UsageHead = new Regex(@"^\s*usage:", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex UsageFlag = new Regex(@"(?<=[\[\s|])(--?[A-Za-z][A-Za-z0-9_-]*)", RegexOptions.Compiled);
+        /// <summary>Sau tên cờ có giá trị: "=x", "[=x]", "&lt;x&gt;", hoặc một từ viết hoa như PORT.</summary>
+        private static readonly Regex UsageValue = new Regex(@"^(=|\[=|\s+\[?<|\s+[A-Z][A-Z0-9_]*(\s|\]|$))", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Đọc cờ từ dòng "usage:" và các dòng thụt tiếp theo. Chỉ thêm cờ chưa có ở phần mô tả; không có mô tả riêng nên Description để trống.
+        /// Cờ có giá trị được nhận ra từ ký hiệu ngay sau tên (=x, &lt;x&gt;, [=x], PORT). Trùng tên được tính theo đúng chữ hoa/thường
+        /// (git có cả -c và -C).
+        /// </summary>
+        private static void ParseUsageFlags(string text, List<CapabilityEntry> result)
+        {
+            var lines = (text ?? "").Replace("\r", "").Split('\n');
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!UsageHead.IsMatch(lines[i]))
+                    continue;
+                for (var j = i; j < lines.Length; j++)
+                {
+                    var line = lines[j];
+                    if (j > i && (line.Length == 0 || !char.IsWhiteSpace(line[0])))
+                        break;
+                    foreach (Match m in UsageFlag.Matches(line))
+                    {
+                        var name = m.Groups[1].Value;
+                        if (!CapabilityStore.IsFlag(name) || result.Any(r => r.Name == name))
+                            continue;
+                        var after = line.Substring(m.Index + m.Length);
+                        var excerpt = line.Trim();
+                        result.Add(new CapabilityEntry
+                        {
+                            Name = name,
+                            TakesValue = UsageValue.IsMatch(after),
+                            Description = null,
+                            Excerpt = excerpt.Length > 240 ? excerpt.Substring(0, 240) + "…" : excerpt,
+                            Source = "scan",
+                            Role = "",
+                        });
+                    }
+                }
+                return;
+            }
         }
 
         private static readonly Regex Braces = new Regex(@"\{([^{}]{3,200})\}", RegexOptions.Compiled);

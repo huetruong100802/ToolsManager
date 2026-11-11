@@ -8,7 +8,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Thêm tool vào workspace" FontWeight="SemiBold" FontSize="15" />
             <TextBlock x:Name="HintText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
-                       Text="Tick tool cần dùng. Tool nào cũng có bảng hậu tố (lệnh con, cờ) và tạo được profile sau khi thêm." />
+                       Text="Tick tool cần dùng. Tool nào cũng có bảng lệnh (lệnh con, cờ) và tạo được profile sau khi thêm." />
         </StackPanel>
 
         <v:SearchField x:Name="Search" DockPanel.Dock="Top" Placeholder="Tìm tool…" Margin="0,0,0,8" />
@@ -31,7 +31,7 @@
                 <GroupStyle>
                     <GroupStyle.HeaderTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Muted}" Margin="2,10,0,2" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="2,10,0,2" />
                         </DataTemplate>
                     </GroupStyle.HeaderTemplate>
                 </GroupStyle>
@@ -40,7 +40,7 @@
                 <DataTemplate>
                     <CheckBox IsChecked="{Binding IsChecked}" Margin="2,6" VerticalContentAlignment="Center">
                         <StackPanel>
-                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{Binding Detail}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </CheckBox>

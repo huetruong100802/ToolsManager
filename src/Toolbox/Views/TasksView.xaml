@@ -38,11 +38,23 @@
 
         <TextBlock x:Name="EmptyHint" Grid.Row="2" Style="{StaticResource Hint}" Visibility="Collapsed" Margin="0,0,0,8" />
 
-        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl x:Name="TaskList">
+        <ItemsControl x:Name="TaskList" Grid.Row="3" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl.Template>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </ItemsControl.Template>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Background="{StaticResource Surface}" BorderBrush="{Binding RowBorder}" BorderThickness="1"
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{Binding RowBorder}" BorderThickness="1"
                                 CornerRadius="10" Padding="14,10" Margin="0,0,0,8" Cursor="Hand"
                                 MouseLeftButtonUp="OnSelectRow">
                             <DockPanel>
@@ -55,8 +67,8 @@
                                 <Ellipse DockPanel.Dock="Left" Width="10" Height="10" Fill="{Binding StateBrush}"
                                          VerticalAlignment="Top" Margin="0,6,12,0" />
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock FontSize="12" Foreground="{StaticResource Muted}" Margin="0,3,0,0"
+                                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                                TextTrimming="CharacterEllipsis">
                                         <Run Text="{Binding WorkspaceName, Mode=OneWay}" />
                                         <Run Text=" · " />
@@ -70,14 +82,13 @@
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        </ItemsControl>
 
         <GridSplitter Grid.Row="4" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                       Background="Transparent" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
 
         <!-- Khung log của tác vụ đang chọn -->
-        <Border Grid.Row="5" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+        <Border Grid.Row="5" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                 CornerRadius="10" Padding="14,10">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top">
@@ -94,7 +105,7 @@
                     <TextBlock x:Name="LogTitle" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Text="Log" />
                 </DockPanel>
-                <Border Background="{StaticResource WindowBg}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                <Border Background="{DynamicResource WindowBg}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                         CornerRadius="8" Margin="0,8,0,0">
                     <TextBox x:Name="Log" IsReadOnly="True" FontFamily="Consolas" FontSize="12" TextWrapping="NoWrap"
                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"

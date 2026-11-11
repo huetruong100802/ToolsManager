@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -45,6 +46,7 @@ namespace Toolbox.Views
             _logDirty = true;
             Visibility = Visibility.Visible;
             RenderHeader();
+            RenderHint();
             RenderLog(toBottom: true);
         }
 
@@ -57,7 +59,70 @@ namespace Toolbox.Views
                 _logDirty = false;
                 RenderLog(toBottom: false);
             }
+            if (_task.State != _shownState)
+                RenderHint();
             RenderHeader();
+        }
+
+        private Func<string, string> _workspaceRoot = id => null;
+        private FailureHint _hint;
+        private TaskState _shownState;
+
+        /// <summary>Người dùng bấm nút hành động của thẻ lỗi (chạy npm install, xem tác vụ, trỏ lại thư mục).</summary>
+        public event Action<FailureHint, TaskInfo> HintActionRequested;
+
+        /// <summary>Cho thẻ lỗi biết gốc workspace của tác vụ, để văn bản gửi agent chỉ có đường dẫn tương đối.</summary>
+        public void SetWorkspaceRootResolver(Func<string, string> resolver) => _workspaceRoot = resolver ?? (id => null);
+
+        private void RenderHint()
+        {
+            var task = _task;
+            if (task == null || task.State != TaskState.Failed)
+            {
+                _hint = null;
+                HintCard.Visibility = Visibility.Collapsed;
+                return;
+            }
+            _shownState = task.State;
+            var hasPackage = !string.IsNullOrEmpty(task.Spec.Cwd) && System.IO.File.Exists(System.IO.Path.Combine(task.Spec.Cwd, "package.json"));
+            _hint = FailureHints.Analyze(task.ExitCode, task.Lines().Reverse().Take(FailureHints.CopyLogLines).Reverse(), task.Spec.Cwd, hasPackageJson: hasPackage);
+            HintCard.Visibility = Visibility.Visible;
+            HintTitle.Text = _hint?.Title ?? "Tác vụ bị lỗi" + (task.ExitCode.HasValue ? $" (mã thoát {task.ExitCode})" : "");
+            HintExplain.Text = _hint?.Explain ?? "Toolbox chưa nhận ra lỗi này. Đọc log, hoặc sao chép cho agent để nhờ tìm nguyên nhân.";
+            HintActionButton.Visibility = _hint != null && _hint.Action != HintAction.None ? Visibility.Visible : Visibility.Collapsed;
+            HintActionButton.Content = _hint?.ActionText;
+        }
+
+        private void OnHintAction(object sender, RoutedEventArgs e)
+        {
+            if (_hint != null && _task != null)
+                HintActionRequested?.Invoke(_hint, _task);
+        }
+
+        /// <summary>Người dùng bấm "Nhờ agent…" trên thẻ lỗi; cửa sổ chính dựng prompt có ngữ cảnh workspace.</summary>
+        public event Action<TaskInfo> AskAgentRequested;
+
+        private void OnAskAgent(object sender, RoutedEventArgs e)
+        {
+            if (_task != null)
+                AskAgentRequested?.Invoke(_task);
+        }
+
+        private void OnCopyForAgent(object sender, RoutedEventArgs e)
+        {
+            if (_task == null)
+                return;
+            var text = FailureHints.CopyForAgent(_task.Spec.Label, _task.Spec.CommandLine, _workspaceRoot(_task.Spec.WorkspaceId),
+                _task.Spec.Cwd, _task.ExitCode, _task.Lines(), _hint);
+            try
+            {
+                Clipboard.SetText(text);
+                Dialogs.Success("Đã sao chép. Dán vào cuộc trò chuyện với agent.");
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                Dialogs.Error(Host, "Không ghi được vào clipboard (đang bị chương trình khác giữ). Thử lại sau giây lát.");
+            }
         }
 
         private void RenderHeader()
@@ -123,6 +188,16 @@ namespace Toolbox.Views
         {
             if (_task != null)
                 TaskActions.OpenLogFile(_task, Host);
+        }
+
+        /// <summary>Đóng panel log (phím Esc). Trả về true nếu panel đang mở và vừa được đóng.</summary>
+        public bool Hide()
+        {
+            if (Visibility != Visibility.Visible)
+                return false;
+            _task = null;
+            Visibility = Visibility.Collapsed;
+            return true;
         }
 
         private void OnClose(object sender, RoutedEventArgs e)

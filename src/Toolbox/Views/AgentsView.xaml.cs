@@ -20,7 +20,7 @@ namespace Toolbox.Views
         public const int ToolCountForAgent = 12;
 
         private static readonly TimeSpan ConnectedWindow = TimeSpan.FromMinutes(2);
-        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         private string _tab = "agents";
         private string _expanded;
         private Dictionary<string, string> _workspaceNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -32,8 +32,15 @@ namespace Toolbox.Views
         {
             InitializeComponent();
             // Agent gửi đề xuất từ tiến trình khác: làm mới định kỳ khi trang đang hiện.
+            // Thay đổi của agent đến qua StoreWatcher (MainWindow gọi Refresh); đồng hồ chỉ để cập nhật nhãn "đang kết nối" theo thời gian.
             _timer.Tick += (s, e) => { if (IsVisible) Refresh(); };
-            _timer.Start();
+            IsVisibleChanged += (s, e) =>
+            {
+                if (IsVisible)
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            };
         }
 
         private Window Host => Window.GetWindow(this);
@@ -145,8 +152,8 @@ namespace Toolbox.Views
             var panel = new StackPanel();
             panel.Children.Add(Section(agent.IsGlobal ? "PHẠM VI: TOÀN MÁY" : "TRONG WORKSPACE NÀY"));
             panel.Children.Add(agent.IsGlobal
-                ? PermRow("Quản lý thư viện tool", "Thêm, sửa, xoá tool dùng chung. Không đụng profile hay bộ chạy của workspace nào.", "cố định")
-                : PermRow("Thêm, sửa, xoá tool riêng, profile, bộ chạy, lệnh riêng", null, "luôn bật"));
+                ? PermRow("Quản lý thư viện tool", "Thêm, sửa, xoá tool dùng chung. Không đụng profile hay workflow của workspace nào.", "cố định")
+                : PermRow("Thêm, sửa, xoá lệnh riêng, profile, workflow, lệnh riêng", null, "luôn bật"));
             panel.Children.Add(Section("THƯ VIỆN TOOL"));
             panel.Children.Add(agent.IsGlobal
                 ? PermRow("Xem, thêm, sửa, xoá tool dùng chung", null, "cố định")
@@ -155,7 +162,7 @@ namespace Toolbox.Views
                 panel.Children.Add(PermRow("Sửa, xoá tool dùng chung", "Không trực tiếp. Agent chỉ gửi đề xuất để bạn duyệt.", "qua duyệt"));
 
             panel.Children.Add(Section("CHẠY LỆNH"));
-            var auto = new RadioButton { Content = "Tự chạy profile, bộ chạy và tool đã có", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
+            var auto = new RadioButton { Content = "Tự chạy profile, workflow và tool đã có", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var ask = new RadioButton { Content = "Hỏi bạn trước mỗi lần chạy (lệnh được duyệt đúng một lần)", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var none = new RadioButton { Content = "Không cho chạy", GroupName = "run-" + agent.Id, Margin = new Thickness(0, 2, 0, 2) };
             var current = RunModes.Normalize(agent.RunMode);
@@ -185,6 +192,13 @@ namespace Toolbox.Views
                 });
                 Refresh();
             }));
+            if (agent.AllowRuns != null && agent.AllowRuns.Count > 0)
+                actions.Children.Add(Btn($"Quên {agent.AllowRuns.Count} lệnh đã cho phép", "GhostButton", (s, e) =>
+                {
+                    RunApprovals.ForgetAllowed(AgentStore.DefaultPath, agent.Id);
+                    Dialogs.Success("Đã quên. Agent phải xin duyệt lại từng lệnh.", seconds: 5);
+                    Refresh();
+                }));
             actions.Children.Add(Btn("Gỡ agent", "DangerButton", (s, e) =>
             {
                 if (!Dialogs.Confirm(Host, $"Gỡ agent \"{agent.Name}\" khỏi Toolbox?\n\nAgent này sẽ bị từ chối ở lần gọi sau. Nhật ký việc nó đã làm vẫn giữ."))
@@ -305,9 +319,26 @@ namespace Toolbox.Views
             string Scope() => workspaceScope.IsEnabled && workspaceScope.IsChecked == true ? ProposalScopes.Workspace : ProposalScopes.Shared;
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
             actions.Children.Add(Btn("Duyệt", "PrimaryButton", (s, e) => Decide(proposal, approve: true, scope: Scope())));
+            if (proposal.Kind == ProposalKinds.Run)
+                actions.Children.Add(Btn("Luôn cho lệnh này", "SoftButton", (s, e) => AlwaysAllow(proposal)));
             actions.Children.Add(Btn("Từ chối", "GhostButton", (s, e) => Decide(proposal, approve: false)));
             panel.Children.Add(actions);
             return Card(panel, bottom: 10);
+        }
+
+        /// <summary>Duyệt và nhớ: lần sau agent chạy đúng lệnh này không phải hỏi lại. Bỏ ghi nhớ ở nút "Quên lệnh đã cho phép" của agent.</summary>
+        private void AlwaysAllow(Proposal proposal)
+        {
+            try
+            {
+                RunApprovals.Decide(ProposalStore.DefaultPath, AgentStore.DefaultPath, ActivityLog.DefaultPath, proposal, approve: true, always: true);
+                Dialogs.Success("Đã nhớ: agent chạy lệnh này luôn, không hỏi lại.", seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(Host, "Không áp dụng được: " + ex.Message);
+            }
+            Refresh();
         }
 
         private void Decide(Proposal proposal, bool approve, string scope = null)
@@ -326,7 +357,7 @@ namespace Toolbox.Views
                     Result = !approve ? "rejected" : ProposalScopes.Normalize(scope) == ProposalScopes.Workspace ? "applied-workspace" : "applied",
                 });
                 if (approve)
-                    MessageBox.Show(Host, result, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Dialogs.Success(result, seconds: 8);
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
             {
@@ -399,9 +430,9 @@ namespace Toolbox.Views
             ["add_tool"] = "Thêm tool dự án", ["remove_tool"] = "Gỡ tool dự án", ["bind_library_tool"] = "Gắn tool thư viện", ["attach"] = "Gắn tool thư viện",
             ["create_profile"] = "Tạo profile", ["update_profile"] = "Sửa profile", ["delete_profile"] = "Xoá profile",
             ["create_custom"] = "Tạo lệnh riêng", ["update_custom"] = "Sửa lệnh riêng", ["delete_custom"] = "Xoá lệnh riêng",
-            ["create_stack"] = "Tạo bộ chạy", ["update_stack"] = "Sửa bộ chạy", ["delete_stack"] = "Xoá bộ chạy",
+            ["create_stack"] = "Tạo workflow", ["update_stack"] = "Sửa workflow", ["delete_stack"] = "Xoá workflow",
             ["set_worktree"] = "Cấu hình worktree", ["prepare_worktree"] = "Chuẩn bị worktree",
-            ["run_tool"] = "Chạy tool", ["run_profile"] = "Chạy profile", ["run_custom"] = "Chạy lệnh riêng", ["run_stack"] = "Chạy bộ chạy", ["run_action"] = "Chạy lệnh", ["run"] = "Chạy",
+            ["run_tool"] = "Chạy tool", ["run_profile"] = "Chạy profile", ["run_custom"] = "Chạy lệnh riêng", ["run_stack"] = "Chạy workflow", ["run_action"] = "Chạy lệnh", ["run"] = "Chạy",
             ["save"] = "Lưu", ["delete"] = "Xoá", ["propose"] = "Đề xuất", ["undo"] = "Hoàn tác", ["approve"] = "Bạn duyệt đề xuất", ["reject"] = "Bạn từ chối đề xuất",
         };
 
@@ -530,7 +561,7 @@ namespace Toolbox.Views
             try
             {
                 var message = ActivityUndo.Undo(entry, WorkspaceStore.DefaultPath, ToolStore.DefaultPath, ActivityLog.DefaultPath);
-                MessageBox.Show(Host, message, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                Dialogs.Success(message, seconds: 8);
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
             {

@@ -32,6 +32,9 @@ namespace Toolbox.Core.Agents
         [DataMember(Name = "createdAt")] public string CreatedAt { get; set; }
         [DataMember(Name = "lastSeenAt")] public string LastSeenAt { get; set; }
 
+        /// <summary>Các lệnh người dùng chọn "Luôn cho lệnh này" (chuỗi chuẩn hoá của <see cref="RunApprovals.Print"/>): chạy luôn, không hỏi lại.</summary>
+        [DataMember(Name = "allowRuns", EmitDefaultValue = false)] public List<string> AllowRuns { get; set; }
+
         public bool IsGlobal => string.IsNullOrEmpty(WorkspaceId);
     }
 

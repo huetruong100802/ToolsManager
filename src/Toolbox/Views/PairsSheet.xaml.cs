@@ -4,14 +4,17 @@ using System.Linq;
 using System.Windows;
 using Toolbox.Core.Workspaces;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>Sửa danh sách cặp tham số của một profile đã lưu. Chỉ dựng <see cref="Result"/>; bên gọi ghi vào workspace.</summary>
-    public partial class PairsWindow : Window
+    public partial class PairsSheet : SheetBase
     {
-        public PairsWindow(string profileLabel, IEnumerable<ParamPair> initial, IEnumerable<CapabilityEntry> suggestions, string note)
+        public override double SheetWidth => 540;
+
+        public PairsSheet(string profileLabel, IEnumerable<ParamPair> initial, IEnumerable<CapabilityEntry> suggestions, string note)
         {
             InitializeComponent();
+            SheetTitle = "Tham số của profile";
             Heading.Text = "Tham số của \"" + profileLabel + "\"";
             Note.Text = note ?? "";
             Editor.SetSuggestions(suggestions);

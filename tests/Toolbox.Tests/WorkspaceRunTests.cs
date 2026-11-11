@@ -13,6 +13,7 @@ using Xunit;
 namespace Toolbox.Tests
 {
     /// <summary>Agent dùng cấu hình chạy của workspace qua MCP: liệt kê, chạy, theo dõi, dừng.</summary>
+    [Collection("ChayTienTrinh")] // các test bật tiến trình thật chạy lần lượt, không tranh CPU nhau
     public class WorkspaceRunTests
     {
         private static readonly JavaScriptSerializer Json = new JavaScriptSerializer();

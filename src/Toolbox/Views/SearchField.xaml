@@ -4,9 +4,9 @@
     <Grid>
         <TextBox x:Name="Box" Padding="32,6,8,6" TextChanged="OnBoxChanged" KeyDown="OnBoxKeyDown"
                  AutomationProperties.Name="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{StaticResource Faint}"
+        <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Faint}"
                    HorizontalAlignment="Left" Margin="11,0,0,0" IsHitTestVisible="False" />
-        <TextBlock x:Name="PlaceholderText" Foreground="{StaticResource Faint}" Margin="34,0,0,0"
+        <TextBlock x:Name="PlaceholderText" Foreground="{DynamicResource Faint}" Margin="34,0,0,0"
                    VerticalAlignment="Center" IsHitTestVisible="False" />
     </Grid>
 </UserControl>

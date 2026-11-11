@@ -1,4 +1,4 @@
-# Khả năng tool, profile và bộ chạy: UX và thiết kế
+# Lệnh tool, profile và workflow: UX và thiết kế
 
 Trạng thái: đề xuất, chờ duyệt. Mockup: `docs/mockup/workspace-overhaul-v5.html`.
 Liên quan: `docs/plan-workspace.md` (các quyết định P1–P8). Những chỗ đề xuất đổi plan được liệt kê ở mục 5.
@@ -27,7 +27,7 @@ Ví dụ thật, `ng serve dxfac --help`:
 ## 2. Nguyên tắc UX
 
 1. Không đoán ngầm. Mọi tham số hiện kèm nguồn: `--help`, `script`, `angular.json`, hoặc `bạn khai`. Tham số `bạn khai` được đánh dấu là không kiểm tra.
-2. Chỉ đề nghị thứ tool nhận. Cờ không có trong danh sách không xuất hiện trong form. Người dùng vẫn xem được danh sách đầy đủ ở phần "Khả năng".
+2. Chỉ đề nghị thứ tool nhận. Cờ không có trong danh sách không xuất hiện trong form. Người dùng vẫn xem được danh sách đầy đủ ở phần "Lệnh".
 3. Đọc rẻ trước. Tên lệnh và thân script đọc ngay khi mở workspace (chỉ đọc file). Lệnh trợ giúp chỉ chạy khi người dùng mở một lệnh hoặc bấm khám phá, để không bật nhiều tiến trình lúc mở app.
 4. Lỗi phải kèm việc tiếp theo. Ví dụ: "Chưa có node_modules. Chạy `npm install` trong Micro-Frontend." Toolbox không tự cài.
 5. Đường dẫn chỉ hiện ở tab Chi tiết (đã thống nhất). Trong form và xem trước dùng đường dẫn tương đối.
@@ -79,7 +79,7 @@ Trạng thái khám phá (hiện bằng badge):
 
 ### 4.1 Khám phá khả năng
 - **Mục tiêu:** biết tool làm được gì trước khi cấu hình.
-- **Vào từ:** tab Chi tiết (mục Khả năng), nút "Đọc" trên từng lệnh, sau khi thêm tool.
+- **Vào từ:** tab Chi tiết (mục Lệnh), nút "Đọc" trên từng lệnh, sau khi thêm tool.
 - **Tương tác:** Làm mới, Xem output gốc, Khai tay.
 - **Rủi ro:** "Khám phá tất cả" có tiến độ và có nút dừng. Không tự chạy hàng loạt khi mở app.
 
@@ -108,14 +108,14 @@ Trạng thái khám phá (hiện bằng badge):
 - **Kiểm tra:** số trong khoảng; cổng không trùng tác vụ đang chạy hoặc profile đang bật; lựa chọn phải nằm trong danh sách.
 - **Lưu:** profile giữ (1) tham chiếu lệnh (script + action), (2) lệnh đã gộp để chạy, (3) snapshot lệnh gốc lúc tạo. Nếu script đổi sau đó, profile hiện cảnh báo "Script đã đổi, xem lại" và không tự chạy phần cũ.
 - **Vì sao lưu lệnh đã gộp, không nối `-- --port`:** nối thêm có thể gây cờ trùng với `--port 3000` trong script. Mình chưa thử hành vi này, nên chọn cách tránh rủi ro.
-- **Xoá:** xác nhận. Nếu bộ chạy đang dùng profile, liệt kê các bộ chạy bị ảnh hưởng.
+- **Xoá:** xác nhận. Nếu workflow đang dùng profile, liệt kê các workflow bị ảnh hưởng.
 
 ### 4.5 Chạy profile
 - Một bấm. Khi đang chạy, nút đổi thành Dừng và có chấm trạng thái.
 - Chạy lần hai: không bật thêm. Mở tác vụ đang chạy và nói rõ lý do, ví dụ "đang chạy, cổng 4200".
 - Profile có cổng: hiện cổng cạnh tên, lấy từ output khi chạy.
 
-### 4.6 Bộ chạy
+### 4.6 Workflow
 - **Tạo:** thêm bước bằng cây thả xuống (cùng cây với lệnh và profile). Mỗi bước là một profile hoặc một lệnh trực tiếp.
 - **Chờ:** ba lựa chọn, nhưng chỉ hiện lựa chọn có căn cứ.
   - "Chờ cổng N": chỉ bật khi bước có cổng. Nếu không có cổng thì báo "không có cổng để chờ".
@@ -126,7 +126,7 @@ Trạng thái khám phá (hiện bằng badge):
 - **Khi lỗi:** "Mở log bước lỗi" và "Chạy lại từ bước này" (đề xuất mới, chờ duyệt).
 
 ### 4.7 Log và tác vụ
-- Giữ drawer hiện tại. Từ một bước bộ chạy có thể mở log của bước đó.
+- Giữ drawer hiện tại. Từ một bước workflow có thể mở log của bước đó.
 - Cảnh báo lặp lại được gom (đã có trong mockup).
 
 ### 4.8 Riêng tư
@@ -135,7 +135,7 @@ Trạng thái khám phá (hiện bằng badge):
 - Nút "Ẩn đường dẫn" để chụp màn hình.
 
 ### 4.9 Thêm tool
-- Một hộp **Thêm tool** duy nhất cho workspace: chọn từ thư viện, nhận gợi ý từ thư mục dự án, hoặc **Đăng ký tool mới…** (mở đúng form đăng ký của Thư viện). Mọi tool có nút **Khả năng…** để quét hậu tố từ trợ giúp hoặc nhập tay. "Khám phá ngay?" sau khi thêm chưa làm: người dùng bấm **Khả năng…** khi cần.
+- Một hộp **Thêm tool** duy nhất cho workspace: chọn từ thư viện, nhận gợi ý từ thư mục dự án, hoặc **Đăng ký tool mới…** (mở đúng form đăng ký của Thư viện). Mọi tool có nút **Lệnh…** để quét lệnh từ trợ giúp hoặc nhập tay. "Khám phá ngay?" sau khi thêm chưa làm: người dùng bấm **Lệnh…** khi cần.
 
 ## 5. Thay đổi so với plan (cần duyệt)
 
@@ -145,7 +145,7 @@ Trạng thái khám phá (hiện bằng badge):
 | Angular: serve, build, test, lint cố định | Lấy từ `ng help`, `angular.json` và trợ giúp của từng project |
 | npm: action lấy từ scripts (giữ) | Giữ, thêm thân script làm nguồn tham số |
 | Profile: `Vals` dictionary | Profile gồm tham chiếu lệnh, giá trị cờ, lệnh đã gộp, snapshot lệnh gốc |
-| Bộ chạy: `Wait` none/port/exit | Giữ. Thêm kiểm tra theo khả năng, nhãn "đoán" cho exit, "Chạy lại từ bước lỗi" |
+| Workflow: `Wait` none/port/exit | Giữ. Thêm kiểm tra theo khả năng, nhãn "đoán" cho exit, "Chạy lại từ bước lỗi" |
 | Hay dùng: dải riêng (v2) | Nhóm ghim trong cây |
 | Form profile: modal | Side sheet |
 

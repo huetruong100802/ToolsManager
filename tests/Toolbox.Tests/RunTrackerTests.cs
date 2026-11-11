@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Toolbox.Tests
 {
+    [Collection("ChayTienTrinh")] // các test bật tiến trình thật chạy lần lượt, không tranh CPU nhau
     public class RunTrackerTests
     {
         private static readonly ToolEntry Tool = new ToolEntry { Id = "t", Name = "t", Path = @"C:\Windows\System32\cmd.exe" };

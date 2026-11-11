@@ -30,6 +30,7 @@ namespace Toolbox
                 Environment.Exit(0);
             }
 
+            Theme.Initialize(Theme.Parse(Settings.Load().Theme));
             new MainWindow(e.Args.FirstOrDefault(a => File.Exists(a))).Show();
         }
 

@@ -9,15 +9,15 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Toolbox.Core.Workspaces;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>
-    /// Bảng hậu tố của một tool: mọi thứ nối được vào sau lệnh gốc, gồm lệnh con (<c>serve</c>) và cờ (<c>--port</c>).
-    /// Không có danh sách ghi sẵn trong code: hậu tố đến từ trợ giúp của tool (Quét lại) hoặc từ bạn (Thêm).
+    /// Bảng lệnh của một tool: mọi thứ nối được vào sau lệnh gốc, gồm lệnh con (<c>serve</c>) và cờ (<c>--port</c>).
+    /// Không có danh sách ghi sẵn trong code: lệnh đến từ trợ giúp của tool (Quét lại) hoặc từ bạn (Thêm).
     /// Bấm một lệnh con để xem và quét cờ riêng của nó. Đánh dấu « Cổng » ở cờ đặt cổng của lệnh con đó.
     /// Mỗi thay đổi lưu ngay vào <c>capabilities\&lt;kind&gt;.json</c> rồi gọi <paramref name="changed"/> để tab làm mới.
     /// </summary>
-    public partial class CapabilitiesWindow : Window
+    public partial class CommandsSheet : SheetBase
     {
         private readonly ToolDef _tool;
         private readonly string _cwd;
@@ -26,17 +26,27 @@ namespace Toolbox
         private readonly HashSet<string> _open = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _scanning = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private ToolCapabilities _data;
+        private readonly Action _ask;
 
-        public CapabilitiesWindow(ToolDef tool, string workingDirectory, Action changed)
+        private void OnAsk(object sender, RoutedEventArgs e) => _ask?.Invoke();
+
+        public override double SheetWidth => 720;
+
+        public CommandsSheet(ToolDef tool, string workingDirectory, Action changed, Action ask = null)
         {
             InitializeComponent();
+            _ask = ask;
+            AskButton.Visibility = ask == null ? Visibility.Collapsed : Visibility.Visible;
+            SheetTitle = "Lệnh của tool";
             _tool = tool;
             _cwd = workingDirectory;
             _changed = changed;
             _directory = CapabilityStore.DefaultDirectory;
             Search.TextChanged += OnSearchChanged;
-            TitleText.Text = "Khả năng · " + tool.Name + (tool.Command == null ? "" : " · " + tool.Command);
-            AddLabel.Text = tool.Command == null ? "" : "Thêm hậu tố sau " + tool.Command;
+            // Tiêu đề nằm trên thanh của cửa sổ; tên tool và lệnh gốc chỉ hiện hai lần khi khác nhau (vd. git · git).
+            SheetTitle = "Lệnh · " + tool.Name + (tool.Command == null || string.Equals(tool.Command, tool.Name, StringComparison.OrdinalIgnoreCase)
+                ? "" : " · " + tool.Command);
+            AddLabel.Text = tool.Command == null ? "" : "Thêm lệnh sau " + tool.Command;
 
             try
             {
@@ -80,8 +90,8 @@ namespace Toolbox
             if (entries.Count == 0)
             {
                 RowsPanel.Children.Add(Note(_tool.Command == null
-                    ? "Không có hậu tố nào."
-                    : "Chưa có hậu tố nào. Bấm Quét lại để đọc từ trợ giúp của tool, hoặc thêm tay ở chân cửa sổ."));
+                    ? "Không có lệnh nào."
+                    : "Chưa có lệnh nào. Bấm Quét lại để đọc từ trợ giúp của tool, hoặc thêm tay ở chân cửa sổ."));
                 return;
             }
 
@@ -113,7 +123,7 @@ namespace Toolbox
                 RenderRows();
         }
 
-        /// <summary>Hậu tố của một phạm vi: lệnh con trước, cờ sau.</summary>
+        /// <summary>Lệnh của một phạm vi: lệnh con trước, cờ sau.</summary>
         private List<CapabilityEntry> EntriesOf(string scope) =>
             _data.Entries
                 .Where(en => string.Equals(en.Action ?? "", scope, StringComparison.OrdinalIgnoreCase))
@@ -126,9 +136,10 @@ namespace Toolbox
         {
             var grid = Grid5();
             grid.Margin = new Thickness(0, 10, 0, 4);
-            Place(grid, Caption("Cổng"), 0);
-            Place(grid, Caption("Hậu tố"), 1);
-            Place(grid, Caption("Giá trị"), 2);
+            // Cột cờ (Cổng, Giá trị) căn giữa như ô checkbox bên dưới; các cột chữ căn trái.
+            Place(grid, Caption("Cổng", center: true), 0);
+            Place(grid, Caption("Lệnh"), 1);
+            Place(grid, Caption("Giá trị", center: true), 2);
             Place(grid, Caption("Mô tả"), 3);
             return grid;
         }
@@ -186,7 +197,7 @@ namespace Toolbox
                 buttons.Children.Add(flags);
             }
             var remove = new Button { Content = "Xoá", Style = (Style)FindResource("GhostButton"), Padding = new Thickness(10, 2, 10, 2),
-                VerticalAlignment = VerticalAlignment.Center, ToolTip = "Bỏ hậu tố này khỏi bảng" };
+                VerticalAlignment = VerticalAlignment.Center, ToolTip = "Bỏ lệnh này khỏi bảng" };
             remove.Click += (s, e) => Persist(() =>
             {
                 CapabilityStore.Remove(_data, scope, entry.Name);
@@ -229,12 +240,14 @@ namespace Toolbox
             foreach (var flag in flags)
                 panel.Children.Add(EntryRow(scope, flag));
 
-            var add = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-            var addButton = new Button { Content = "Thêm", MinWidth = 80, Margin = new Thickness(12, 0, 0, 0) };
-            DockPanel.SetDock(addButton, Dock.Right);
-            var takes = new CheckBox { Content = "Có giá trị", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
-            DockPanel.SetDock(takes, Dock.Right);
-            var name = new TextBox { FontFamily = new FontFamily("Consolas"), ToolTip = "Cờ của " + scope + ", ví dụ --port" };
+            // Cùng lưới cột với các cờ phía trên: tên ở cột Lệnh, checkbox ở cột Giá trị, nút ở cột cuối.
+            var add = Grid5();
+            add.Margin = new Thickness(0, 8, 0, 0);
+            var name = new TextBox { FontFamily = new FontFamily("Consolas"), Margin = new Thickness(0, 0, 12, 0),
+                ToolTip = "Cờ của " + scope + ", ví dụ --port" };
+            var takes = new CheckBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Cờ có đi kèm giá trị không (--port 4200)." };
+            var addButton = new Button { Content = "Thêm", MinWidth = 80, Margin = new Thickness(0, 0, 0, 0) };
             addButton.Click += (s, e) =>
             {
                 try
@@ -243,14 +256,14 @@ namespace Toolbox
                 }
                 catch (ArgumentException ex)
                 {
-                    Dialogs.Error(this, ex.Message);
+                    Dialogs.Error(Host, ex.Message);
                     return;
                 }
                 Persist(null);
             };
-            add.Children.Add(addButton);
-            add.Children.Add(takes);
-            add.Children.Add(name);
+            Place(add, name, 1);
+            Place(add, takes, 2);
+            Place(add, addButton, 4);
             panel.Children.Add(add);
             return panel;
         }
@@ -272,7 +285,7 @@ namespace Toolbox
             }
             catch (InvalidDataException ex)
             {
-                Dialogs.Error(this, ex.Message);
+                Dialogs.Error(Host, ex.Message);
             }
             _changed?.Invoke();
             RenderRows();
@@ -285,7 +298,7 @@ namespace Toolbox
         {
             if (_data == null)
                 return;
-            var dialog = new CapabilityImportWindow(_cwd) { Owner = this };
+            var dialog = new CapabilityImportWindow(_cwd) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
             var added = 0;
@@ -308,7 +321,7 @@ namespace Toolbox
             }
             catch (ArgumentException ex)
             {
-                Dialogs.Error(this, ex.Message);
+                Dialogs.Error(Host, ex.Message);
                 return;
             }
             NameBox.Clear();
@@ -329,7 +342,7 @@ namespace Toolbox
             }
             catch (IOException ex)
             {
-                Dialogs.Error(this, "Không ghi được bảng khả năng: " + ex.Message);
+                Dialogs.Error(Host, "Không ghi được bảng lệnh: " + ex.Message);
             }
             _changed?.Invoke();
             RenderRows();
@@ -366,9 +379,10 @@ namespace Toolbox
             grid.Children.Add(element);
         }
 
-        private TextBlock Caption(string text) => new TextBlock
+        private TextBlock Caption(string text, bool center = false) => new TextBlock
         {
             Text = text, FontSize = 11, Foreground = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = center ? HorizontalAlignment.Center : HorizontalAlignment.Left,
         };
 
         private TextBlock Note(string text) => new TextBlock

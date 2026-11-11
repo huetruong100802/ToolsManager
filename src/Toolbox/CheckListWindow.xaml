@@ -25,7 +25,7 @@
                 <DataTemplate>
                     <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsEnabled}" Margin="2,6" VerticalContentAlignment="Center">
                         <StackPanel>
-                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{Binding Detail}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </CheckBox>

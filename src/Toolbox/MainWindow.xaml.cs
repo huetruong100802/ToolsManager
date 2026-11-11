@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -8,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using Toolbox.Core;
+using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
 
 namespace Toolbox
@@ -24,6 +26,9 @@ namespace Toolbox
         private WorkspaceStore _workspaces;
         private WorkspaceRow _current;
         private Area _area = Area.Library;
+        private StoreWatcher _watcher;
+        private readonly Settings _settings = Settings.Load();
+        private readonly Notifier _notifier = new Notifier();
 
         public MainWindow(string fileToOpen = null)
         {
@@ -31,11 +36,30 @@ namespace Toolbox
             Library.FileToOpen = fileToOpen;
             WorkspaceContent.Initialize(_tasks, TrySave);
             Inspector.Initialize(_tasks);
-            OverviewPage.Initialize(_tasks, _rows);
             TasksPage.Initialize(_tasks, _rows);
-            OverviewPage.ShowLogRequested += Inspector.Show;
-            TasksPage.ShowLogRequested += Inspector.Show;
-            OverviewPage.OpenWorkspaceRequested += row => Navigate(row);
+            Dock.LogRequested += Inspector.Show;
+            WorkspaceContent.ShowLogRequested += ShowLog;
+            WorkspaceContent.SheetRequested += (sheet, done) => Sheet.Open(sheet, done);
+            Inspector.SetWorkspaceRootResolver(id => _workspaces?.Find(id)?.ResolvedPath);
+            Inspector.HintActionRequested += OnHintAction;
+            Inspector.AskAgentRequested += OnAskAgentAboutTask;
+            WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindow;
+            Library.WorkspaceImported += id =>
+            {
+                SyncFromDisk();
+                var row = RowOf(id);
+                if (row != null)
+                    Navigate(row);
+            };
+            WorkspaceContent.RelocateRequested += () => OnRelocateWorkspace(this, new RoutedEventArgs());
+            WorkspaceContent.OpenToolRequested += id => { Navigate(null); Library.FocusTool(id); };
+            Dock.StopRequested += task => _tasks.Stop(task.Id);
+            Dock.OpenPortRequested += port => OpenInBrowser("http://localhost:" + port);
+            Dock.AllRequested += () => GoTo(Area.Tasks);
+            OverviewPage.Initialize(BuildHomeFeed);
+            OverviewPage.ItemActivated += OnHomeItem;
+            OverviewPage.StepActivated += OnHomeStep;
+            TasksPage.ShowLogRequested += ShowLog;
             AgentsPage.ConnectRequested += Library.OpenAgentWindow;
             // Rail: ghim lên đầu, còn lại theo tên; ô tìm lọc theo tên (hiện khi workspace nhiều).
             _rowsView = CollectionViewSource.GetDefaultView(_rows);
@@ -43,10 +67,19 @@ namespace Toolbox
             _rowsView.SortDescriptions.Add(new SortDescription(nameof(WorkspaceRow.Name), ListSortDirection.Ascending));
             _rowsView.Filter = o => MatchesSearch(o as WorkspaceRow);
             WorkspaceList.ItemsSource = _rowsView;
+            ThemeText.Text = Theme.Label(Theme.Mode);
+            Views.Toasts.Host = ToastLayer;
+            RefreshNotifyText();
+            Palette.Initialize(BuildSearchIndex);
+            Palette.Activated += OnPaletteActivated;
+            Palette.RevealRequested += OnPaletteReveal;
+            PreviewKeyDown += OnWindowPreviewKeyDown;
             Loaded += OnLoaded;
             Closing += OnClosing;
             // Tác vụ đổi trạng thái đến từ luồng khác: chuyển về luồng giao diện.
-            _tasks.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshRows));
+            _tasks.Changed += () => Dispatcher.BeginInvoke(new Action(() => { RefreshRows(); CheckNotifications(); }));
+            _notifier.Clicked += task => { Activate(); ShowLog(task); };
+            Closed += (s, e) => _notifier.Dispose();
             // Quay lại cửa sổ → kiểm lại thư mục workspace còn hay mất.
             Activated += (s, e) => RefreshRows();
         }
@@ -72,13 +105,53 @@ namespace Toolbox
             {
                 // Không ghi đè file hỏng; thư viện vẫn dùng được, chỉ tắt phần workspace.
                 AddWorkspaceButton.IsEnabled = false;
-                Dialogs.Error(this, ex.Message + "\n\nWorkspace tạm thời không dùng được. Hãy sửa hoặc xoá file này rồi mở lại Toolbox.");
+                Dialogs.Fatal(this, ex.Message + "\n\nWorkspace tạm thời không dùng được. Hãy sửa hoặc xoá file này rồi mở lại Toolbox.");
                 return;
             }
 
             foreach (var workspace in _workspaces.Workspaces)
                 _rows.Add(new WorkspaceRow(workspace));
             RefreshRows();
+            StartWatching();
+            StartPresence();
+            MarkRunRequestsAnnounced();
+            // Mở app là thấy việc cần làm, trừ khi được mở bằng file .toolbox (đi thẳng tới Thư viện để nhập).
+            if (string.IsNullOrEmpty(Library.FileToOpen))
+                GoTo(Area.Overview);
+        }
+
+        // ---- Đồng bộ trực tiếp với agent ----
+
+        /// <summary>Theo dõi file dữ liệu: agent ghi qua MCP thì GUI nạp lại sau chừng 300 ms, không cần đổi trang.</summary>
+        private void StartWatching()
+        {
+            _watcher = new StoreWatcher(DataDir.Root, TimeSpan.FromMilliseconds(300));
+            _watcher.Changed += files => Dispatcher.BeginInvoke(new Action(() => OnStoreChanged(files)));
+            Closed += (s, e) => _watcher.Dispose();
+        }
+
+        private void OnStoreChanged(IReadOnlyList<string> files)
+        {
+            var toolsChanged = files.Contains("tools.json", StringComparer.OrdinalIgnoreCase) && Library.SyncFromDisk();
+
+            var changed = files.Contains("workspaces.json", StringComparer.OrdinalIgnoreCase)
+                ? SyncFromDisk()
+                : new List<string>();
+            // Tool đổi cũng làm đổi danh sách lệnh của workspace, nên nạp lại trang workspace khi workspace đó hoặc tool đổi.
+            if (_area == Area.Workspace && _current != null
+                && (toolsChanged || changed.Contains(_current.Workspace.Id, StringComparer.OrdinalIgnoreCase)))
+                WorkspaceContent.Load(_current.Workspace);
+
+            if (files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
+                ShowAgentActivity();
+            if (files.Contains("proposals.json", StringComparer.OrdinalIgnoreCase))
+                AnnounceRunRequests();
+            if (files.Contains("agents.json", StringComparer.OrdinalIgnoreCase) || files.Contains("activity.jsonl", StringComparer.OrdinalIgnoreCase))
+                RefreshPresence();
+
+            RefreshRows();
+            if (_area == Area.Agents)
+                AgentsPage.Refresh();
         }
 
         // ---- Rail ----
@@ -94,7 +167,7 @@ namespace Toolbox
             ArchivedToggle.Content = _showArchived ? "Ẩn workspace đã lưu trữ" : $"Lưu trữ ({archived})";
             WorkspaceSearchBox.Visibility = _rows.Count >= SearchThreshold ? Visibility.Visible : Visibility.Collapsed;
 
-            StatusText.Text = TaskBoard.StatusLine(running);
+            Dock.Update(_tasks.Snapshot());
             TasksBadge.Visibility = running.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             TasksBadgeCount.Text = running.Count.ToString();
 
@@ -160,13 +233,499 @@ namespace Toolbox
             _rowsView.Refresh();
         }
 
+        /// <summary>Mở log một tác vụ; nếu đó là lỗi đang nhắc ở dock thì coi như đã xem.</summary>
+        private void ShowLog(TaskInfo task)
+        {
+            Dock.MarkSeen(task.Id);
+            Inspector.Show(task);
+        }
+
+        /// <summary>"Nhờ agent…" trên thẻ lỗi: dựng prompt có ngữ cảnh workspace, lệnh, thư mục tương đối và log cuối.</summary>
+        private void OnAskAgentAboutTask(TaskInfo task)
+        {
+            var workspace = _workspaces?.Find(task.Spec.WorkspaceId);
+            if (workspace == null)
+            {
+                Dialogs.Error(this, "Workspace của tác vụ này đã bị gỡ khỏi Toolbox.");
+                return;
+            }
+            var tail = task.Lines().Reverse().Take(FailureHints.CopyLogLines).Reverse().ToList();
+            var hint = FailureHints.Analyze(task.ExitCode, tail, task.Spec.Cwd);
+            Views.AgentAsk.Send(AgentPrompts.DiagnoseFailure(workspace, task.Spec.Label, task.Spec.CommandLine, task.Spec.Cwd, task.ExitCode, tail, hint),
+                Library.OpenAgentWindow);
+        }
+
+        /// <summary>Nút hành động của thẻ lỗi trong panel log.</summary>
+        private void OnHintAction(FailureHint hint, TaskInfo task)
+        {
+            switch (hint.Action)
+            {
+                case HintAction.OpenTasks:
+                    GoTo(Area.Tasks);
+                    break;
+                case HintAction.RelocateWorkspace:
+                    var row = RowOf(task.Spec.WorkspaceId);
+                    if (row != null)
+                    {
+                        Navigate(row);
+                        OnRelocateWorkspace(this, new RoutedEventArgs());
+                    }
+                    break;
+                case HintAction.RunInstall:
+                    try
+                    {
+                        var spec = task.Spec.Clone();
+                        spec.Label = "npm install";
+                        spec.CommandLine = hint.Command;
+                        spec.Port = null;
+                        spec.Key = (task.Spec.Key ?? task.Id) + "|install";
+                        var started = _tasks.Start(spec);
+                        ShowLog(started);
+                        Dialogs.Info("Đang chạy npm install. Xong thì chạy lại tác vụ.");
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException || ex is System.ComponentModel.Win32Exception || ex is IOException)
+                    {
+                        Dialogs.Error(this, "Không chạy được npm install: " + ex.Message);
+                    }
+                    break;
+            }
+        }
+
+        // ---- Thông báo Windows ----
+
+        private bool NotifyEnabled => !_settings.NotifyOff;
+
+        private void RefreshNotifyText() => NotifyText.Text = NotifyEnabled ? "Thông báo: Bật" : "Thông báo: Tắt";
+
+        private void OnNotifyClick(object sender, RoutedEventArgs e)
+        {
+            var off = !_settings.NotifyOff;
+            _settings.NotifyOff = Settings.Update(s => s.NotifyOff = off).NotifyOff;
+            RefreshNotifyText();
+            Dialogs.Info(NotifyEnabled
+                ? "Sẽ báo khi tác vụ chạy trên 30 giây kết thúc lúc cửa sổ không ở trước."
+                : "Đã tắt thông báo tác vụ.");
+        }
+
+        /// <summary>Gọi mỗi khi tác vụ đổi trạng thái: báo các tác vụ lâu vừa kết thúc nếu cửa sổ đang không ở trước.</summary>
+        private void CheckNotifications()
+        {
+            var windowActive = IsActive && WindowState != WindowState.Minimized;
+            _notifier.Check(_tasks.Snapshot(), NotifyEnabled, windowActive);
+        }
+
+        // ---- Hỏi trước khi chạy ----
+
+        private readonly HashSet<string> _announcedRuns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private static List<Proposal> PendingRunProposals()
+        {
+            try { return ProposalStore.Load(ProposalStore.DefaultPath).Pending.Where(p => p.Kind == ProposalKinds.Run).ToList(); }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return new List<Proposal>(); }
+        }
+
+        private static int PendingRunRequests() => PendingRunProposals().Count;
+
+        /// <summary>Lúc mở app: yêu cầu đã chờ từ trước hiện ở Trang chủ, không bật thông báo dồn.</summary>
+        private void MarkRunRequestsAnnounced()
+        {
+            foreach (var proposal in PendingRunProposals())
+                _announcedRuns.Add(proposal.Id);
+        }
+
+        /// <summary>
+        /// Agent ở chế độ "Hỏi trước mỗi lần chạy" vừa xin chạy một lệnh: hiện thông báo có ba nút ngay tại trang đang mở,
+        /// không bắt người dùng đi tìm trang Agent.
+        /// </summary>
+        private void AnnounceRunRequests()
+        {
+            foreach (var proposal in PendingRunProposals().Where(p => _announcedRuns.Add(p.Id)))
+            {
+                var captured = proposal;
+                var where = RowOf(captured.WorkspaceId)?.Name;
+                var print = RunApprovals.PrintOf(captured);
+                if (print.Length > 90)
+                    print = print.Substring(0, 87) + "…";
+                Dialogs.Ask($"{captured.AgentName} xin chạy{(where == null ? "" : " ở " + where)}: {print}",
+                    "Cho chạy", () => DecideRun(captured, approve: true, always: false),
+                    new Views.ToastAction("Luôn cho lệnh này", () => DecideRun(captured, approve: true, always: true)),
+                    new Views.ToastAction("Từ chối", () => DecideRun(captured, approve: false, always: false)));
+            }
+        }
+
+        private void DecideRun(Proposal proposal, bool approve, bool always)
+        {
+            try
+            {
+                RunApprovals.Decide(ProposalStore.DefaultPath, AgentStore.DefaultPath, ActivityLog.DefaultPath, proposal, approve, always);
+                Dialogs.Success(!approve ? "Đã từ chối. Agent sẽ nhận lý do ở lần gọi sau."
+                    : always ? "Đã nhớ: agent chạy lệnh này luôn, không hỏi lại." : "Đã cho phép. Agent gọi lại đúng lệnh này để chạy một lần.", seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(this, "Không xử lý được yêu cầu chạy: " + ex.Message);
+            }
+            RefreshRows();
+            if (_area == Area.Agents)
+                AgentsPage.Refresh();
+        }
+
+        // ---- Agent hiện diện ----
+
+        /// <summary>Mốc đã đọc tới đâu trong activity.jsonl: chỉ báo việc agent làm sau mốc này.</summary>
+        private DateTime _activityMark = DateTime.MaxValue;
+        private readonly System.Windows.Threading.DispatcherTimer _presenceTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+
+        private void StartPresence()
+        {
+            _activityMark = AgentPresence.Watermark(ReadActivity());
+            _presenceTimer.Tick += (s, e) => RefreshPresence();
+            _presenceTimer.Start();
+            RefreshPresence();
+        }
+
+        private static List<ActivityEntry> ReadActivity()
+        {
+            try { return ActivityLog.Read(ActivityLog.DefaultPath, 200); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { return new List<ActivityEntry>(); }
+        }
+
+        /// <summary>Chấm "agent đang kết nối" ở rail và dưới tên workspace đang mở.</summary>
+        private void RefreshPresence()
+        {
+            IReadOnlyList<AgentRecord> agents;
+            try { agents = AgentStore.Load(AgentStore.DefaultPath).Agents; }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return; }
+            var now = DateTime.UtcNow;
+            var connected = AgentPresence.ConnectedWorkspaces(agents, _rows.Select(r => r.Workspace.Id), now);
+            foreach (var row in _rows)
+                row.SetAgentConnected(connected.Contains(row.Workspace.Id));
+            if (_current != null)
+            {
+                var names = AgentPresence.ConnectedFor(agents, _current.Workspace.Id, now).Select(a => a.Name).Distinct().ToList();
+                WsAgent.Text = names.Count == 0 ? "" : "● Agent " + string.Join(", ", names) + " đang kết nối";
+                WsAgent.Visibility = names.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+
+        /// <summary>
+        /// activity.jsonl đổi: việc agent vừa làm ở trang đang mở hiện thành thông báo "Agent X vừa… · Hoàn tác" và đánh dấu "mới" trên mục đó;
+        /// ở workspace khác thì bật chấm trên rail cho tới khi bạn mở workspace đó.
+        /// </summary>
+        private void ShowAgentActivity()
+        {
+            var log = ReadActivity();
+            var fresh = AgentPresence.Fresh(log, _activityMark);
+            _activityMark = AgentPresence.Watermark(log);
+            if (fresh.Count == 0)
+                return;
+
+            var here = _area == Area.Workspace && _current != null ? _current.Workspace.Id : null;
+            foreach (var group in fresh.GroupBy(e => e.WorkspaceId ?? ""))
+            {
+                var row = RowOf(group.Key);
+                if (row == null)
+                    continue;
+                if (string.Equals(group.Key, here, StringComparison.OrdinalIgnoreCase))
+                {
+                    WorkspaceContent.MarkNew(group.SelectMany(AgentPresence.TouchedIds));
+                    AnnounceAgentWork(group.ToList());
+                }
+                else
+                    row.SetNewActivity(row.NewActivity + group.Count());
+            }
+        }
+
+        private void AnnounceAgentWork(List<ActivityEntry> entries)
+        {
+            if (entries.Count > 2)
+            {
+                var who = string.Join(", ", entries.Select(e => e.AgentName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+                Dialogs.Info($"{(who.Length == 0 ? "Agent" : who)} vừa thay đổi {entries.Count} mục ở workspace này.");
+                return;
+            }
+            foreach (var entry in entries)
+            {
+                var message = AgentPresence.Describe(entry);
+                if (CanUndoEntry(entry))
+                    Dialogs.Success(message, "Hoàn tác", () => UndoAgentEntry(entry), 12);
+                else
+                    Dialogs.Success(message, "Xem", () => GoTo(Area.Agents), 8);
+            }
+        }
+
+        private bool CanUndoEntry(ActivityEntry entry)
+        {
+            if (entry.Undo == null || !ActivityUndo.UndoableActions.Contains(entry.Action ?? ""))
+                return false;
+            try
+            {
+                var workspace = WorkspaceStore.Peek(WorkspaceStore.DefaultPath).Find(entry.WorkspaceId);
+                return ActivityUndo.CanUndo(entry, workspace, ToolStore.Peek(ToolStore.DefaultPath), out _);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        private void UndoAgentEntry(ActivityEntry entry)
+        {
+            try
+            {
+                var message = ActivityUndo.Undo(entry, WorkspaceStore.DefaultPath, ToolStore.DefaultPath, ActivityLog.DefaultPath);
+                Dialogs.Success(message, seconds: 6);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is InvalidOperationException || ex is KeyNotFoundException)
+            {
+                Dialogs.Error(this, "Không hoàn tác được: " + ex.Message);
+            }
+        }
+
+        // ---- Sẵn sàng ----
+
+        private Dictionary<string, int> _readinessCache = new Dictionary<string, int>();
+        private DateTime _readinessAt = DateTime.MinValue;
+
+        /// <summary>Số việc chưa sẵn sàng của từng workspace, lưu đệm 20 giây vì mỗi lần kiểm phải đọc thư viện và dò lệnh trên PATH.</summary>
+        private IReadOnlyDictionary<string, int> ReadinessCounts()
+        {
+            if (DateTime.UtcNow - _readinessAt < TimeSpan.FromSeconds(20) || _workspaces == null)
+                return _readinessCache;
+            _readinessAt = DateTime.UtcNow;
+            try
+            {
+                var library = ToolStore.Peek(ToolStore.DefaultPath);
+                _readinessCache = _workspaces.Workspaces.Where(w => !w.Archived)
+                    .ToDictionary(w => w.Id, w => Readiness.Check(w, library).Count(i => i.Level == ReadinessLevel.Error), StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+            return _readinessCache;
+        }
+
+        // ---- Trang chủ ----
+
+        private HomeFeed BuildHomeFeed()
+        {
+            bool hasAgent;
+            try { hasAgent = Core.Agents.AgentStore.Load(Core.Agents.AgentStore.DefaultPath).Agents.Count > 0; }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { hasAgent = false; }
+            var index = BuildSearchIndex();
+            return HomeFeed.Build(_workspaces?.Workspaces ?? new List<Workspace>(), Library.Tools, _tasks.Snapshot(),
+                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, null, PendingRunRequests(), ReadinessCounts());
+        }
+
+        private void OnHomeItem(HomeItem item, bool secondary)
+        {
+            switch (item.Target)
+            {
+                case HomeTarget.Agents:
+                    GoTo(Area.Agents);
+                    break;
+                case HomeTarget.Task:
+                    ShowLog(item.Task);
+                    break;
+                case HomeTarget.OpenPort:
+                    if (secondary || !item.Port.HasValue)
+                        ShowLog(item.Task);
+                    else
+                        OpenInBrowser("http://localhost:" + item.Port.Value);
+                    break;
+                case HomeTarget.Workspace:
+                    var row = RowOf(item.WorkspaceId);
+                    if (row != null)
+                        Navigate(row);
+                    break;
+                case HomeTarget.Library:
+                    Navigate(null);
+                    Library.FocusTool(item.ToolId);
+                    break;
+                case HomeTarget.Run:
+                    OpenEntry(item.Entry, run: !secondary);
+                    break;
+            }
+        }
+
+        private void OnHomeStep(OnboardingStep step)
+        {
+            switch (step.Target)
+            {
+                case HomeTarget.AddWorkspace:
+                    OnAddWorkspace(this, new RoutedEventArgs());
+                    break;
+                case HomeTarget.PickApp:
+                    Navigate(null);
+                    Library.StartPickApp();
+                    break;
+                case HomeTarget.ConnectAgent:
+                    Library.OpenAgentWindow();
+                    break;
+            }
+        }
+
+        private void OpenInBrowser(string url)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException)
+            {
+                Dialogs.Error(this, "Không mở được trình duyệt: " + ex.Message);
+            }
+        }
+
+        // ---- Bảng lệnh Ctrl+K ----
+
+        private void OnPaletteClick(object sender, RoutedEventArgs e) => Palette.Open();
+
+        /// <summary>
+        /// Phím tắt toàn cửa sổ (xem <see cref="KeyRoute"/> và bảng F1). Chạy ở bước Preview nên Ctrl+K hoạt động cả khi đang gõ trong một ô.
+        /// Esc chỉ bị nuốt khi có gì đó để đóng, để Esc xoá ô tìm của Thư viện vẫn hoạt động.
+        /// </summary>
+        private void OnWindowPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            var command = KeyRoute.Map(e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key, System.Windows.Input.Keyboard.Modifiers);
+            if (command == WindowCommand.None)
+                return;
+
+            var handled = true;
+            switch (command)
+            {
+                case WindowCommand.Palette: Palette.Toggle(); break;
+                case WindowCommand.GoHome: GoTo(Area.Overview); break;
+                case WindowCommand.GoLibrary: Navigate(null); break;
+                case WindowCommand.GoTasks: GoTo(Area.Tasks); break;
+                case WindowCommand.GoAgents: GoTo(Area.Agents); break;
+                case WindowCommand.NextTab:
+                case WindowCommand.PrevTab:
+                    if (_area == Area.Workspace)
+                        WorkspaceContent.CycleTab(command == WindowCommand.NextTab ? 1 : -1);
+                    break;
+                case WindowCommand.Run:
+                case WindowCommand.Stop:
+                    handled = RunOrStopSelected(command == WindowCommand.Run);
+                    break;
+                case WindowCommand.Help: Shortcuts.Toggle(); break;
+                case WindowCommand.Escape:
+                    handled = Palette.IsOpen ? CloseOverlay(Palette.Close)
+                            : Shortcuts.IsOpen ? CloseOverlay(Shortcuts.Close)
+                            : Sheet.IsOpen ? Sheet.CloseCurrent()
+                            : Inspector.Hide();
+                    break;
+            }
+            if (handled)
+                e.Handled = true;
+        }
+
+        private static bool CloseOverlay(Action close)
+        {
+            close();
+            return true;
+        }
+
+        /// <summary>F5 / Shift+F5 trên mục đang chọn của trang hiện tại; không có mục nào thì nhắc cách chọn.</summary>
+        private bool RunOrStopSelected(bool run)
+        {
+            bool done;
+            if (_area == Area.Workspace)
+                done = run ? WorkspaceContent.RunFocused() : WorkspaceContent.StopFocused();
+            else if (_area == Area.Library)
+                done = run ? Library.RunSelected() : Library.StopSelected();
+            else
+                return false;
+            if (!done && run)
+                Dialogs.Info("Chọn một dòng (Tab tới nút của dòng đó) rồi bấm F5 để chạy.");
+            return true;
+        }
+
+
+        private SearchIndex BuildSearchIndex() =>
+            SearchIndex.Build(Library.Tools, _workspaces?.Workspaces, PaletteActions());
+
+        private static IEnumerable<SearchEntry> PaletteActions()
+        {
+            SearchEntry Act(string code, string title, string keywords = null) =>
+                new SearchEntry { Kind = SearchKind.Action, Key = UsageStore.Key("action", code), Title = title, Subtitle = "Hành động", TargetId = code, Keywords = keywords };
+            yield return Act("go-library", "Mở Thư viện", "tool danh sách");
+            yield return Act("go-overview", "Mở Trang chủ", "tổng quan việc cần làm");
+            yield return Act("go-tasks", "Mở Tác vụ", "đang chạy log");
+            yield return Act("go-agents", "Mở Agent", "duyệt đề xuất");
+            yield return Act("add-workspace", "Thêm workspace", "thư mục repo");
+            yield return Act("connect-agent", "Kết nối agent…", "claude cursor mcp");
+            yield return Act("theme", "Đổi giao diện sáng/tối", "dark light theme");
+        }
+
+        private void ExecuteAction(string code)
+        {
+            switch (code)
+            {
+                case "go-library": Navigate(null); break;
+                case "go-overview": GoTo(Area.Overview); break;
+                case "go-tasks": GoTo(Area.Tasks); break;
+                case "go-agents": GoTo(Area.Agents); break;
+                case "add-workspace": OnAddWorkspace(this, new RoutedEventArgs()); break;
+                case "connect-agent": Library.OpenAgentWindow(); break;
+                case "theme": OnThemeClick(this, new RoutedEventArgs()); break;
+            }
+        }
+
+        private WorkspaceRow RowOf(string workspaceId) =>
+            _rows.FirstOrDefault(r => string.Equals(r.Workspace.Id, workspaceId, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Enter: chạy mục chạy được (đi tới workspace rồi chạy đúng đường nút Chạy), mở các mục còn lại.</summary>
+        private void OnPaletteActivated(SearchEntry entry) => OpenEntry(entry, run: entry.Runnable);
+
+        /// <summary>Ctrl+Enter: chỉ mở nơi chứa, không chạy.</summary>
+        private void OnPaletteReveal(SearchEntry entry) => OpenEntry(entry, run: false);
+
+        private void OpenEntry(SearchEntry entry, bool run)
+        {
+            if (entry.Kind != SearchKind.Action && !string.IsNullOrEmpty(entry.Key))
+                UsageStore.Shared.Record(entry.Key);
+            switch (entry.Kind)
+            {
+                case SearchKind.Action:
+                    ExecuteAction(entry.TargetId);
+                    return;
+                case SearchKind.Tool:
+                    Navigate(null);
+                    Library.FocusTool(entry.TargetId);
+                    return;
+                case SearchKind.Workspace:
+                    break;
+            }
+
+            var row = RowOf(entry.WorkspaceId);
+            if (row == null)
+            {
+                Dialogs.Error(this, "Không tìm thấy workspace của mục này. Có thể nó vừa bị gỡ.");
+                return;
+            }
+            Navigate(row);
+            if (entry.Kind == SearchKind.Workspace)
+                return;
+            if (!run)
+                WorkspaceContent.Reveal(entry.Kind, entry.TargetId);
+            else if (!WorkspaceContent.RunTarget(entry.Kind, entry.TargetId))
+                Dialogs.Error(this, $"Không tìm thấy \"{entry.Title}\" trong workspace. Có thể nó vừa bị xoá.");
+        }
+
+        private void OnThemeClick(object sender, RoutedEventArgs e)
+        {
+            Theme.SetMode(Theme.Next(Theme.Mode));
+            ThemeText.Text = Theme.Label(Theme.Mode);
+            _settings.Theme = Settings.Update(s => s.Theme = Theme.Name(Theme.Mode)).Theme;
+        }
+
         private void OnLibraryClick(object sender, RoutedEventArgs e) => Navigate(null);
 
         private void OnOverviewClick(object sender, RoutedEventArgs e) => GoTo(Area.Overview);
 
         private void OnTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
 
-        private void OnStatusTasksClick(object sender, RoutedEventArgs e) => GoTo(Area.Tasks);
 
         private void OnAgentsClick(object sender, RoutedEventArgs e) => GoTo(Area.Agents);
 
@@ -185,32 +744,36 @@ namespace Toolbox
         /// Agent qua MCP có thể đăng ký workspace hoặc gắn tool khi Toolbox đang mở. Nạp lại trước khi chuyển trang,
         /// để lần lưu sau của GUI không ghi đè các thay đổi đó.
         /// </summary>
-        private void SyncFromDisk()
+        private IReadOnlyList<string> SyncFromDisk()
         {
-            WorkspaceStore fresh;
+            IReadOnlyList<string> changed;
             try
             {
-                fresh = WorkspaceStore.Load(WorkspaceStore.DefaultPath);
+                changed = _workspaces.Sync();
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
             {
-                return;
+                return new List<string>();
             }
-            _workspaces.MergeFrom(fresh);
             foreach (var workspace in _workspaces.Workspaces)
             {
                 if (!_rows.Any(r => ReferenceEquals(r.Workspace, workspace)))
                     _rows.Add(new WorkspaceRow(workspace));
             }
             RefreshRows();
+            return changed;
         }
 
         private void GoTo(Area area, WorkspaceRow row = null)
         {
             if (_workspaces != null)
                 SyncFromDisk();
+            // Rời trang workspace (hoặc sang workspace khác) là đã xem: bỏ dấu "mới" của agent.
+            if (_area == Area.Workspace && (area != Area.Workspace || !ReferenceEquals(row, _current)))
+                WorkspaceContent.ClearNew();
             _area = area;
             _current = area == Area.Workspace ? row : null;
+            _current?.SetNewActivity(0);
             foreach (var r in _rows)
                 r.IsSelected = ReferenceEquals(r, _current);
             LibraryNav.IsChecked = area == Area.Library;

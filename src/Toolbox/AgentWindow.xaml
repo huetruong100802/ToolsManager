@@ -13,12 +13,12 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                 </StackPanel>
                 <Border x:Name="Chip" Grid.Column="1" CornerRadius="9" Padding="8,1" Margin="12,0" VerticalAlignment="Center"
-                        Background="{StaticResource Hover}">
-                    <TextBlock x:Name="ChipText" Text="{Binding ChipText}" FontSize="11" Foreground="{StaticResource Muted}" />
+                        Background="{DynamicResource Hover}">
+                    <TextBlock x:Name="ChipText" Text="{Binding ChipText}" FontSize="11" Foreground="{DynamicResource Muted}" />
                 </Border>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ConnectButton" Content="Kết nối" Click="OnConnect" MinWidth="104" Style="{StaticResource PrimaryButton}" />
@@ -28,14 +28,14 @@
             </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Link}" Value="Connected">
-                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentSoft}" />
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource Accent}" />
+                    <Setter TargetName="Chip" Property="Background" Value="{DynamicResource AccentSoft}" />
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource Accent}" />
                     <Setter TargetName="ConnectButton" Property="Visibility" Value="Collapsed" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Link}" Value="Stale">
-                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource WarnSoft}" />
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource WarnInk}" />
+                    <Setter TargetName="Chip" Property="Background" Value="{DynamicResource WarnSoft}" />
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource WarnInk}" />
                     <Setter TargetName="ConnectButton" Property="Content" Value="Kết nối lại" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
                 </DataTrigger>
@@ -44,7 +44,7 @@
     </Window.Resources>
 
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Đóng" IsCancel="True" MinWidth="90" />
@@ -54,10 +54,10 @@
         </Border>
 
         <DockPanel Margin="20,16,20,16">
-            <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{StaticResource Muted}" LineHeight="19"
+            <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource Muted}" LineHeight="19"
                        Text="Claude Code dùng Toolbox để tìm (list_tools), chạy (run_tool) và đăng ký tool. Toàn máy: agent quản lý mọi tool. Từng workspace: agent chỉ thấy và quản lý tool đã gắn vào workspace đó, và workspace phải được đăng ký trong Toolbox." />
 
-            <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                     CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
                 <ContentControl x:Name="UserRow" ContentTemplate="{StaticResource TargetRow}" Focusable="False" />
             </Border>
@@ -78,7 +78,7 @@
                 </StackPanel>
             </DockPanel>
 
-            <Border DockPanel.Dock="Top" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                     CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="Agent mới khi kết nối" FontWeight="SemiBold" />
@@ -90,7 +90,7 @@
                     </DockPanel>
                     <TextBlock Style="{StaticResource FieldLabel}" Text="Khi agent chạy" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, bộ chạy và tool đã có" Margin="0,0,18,0" />
+                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, workflow và tool đã có" Margin="0,0,18,0" />
                         <RadioButton x:Name="RunAsk" GroupName="NewAgentRun" Content="Hỏi trước mỗi lần chạy" Margin="0,0,18,0" />
                         <RadioButton x:Name="RunNone" GroupName="NewAgentRun" Content="Không cho chạy" />
                     </StackPanel>
@@ -104,14 +104,14 @@
                         <Button DockPanel.Dock="Right" Content="Copy" Click="OnCopy" Tag="{Binding ElementName=DesktopConfig}"
                                 VerticalAlignment="Top" Margin="8,0,0,0" />
                         <TextBox x:Name="DesktopConfig" IsReadOnly="True" FontFamily="Consolas" TextWrapping="NoWrap"
-                                 HorizontalScrollBarVisibility="Auto" Background="#F3F4F6" />
+                                 HorizontalScrollBarVisibility="Auto" Background="{DynamicResource CodeBg}" />
                     </DockPanel>
                     <TextBlock Text="VS Code / GitHub Copilot (.vscode/mcp.json hoặc mcp.json của user)" Style="{StaticResource FieldLabel}" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Copy" Click="OnCopy" Tag="{Binding ElementName=VsCodeConfig}"
                                 VerticalAlignment="Top" Margin="8,0,0,0" />
                         <TextBox x:Name="VsCodeConfig" IsReadOnly="True" FontFamily="Consolas" TextWrapping="NoWrap"
-                                 HorizontalScrollBarVisibility="Auto" Background="#F3F4F6" />
+                                 HorizontalScrollBarVisibility="Auto" Background="{DynamicResource CodeBg}" />
                     </DockPanel>
                 </StackPanel>
             </Expander>

@@ -41,6 +41,8 @@ namespace Toolbox.Views
             TagChips.ItemsSource = _tagOptions;
             ActiveTags.ItemsSource = _activeTags;
             Loaded += OnLoaded;
+            EmptyHint.AddAction("App đã cài…", () => OnPickApp(null, null));
+            EmptyHint.AddAction("Thêm tool", () => OnAdd(null, null));
             // Exited/Changed đến từ luồng khác: chuyển về luồng giao diện rồi mới đụng vào item.
             _runs.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshRuns));
             _clock.Tick += (s, e) =>
@@ -48,11 +50,24 @@ namespace Toolbox.Views
                 foreach (var item in _items)
                     item.Tick();
             };
-            _clock.Start();
         }
 
         /// <summary>File .toolbox truyền qua dòng lệnh; nhập ngay khi trang tải xong.</summary>
         public string FileToOpen { get; set; }
+
+        /// <summary>Tool trong thư viện (cho chỉ mục tìm toàn app). Rỗng nếu chưa nạp được.</summary>
+        public IReadOnlyList<ToolEntry> Tools => _store?.Tools ?? (IReadOnlyList<ToolEntry>)new List<ToolEntry>();
+
+        /// <summary>Bảng lệnh mở một tool: lọc danh sách về đúng tool đó và đưa con trỏ tới đó.</summary>
+        public void FocusTool(string toolId)
+        {
+            var item = _items.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+                return;
+            SearchBox.Text = item.Tool.Name;
+            ToolList.SelectedItem = item;
+            ToolList.ScrollIntoView(item);
+        }
 
         /// <summary>Cửa sổ chủ, dùng làm owner cho hộp thoại.</summary>
         private Window Host => Window.GetWindow(this);
@@ -75,7 +90,7 @@ namespace Toolbox.Views
             catch (InvalidDataException ex)
             {
                 // Không ghi đè file hỏng; để người dùng tự sửa hoặc xoá.
-                Dialogs.Error(Host, ex.Message + "\n\nHãy sửa hoặc xoá file này rồi mở lại Toolbox.");
+                Dialogs.Fatal(Host, ex.Message + "\n\nHãy sửa hoặc xoá file này rồi mở lại Toolbox.");
                 Host.Close();
                 return;
             }
@@ -115,14 +130,39 @@ namespace Toolbox.Views
 
         private void Reload()
         {
+            // Giữ các tool đang được tick qua lần nạp lại (vd. agent vừa đổi tools.json khi người dùng đang chọn).
+            var checkedIds = new HashSet<string>(_items.Where(i => i.IsChecked).Select(i => i.Tool.Id), StringComparer.OrdinalIgnoreCase);
             foreach (var item in _items)
                 item.PropertyChanged -= OnItemChanged;
             _items.Clear();
             foreach (var tool in _store.Tools.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
                 AddItem(tool);
+                if (checkedIds.Contains(tool.Id))
+                    _items[_items.Count - 1].IsChecked = true;
+            }
 
             BuildTagChips();
             ApplyFilter();
+        }
+
+        /// <summary>Nạp thay đổi của agent (tools.json đổi ở ngoài) vào danh sách; giữ ô tìm, tag và các tool đang tick.</summary>
+        public bool SyncFromDisk()
+        {
+            if (_store == null)
+                return false;
+            try
+            {
+                if (!_store.Sync())
+                    return false;
+                Reload();
+                return true;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // File đang bị ghi dở hoặc hỏng: giữ danh sách hiện có, lần đổi kế tiếp sẽ nạp lại.
+            }
+            return false;
         }
 
         /// <summary>Dựng lại chip tag từ kho, kèm số tool mỗi tag; giữ các tag đang chọn nếu vẫn còn tồn tại.</summary>
@@ -196,13 +236,13 @@ namespace Toolbox.Views
         }
 
         /// <summary>
-        /// Phím tắt: Ctrl+K / Ctrl+F nhảy vào ô tìm; Esc trong ô tìm xoá chữ; Enter trên dòng đang chọn thì chạy
+        /// Phím tắt: Ctrl+F nhảy vào ô tìm (Ctrl+K là bảng lệnh toàn app, xử lý ở cửa sổ chính); Esc trong ô tìm xoá chữ; Enter trên dòng đang chọn thì chạy
         /// (tương đương double-click, để dùng được hoàn toàn bằng bàn phím).
         /// </summary>
         private void OnWindowKeyDown(object sender, KeyEventArgs e)
         {
             var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
-            if (ctrl && (e.Key == Key.K || e.Key == Key.F))
+            if (ctrl && e.Key == Key.F)
             {
                 SearchBox.Focus();
                 SearchBox.SelectAll();
@@ -250,7 +290,7 @@ namespace Toolbox.Views
         private void UpdateFooter()
         {
             var checkedCount = CheckedItems().Count;
-            PackButton.Content = checkedCount > 0 ? $"Đóng gói ({checkedCount})" : "Đóng gói";
+            PackButton.Content = checkedCount > 0 ? $"Chia sẻ ({checkedCount})" : "Chia sẻ";
             PackButton.IsEnabled = checkedCount > 0;
             RemoveButton.IsEnabled = checkedCount > 0;
             var visible = _view.Cast<ToolItem>().ToList();
@@ -331,7 +371,17 @@ namespace Toolbox.Views
             var dialog = new ToolEditWindow(copy, isNew: false) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
-            _store.Update(copy);
+            try
+            {
+                _store.Update(copy);
+            }
+            catch (KeyNotFoundException)
+            {
+                // Agent (hoặc người khác) đã xoá tool trong lúc đang sửa.
+                Dialogs.Error(Host, $"Tool \"{copy.Name}\" vừa bị xoá khỏi danh sách ở nơi khác nên không lưu được chỉnh sửa.");
+                Reload();
+                return;
+            }
             if (Save())
                 Reload();
         }
@@ -404,40 +454,100 @@ namespace Toolbox.Views
             }
         }
 
+        /// <summary>
+        /// Xoá tool đã tick. Xoá khỏi danh sách là thao tác đảo được nên làm ngay rồi hiện thông báo có nút Hoàn tác (8 giây);
+        /// chỉ hỏi trước khi phải xoá cả bản chép trong thư viện Toolbox (không khôi phục được).
+        /// </summary>
         private void OnRemove(object sender, RoutedEventArgs e)
         {
             var items = CheckedItems();
             var tools = items.Select(i => i.Tool).ToList();
-            var names = string.Join("\n", tools.Select(t => "• " + t.Name));
-            var message = $"Xoá {tools.Count} tool khỏi danh sách?\n\n{names}\n\nFile gốc của tool không bị xoá. Tool đang gắn vào workspace nào sẽ được gỡ khỏi workspace đó.";
+            if (tools.Count == 0)
+                return;
 
-            // Chỉ hỏi về bản chép khi có bản chép thật trong thư viện; không thì giữ xác nhận đơn giản như trước.
-            var withCopies = tools.Count(t => Library.HasCopy(_store, t.Id));
             var deleteCopies = false;
+            var withCopies = tools.Count(t => Library.HasCopy(_store, t.Id));
             if (withCopies > 0)
             {
-                var answer = Dialogs.Choose(Host, message + $"\n\n{withCopies} tool có bản chép trong thư viện Toolbox."
-                    + "\n\nYes: xoá luôn bản chép trong thư viện."
+                var names = string.Join("\n", tools.Select(t => "• " + t.Name));
+                var answer = Dialogs.Choose(Host, $"Xoá {tools.Count} tool khỏi danh sách?\n\n{names}\n\n{withCopies} tool có bản chép trong thư viện Toolbox."
+                    + "\n\nYes: xoá luôn bản chép trong thư viện (không khôi phục được)."
                     + "\nNo: chỉ bỏ khỏi danh sách, giữ bản chép để khôi phục sau."
                     + "\nCancel: không làm gì.");
                 if (answer == null)
                     return;
                 deleteCopies = answer.Value;
             }
-            else if (!Dialogs.Confirm(Host, message))
-            {
-                return;
-            }
 
+            var removed = tools.Select(t => t.Clone()).ToList();
             foreach (var tool in tools)
                 _store.Remove(tool.Id);
             // Lưu danh sách trước: nếu lưu lỗi thì không xoá bản chép của tool vẫn còn trong tools.json.
             if (!Save())
                 return;
-            UnbindFromWorkspaces(tools.Select(t => t.Id));
+            var ids = tools.Select(t => t.Id).ToList();
+            var bound = CaptureBindings(ids);
+            UnbindFromWorkspaces(ids);
             if (deleteCopies)
                 DeleteCopies(tools);
             Reload();
+
+            var label = removed.Count == 1 ? $"Đã xoá \"{removed[0].Name}\"" : $"Đã xoá {removed.Count} tool";
+            if (deleteCopies)
+                Dialogs.Success(label + ".");
+            else
+                Dialogs.Success(label + ".", "Hoàn tác", () => RestoreTools(removed, bound));
+        }
+
+        /// <summary>Chỗ gắn của các tool trước khi gỡ khỏi workspace, để hoàn tác gắn lại đúng chỗ.</summary>
+        private List<KeyValuePair<string, ToolBinding>> CaptureBindings(IEnumerable<string> toolIds)
+        {
+            var result = new List<KeyValuePair<string, ToolBinding>>();
+            try
+            {
+                var store = WorkspaceStore.Peek(WorkspaceStore.DefaultPath);
+                foreach (var workspace in store.Workspaces)
+                    foreach (var binding in workspace.Bindings.Where(b => toolIds.Contains(b.ToolId, StringComparer.OrdinalIgnoreCase)))
+                        result.Add(new KeyValuePair<string, ToolBinding>(workspace.Id, new ToolBinding { ToolId = binding.ToolId, Cwd = binding.Cwd, Args = binding.Args }));
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+            return result;
+        }
+
+        /// <summary>Hoàn tác xoá: đưa tool trở lại danh sách và gắn lại vào các workspace cũ (trừ chỗ đã gắn lại bằng tay).</summary>
+        private void RestoreTools(List<ToolEntry> tools, List<KeyValuePair<string, ToolBinding>> bound)
+        {
+            try
+            {
+                foreach (var tool in tools)
+                    if (_store.Find(tool.Id) == null)
+                        _store.Add(tool);
+                if (!Save())
+                    return;
+                if (bound.Count > 0)
+                    WorkspaceStore.Update(WorkspaceStore.DefaultPath, store =>
+                    {
+                        var any = false;
+                        foreach (var pair in bound)
+                        {
+                            var workspace = store.Find(pair.Key);
+                            if (workspace == null || workspace.Binding(pair.Value.ToolId) != null)
+                                continue;
+                            workspace.Bindings.Add(pair.Value);
+                            any = true;
+                        }
+                        return any;
+                    });
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(Host, "Không hoàn tác được: " + ex.Message);
+                return;
+            }
+            Reload();
+            Dialogs.Success(tools.Count == 1 ? $"Đã khôi phục \"{tools[0].Name}\"." : $"Đã khôi phục {tools.Count} tool.");
         }
 
         /// <summary>Xoá bản chép sau khi danh sách đã lưu. Lỗi của một tool không chặn các tool còn lại.</summary>
@@ -481,6 +591,7 @@ namespace Toolbox.Views
             try
             {
                 _runs.Start(item.Tool);
+                UsageStore.Shared.Record(UsageStore.Key("tool", item.Tool.Id));
                 StatusText.Text = $"Đã mở \"{item.Tool.Name}\".";
             }
             catch (Exception ex) when (ex is FileNotFoundException || ex is System.ComponentModel.Win32Exception)
@@ -505,6 +616,11 @@ namespace Toolbox.Views
             var running = _runs.RunningCount;
             RunningText.Text = $"● {running} tool đang chạy";
             RunningText.Visibility = running > 0 ? Visibility.Visible : Visibility.Collapsed;
+            // Đồng hồ thời lượng chỉ chạy khi có tool đang chạy.
+            if (running > 0 && !_clock.IsEnabled)
+                _clock.Start();
+            else if (running == 0)
+                _clock.Stop();
         }
 
         private async void OnInstallSetup(object sender, RoutedEventArgs e)
@@ -567,18 +683,9 @@ namespace Toolbox.Views
                 return;
             }
 
-            var summary = new StringBuilder();
-            foreach (var p in previews)
-            {
-                summary.Append("• ").Append(p.Tool.Name).Append(" — ");
-                summary.AppendLine(p.SourceRoot == null ? "chỉ gửi thông tin"
-                    : p.Tool.Pack == PackMode.Setup ? $"kèm bộ cài {Path.GetFileName(p.Tool.ResolvedSetup)}, {Format.Size(p.TotalBytes)}"
-                    : $"{p.FileCount} file, {Format.Size(p.TotalBytes)}");
-                if (p.IsBroadFolder)
-                    summary.AppendLine($"    ⚠ lấy cả thư mục rộng: {p.SourceRoot} — nên sửa tool, chọn \"Chỉ file\"");
-            }
-            summary.AppendLine().Append("Tổng: ").Append(Format.Size(previews.Sum(p => p.TotalBytes))).Append(". Tiếp tục?");
-            if (!Dialogs.Confirm(Host, summary.ToString(), previews.Any(p => p.IsBroadFolder)))
+            var share = new ShareWindow(ShareSummary.Header(tools.Count, 0, 0, 0), previews.Select(ShareSummary.ToolLine)
+                .Concat(new[] { "", "Tổng: " + ShareSummary.Format(previews.Sum(p => p.TotalBytes)) }), ShareSummary.Warnings(previews)) { Owner = Host };
+            if (share.ShowDialog() != true)
                 return;
 
             var dialog = new SaveFileDialog
@@ -611,7 +718,57 @@ namespace Toolbox.Views
             return path.EndsWith(Packer.FileExtension, StringComparison.OrdinalIgnoreCase) ? path : path + Packer.FileExtension;
         }
 
-        // ---------- Nhập gói ----------
+        // ---------- Nhận gói ----------
+
+        /// <summary>Nhận gói xong: workspace đã nhận profile, workflow, lệnh riêng (có thể vừa được tạo). Cửa sổ chính mở nó để thấy khung "Chưa sẵn sàng".</summary>
+        public event Action<string> WorkspaceImported;
+
+        private static List<Workspace> QuietWorkspaces()
+        {
+            try { return WorkspaceStore.Peek(WorkspaceStore.DefaultPath).Workspaces.ToList(); }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { return new List<Workspace>(); }
+        }
+
+        /// <summary>
+        /// Gói có phần workspace: tool vào thư viện, còn profile, workflow, lệnh riêng vào workspace đã chọn (hoặc workspace mới tạo từ thư mục).
+        /// Xong thì mở workspace đó, nơi khung "Chưa sẵn sàng" nêu thứ máy này còn thiếu.
+        /// </summary>
+        private async Task ImportIntoWorkspace(string zipPath, ImportWindow dialog)
+        {
+            WorkspaceImportResult result = null;
+            string workspaceId = null;
+            try
+            {
+                await RunBusy(() =>
+                {
+                    WorkspaceStore.Update(WorkspaceStore.DefaultPath, store =>
+                    {
+                        Workspace target;
+                        if (dialog.TargetWorkspaceId != null)
+                            target = store.Find(dialog.TargetWorkspaceId) ?? throw new InvalidDataException("Workspace nhận đã bị gỡ khỏi Toolbox.");
+                        else
+                            target = store.Add(new Workspace { Name = Path.GetFileName(dialog.NewWorkspaceFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)), Path = dialog.NewWorkspaceFolder });
+                        result = PackageImporter.ImportIntoWorkspace(_store, target, zipPath, dialog.Destination, dialog.Choices);
+                        workspaceId = target.Id;
+                        return true;
+                    });
+                    return 0;
+                });
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Dialogs.Error(Host, "Không nhập được gói: " + ex.Message);
+                return;
+            }
+
+            if (!Save())
+                return;
+            Reload();
+            Dialogs.Success("Đã nhận " + ShareSummary.Counts(result.Tools.Count, result.ProfilesAdded, result.StacksAdded, result.CustomsAdded)
+                + " từ " + Path.GetFileName(zipPath) + ". Kiểm xem máy này còn thiếu gì.", seconds: 8);
+            WorkspaceImported?.Invoke(workspaceId);
+        }
+
 
         private void OnImport(object sender, RoutedEventArgs e)
         {
@@ -637,9 +794,14 @@ namespace Toolbox.Views
                 return;
             }
 
-            var dialog = new ImportWindow(manifest, _store) { Owner = Host };
+            var dialog = new ImportWindow(manifest, _store, QuietWorkspaces()) { Owner = Host };
             if (dialog.ShowDialog() != true)
                 return;
+            if (dialog.HasWorkspaceContent)
+            {
+                await ImportIntoWorkspace(zipPath, dialog);
+                return;
+            }
 
             IList<ToolEntry> imported;
             try
@@ -699,6 +861,28 @@ namespace Toolbox.Views
 
         /// <summary>Mở cửa sổ Kết nối agent từ trang Agent.</summary>
         public void OpenAgentWindow() => OnConnectAgent(null, null);
+
+        /// <summary>F5: chạy tool đang chọn trong danh sách. false nếu không có tool nào chạy được đang chọn.</summary>
+        public bool RunSelected()
+        {
+            if (!(ToolList.SelectedItem is ToolItem item) || item.CanInstall)
+                return false;
+            Run(item);
+            return true;
+        }
+
+        /// <summary>Shift+F5: dừng tool đang chọn nếu nó đang chạy.</summary>
+        public bool StopSelected()
+        {
+            if (!(ToolList.SelectedItem is ToolItem item) || !item.IsRunning)
+                return false;
+            _runs.Stop(item.Tool.Id);
+            StatusText.Text = $"Đang dừng \"{item.Tool.Name}\"…";
+            return true;
+        }
+
+        /// <summary>Mở hộp chọn app đã cài để thêm tool (cho bước làm quen ở Trang chủ).</summary>
+        public void StartPickApp() => OnPickApp(null, null);
 
         private void OnConnectAgent(object sender, RoutedEventArgs e)
         {

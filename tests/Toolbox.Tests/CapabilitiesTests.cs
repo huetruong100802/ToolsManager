@@ -55,6 +55,46 @@ Options:
             Assert.Empty(HelpParser.Parse("Usage: tool <lệnh>\nKhông có tuỳ chọn nào."));
         }
 
+        // git --help: cờ nằm trong dòng "usage:" với ngoặc vuông, không đứng đầu dòng.
+        private const string GitUsage = @"usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+";
+
+        [Fact]
+        public void HelpParser_UsageKieuGit_DocCoCoTrongNgoac()
+        {
+            var entries = HelpParser.Parse(GitUsage);
+            var byName = entries.ToDictionary(e => e.Name, StringComparer.Ordinal);
+
+            Assert.Contains("-v", byName.Keys);
+            Assert.Contains("--version", byName.Keys);
+            Assert.Contains("--no-pager", byName.Keys);
+            Assert.True(byName["-C"].TakesValue);
+            Assert.True(byName["-c"].TakesValue);
+            Assert.True(byName["--exec-path"].TakesValue);
+            Assert.True(byName["--git-dir"].TakesValue);
+            Assert.False(byName["--bare"].TakesValue);
+            Assert.False(byName["--no-pager"].TakesValue);
+            Assert.False(byName["-v"].TakesValue);
+            Assert.Null(byName["--bare"].Description);
+        }
+
+        [Fact]
+        public void HelpParser_UsageArgparse_NhanGiaTriVietHoa()
+        {
+            var entries = HelpParser.Parse("usage: tool [-h] [--port PORT] [--open]\n\noptions:\n  -h, --help  show help\n");
+            var byName = entries.ToDictionary(e => e.Name, StringComparer.Ordinal);
+
+            Assert.True(byName["--port"].TakesValue);
+            Assert.False(byName["--open"].TakesValue);
+            Assert.Single(entries, e => e.Name == "--help");
+        }
+
         [Fact]
         public void ApplyScan_GiuVaiTroVaMucNhapTay()
         {

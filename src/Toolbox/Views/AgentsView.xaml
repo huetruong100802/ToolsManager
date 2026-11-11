@@ -4,7 +4,7 @@
     <UserControl.Resources>
         <!-- Tab: chữ đậm và gạch chân accent khi chọn (cùng kiểu với tab của workspace). -->
         <Style x:Key="AgentTab" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="Foreground" Value="{DynamicResource Muted}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -15,11 +15,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
-                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -52,7 +52,7 @@
             </StackPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" />
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" />
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel x:Name="Body" Margin="24,16,24,20" />
         </ScrollViewer>

@@ -1,10 +1,10 @@
 <Window x:Class="Toolbox.StackEditWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Thêm bộ chạy" Width="680" Height="620" MinHeight="420"
+        Title="Thêm workflow" Width="680" Height="620" MinHeight="420"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <DockPanel>
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
                 BorderThickness="0,1,0,0" Padding="20,12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Huỷ" IsCancel="True" MinWidth="90" Margin="0,0,8,0" />
@@ -14,8 +14,8 @@
         </Border>
 
         <StackPanel DockPanel.Dock="Top" Margin="20,18,20,8">
-            <TextBlock Text="Tên bộ chạy *" Style="{StaticResource FieldLabel}" />
-            <TextBox x:Name="LabelBox" TextChanged="OnLabelChanged" AutomationProperties.Name="Tên bộ chạy" />
+            <TextBlock Text="Tên workflow *" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="LabelBox" TextChanged="OnLabelChanged" AutomationProperties.Name="Tên workflow" />
             <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,12"
                        Text="vd: Dev full stack. Các bước chạy lần lượt từ trên xuống." />
             <DockPanel>
@@ -38,7 +38,7 @@
                 <ItemsControl x:Name="StepList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                     CornerRadius="10" Padding="12,10" Margin="0,0,0,8">
                                 <StackPanel>
                                     <DockPanel>
@@ -54,7 +54,7 @@
                                             </Button>
                                         </StackPanel>
                                         <TextBlock DockPanel.Dock="Left" Text="{Binding Number}" FontWeight="SemiBold" Width="22"
-                                                   VerticalAlignment="Center" Foreground="{StaticResource Muted}" />
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource Muted}" />
                                         <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target, Mode=TwoWay}"
                                                   DisplayMemberPath="Display" AutomationProperties.Name="Lệnh của bước" />
                                     </DockPanel>
@@ -83,7 +83,7 @@
                                     </WrapPanel>
 
                                     <TextBlock Text="{Binding Problem}" Visibility="{Binding ProblemVisibility}" TextWrapping="Wrap"
-                                               Foreground="{StaticResource Danger}" FontSize="12" Margin="22,4,0,0" />
+                                               Foreground="{DynamicResource Danger}" FontSize="12" Margin="22,4,0,0" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

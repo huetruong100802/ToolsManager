@@ -208,10 +208,10 @@ namespace Toolbox.Views
 
         private string Scope() => ScopeOf(Action.Id, Editor.GetPairs());
 
-        /// <summary>Trình sửa cặp tham số của thẻ lệnh (bấm ＋ để thêm; gợi ý key từ bảng khả năng đã quét).</summary>
+        /// <summary>Trình sửa cặp tham số của thẻ lệnh (bấm ＋ để thêm; gợi ý key từ bảng lệnh đã quét).</summary>
         public PairEditor Editor { get; }
 
-        /// <summary>Đọc lại gợi ý key (sau khi quét trợ giúp ở "Khả năng…").</summary>
+        /// <summary>Đọc lại gợi ý key (sau khi quét trợ giúp ở "Lệnh…").</summary>
         public void RefreshSuggestions()
         {
             _scope = Scope();
@@ -227,7 +227,7 @@ namespace Toolbox.Views
             Editor.EnableScan(!string.IsNullOrEmpty(Tool.HelpCommand(_scope)) && !string.IsNullOrEmpty(_workingDirectory), hasOwn);
         }
 
-        /// <summary>Chạy lệnh trợ giúp của action này (nền), lưu vào bảng khả năng rồi nạp lại dropdown.</summary>
+        /// <summary>Chạy lệnh trợ giúp của action này (nền), lưu vào bảng lệnh rồi nạp lại dropdown.</summary>
         private async System.Threading.Tasks.Task ScanAsync()
         {
             var scope = Scope();
@@ -369,12 +369,17 @@ namespace Toolbox.Views
     /// <summary>Một profile đã lưu: cách chạy có tên. Hỏng khi tool/action/biến thể của nó không còn.</summary>
     public sealed class ProfileRow : RunRow
     {
+        /// <summary>Agent vừa thêm hoặc sửa profile này và bạn chưa xem.</summary>
+        public bool IsNew { get; set; }
+
+        public Visibility NewVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
         public ProfileRow(Workspace workspace, Profile profile)
         {
             Profile = profile;
             if (ProfileKind.IsCustom(profile.Kind))
             {
-                // Lệnh riêng: không thuộc tool nào; kiểm bằng bộ resolve của bộ chạy.
+                // Lệnh riêng: không thuộc tool nào; kiểm bằng bộ resolve của workflow.
                 var resolved = StackResolver.Resolve(workspace, new StackStep { Kind = profile.Kind, ProfileId = profile.Id }, 0);
                 Problem = resolved.Problem;
                 RefSummary = "Lệnh riêng · " + (workspace.Customs.Find(c => string.Equals(c.Id, profile.RefId, StringComparison.OrdinalIgnoreCase))?.Label ?? "(đã xoá)");
@@ -471,10 +476,11 @@ namespace Toolbox.Views
     {
         private bool _isSelected;
 
-        /// <summary>Id của tab "Lệnh riêng" và "Bộ chạy" (không trùng kind nào của catalog).</summary>
+        /// <summary>Id của tab "Lệnh riêng" và "Workflow" (không trùng kind nào của catalog).</summary>
         public const string CustomId = "";
         public const string StacksId = ":stacks";
         public const string RunId = ":run";
+        public const string ToolsId = ":tools";
 
         public TabRow(string title, ToolBinding binding, string id = null)
         {
@@ -483,9 +489,9 @@ namespace Toolbox.Views
             Id = id ?? binding?.ToolId ?? CustomId;
         }
 
-        public static TabRow Stacks() => new TabRow("Bộ chạy", null, StacksId);
+        public static TabRow Stacks() => new TabRow("Workflow", null, StacksId);
 
-        /// <summary>Tab đầu tiên: bộ chạy và profile của cả workspace, để chạy ngay.</summary>
+        /// <summary>Tab đầu tiên: workflow và profile của cả workspace, để chạy ngay.</summary>
         public static TabRow Run() => new TabRow("Chạy", null, RunId);
 
         /// <summary>Kind của tool, hoặc <see cref="CustomId"/> / <see cref="StacksId"/>; dùng để nhớ tab đang chọn.</summary>
@@ -503,6 +509,8 @@ namespace Toolbox.Views
 
         public bool IsRun => Id == RunId;
 
+        public bool IsTools => Id == ToolsId;
+
         public bool IsSelected
         {
             get => _isSelected;
@@ -515,7 +523,7 @@ namespace Toolbox.Views
             }
         }
     }
-    /// <summary>Một bước trong thẻ bộ chạy: tên, kiểu chờ, trạng thái lần chạy gần nhất hoặc lý do hỏng.</summary>
+    /// <summary>Một bước trong thẻ workflow: tên, kiểu chờ, trạng thái lần chạy gần nhất hoặc lý do hỏng.</summary>
     public sealed class StackStepRow
     {
         public StackStepRow(ResolvedStep resolved, StepProgress progress)
@@ -530,6 +538,11 @@ namespace Toolbox.Views
             IsBroken = resolved.IsBroken;
             Note = resolved.IsBroken ? "Hỏng: " + resolved.Problem : progress?.Detail;
             WaitText = WaitTextFor(resolved);
+            TaskId = progress?.TaskId;
+            Status = status;
+            if (status == StepStatus.Running && progress != null)
+                Elapsed = Core.Text.Duration(DateTime.UtcNow - progress.Since);
+            Index = resolved.Index;
         }
 
         public string Title { get; }
@@ -540,6 +553,12 @@ namespace Toolbox.Views
         public string Glyph { get; }
         public string Note { get; }
         public string WaitText { get; }
+        public string TaskId { get; }
+        public StepStatus Status { get; }
+        public int Index { get; }
+        /// <summary>"45 giây" khi bước đang chạy hoặc đang chờ cổng; rỗng nếu không.</summary>
+        public string Elapsed { get; }
+        public string ElapsedText => string.IsNullOrEmpty(Elapsed) ? "" : "đã " + Elapsed;
 
         private static string WaitTextFor(ResolvedStep r)
         {
@@ -556,9 +575,14 @@ namespace Toolbox.Views
         }
     }
 
-    /// <summary>Thẻ một bộ chạy: các bước, kết quả lần chạy gần nhất và nút Chạy/Dừng.</summary>
+    /// <summary>Thẻ một workflow: các bước, kết quả lần chạy gần nhất và nút Chạy/Dừng.</summary>
     public sealed class StackRow : INotifyPropertyChanged
     {
+        /// <summary>Agent vừa thêm hoặc sửa workflow này và bạn chưa xem.</summary>
+        public bool IsNew { get; set; }
+
+        public Visibility NewVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
+
         private readonly Workspace _workspace;
         private List<StackStepRow> _steps = new List<StackStepRow>();
         private StackRun _run;
@@ -591,7 +615,7 @@ namespace Toolbox.Views
             }
         }
 
-        /// <summary>Đang chạy các bước, hoặc còn tác vụ do bộ chạy này bật.</summary>
+        /// <summary>Đang chạy các bước, hoặc còn tác vụ do workflow này bật.</summary>
         public bool CanStop => _run != null && (_run.IsActive || _run.HasRunningTasks);
 
         public bool CanEdit => _run == null || !_run.IsActive;
@@ -620,7 +644,20 @@ namespace Toolbox.Views
             }
         }
 
-        public string RunTip => _brokenCount > 0 ? "Có bước hỏng; sửa bộ chạy trước khi chạy" : "Chạy lần lượt các bước";
+        /// <summary>Chỉ số bước lỗi của lần chạy gần nhất, hoặc -1.</summary>
+        public int FailedIndex => _run == null || _run.IsActive ? -1 : _run.FirstFailedIndex;
+
+        public bool HasFailedStep => FailedIndex >= 0;
+
+        public Visibility FailedVisibility => HasFailedStep ? Visibility.Visible : Visibility.Collapsed;
+
+        public string RetryText => HasFailedStep ? $"Chạy lại từ bước {FailedIndex + 1}" : "";
+
+        public string FailedTaskId => HasFailedStep ? _run.Steps[FailedIndex].TaskId : null;
+
+        public Visibility FailedLogVisibility => FailedTaskId != null ? Visibility.Visible : Visibility.Collapsed;
+
+        public string RunTip => _brokenCount > 0 ? "Có bước hỏng; sửa workflow trước khi chạy" : "Chạy lần lượt các bước";
 
         /// <summary>Đối chiếu lại các bước với workspace (tool/profile/lệnh có thể đã đổi) và áp kết quả lần chạy.</summary>
         public void Update(StackRun run)
