@@ -152,6 +152,10 @@ namespace Toolbox.Views
             Refresh();
         }
 
+        private void OnTaskSearchChanged(object sender, EventArgs e) => OnFilterChanged(sender, null);
+
+        private void OnLogSearchChanged(object sender, EventArgs e) => OnLogFilterChanged(sender, null);
+
         private void OnStopAll(object sender, RoutedEventArgs e)
         {
             // Dừng đúng những tác vụ đang hiện theo bộ lọc, không đụng tác vụ của workspace khác đang bị lọc ẩn.

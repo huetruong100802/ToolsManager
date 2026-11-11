@@ -6,7 +6,7 @@
 ![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-512BD4)
 ![MCP](https://img.shields.io/badge/MCP-stdio-7C3AED)
 
-![Cửa sổ chính của Toolbox với danh sách tool, ô tìm kiếm và lọc tag](docs/images/main-window.png)
+![Thư viện tool: mỗi dòng gọn với ghim, menu … và nút Chạy](docs/images/main-window.png)
 
 Tool thường nằm rải rác: phần mềm trong `Program Files`, bản tải về trong `Downloads`, script do agent tạo. Bạn phải nhớ đường dẫn mới dùng được, và gửi cho đồng đội thì rất phiền. Toolbox gom tất cả vào một danh sách. Toolbox không sửa file gốc của tool, và không bao giờ xoá file gốc. Xoá một tool khỏi danh sách chỉ là xoá một dòng trong `tools.json`.
 
@@ -76,6 +76,15 @@ dotnet build src/Toolbox/Toolbox.csproj -c Release
 - Double-click `Toolbox.exe`, hoặc
 - Bấm **Cài vào máy** trong banner để cài cho người dùng hiện tại. Sau đó mở Toolbox từ Start Menu.
 
+### Chụp ảnh các màn hình
+
+```powershell
+pwsh -NoProfile -File tools/shoot.ps1                       # dữ liệu mẫu = %APPDATA%\Toolbox, ảnh ở %TEMP%\toolbox-shots
+pwsh -NoProfile -File tools/shoot.ps1 -Source D:\mau -Out D:\anh
+```
+
+Script chạy `Toolbox.exe` với `TOOLBOX_DATA` trỏ vào **bản sao** của thư mục dữ liệu (không đụng dữ liệu thật), bấm từng trang và tab bằng UI Automation rồi lưu PNG ở thư mục ngoài repo. Mỗi lần chụp đủ hai theme (`light-*`, `dark-*`) và máy trắng (`blank-light-*`, `blank-dark-*`). Giữ cửa sổ Toolbox ở màn hình chính và đừng đụng chuột, bàn phím trong lúc chụp.
+
 ### Chạy test
 
 ```powershell
@@ -121,15 +130,15 @@ Double-click hoặc bấm ▶. Nút **📁** mở thư mục chứa tool. Tham s
 
 Workspace là một thư mục dự án, ví dụ repo Angular hoặc solution .NET. Bấm **+ Thêm workspace** ở cột trái, chọn thư mục, rồi nhận tool gợi ý hoặc bấm **+ Thêm tool** để gắn thêm. Mỗi lệnh có thể bấm **Lưu profile** để giữ lại cách chạy hiện tại, kèm tham số và cổng.
 
-![Workspace với tab Angular: lệnh chạy dev, build và test](docs/images/workspace.png)
+![Tab Workflow của workspace: thêm workflow, nhờ agent dựng hoặc dựng bằng sơ đồ](docs/images/workspace.png)
 
 Tab **Workflow** gom nhiều lệnh thành một chuỗi, ví dụ bật API, chờ cổng mở, rồi mới bật web. Mở app là vào **Trang chủ**: việc cần bạn xử lý (đề xuất của agent chờ duyệt, tác vụ lỗi, thứ mất đường dẫn), thứ đang chạy, và chỗ để tiếp tục; lần đầu có ba bước làm quen. **Ctrl+K** tìm và chạy mọi thứ từ bất kỳ trang nào.
 
-![Màn hình Trang chủ (ảnh chụp bản cũ, còn tên "Tổng quan"; bản mới có thêm "Cần bạn xử lý" và "Tiếp tục")](docs/images/overview.png)
+![Trang chủ: ba bước làm quen, thẻ từng workspace kèm lệnh chạy được](docs/images/overview.png)
 
 Tab **Chạy** là tab đầu của mỗi workspace: các workflow hiện kèm các bước, bên dưới là mọi profile (tìm theo tên). Workspace nhiều tool và profile thì không phải mở từng tab tool để tìm lệnh cần chạy.
 
-![Tab Chạy: workflow kèm các bước và danh sách profile, mỗi dòng có nút Chạy](docs/images/workspace-run.png)
+![Tab Chạy: lệnh nhóm theo tool, mỗi dòng có Chạy, ghim và menu …](docs/images/workspace-run.png)
 
 Cột trái giữ workspace theo thứ tự: ghim trước, còn lại theo tên. Chuột phải vào một workspace để ghim hoặc bỏ ghim.
 
@@ -141,7 +150,7 @@ Cột trái giữ workspace theo thứ tự: ghim trước, còn lại theo tên
 
 Mỗi lần bấm **Kết nối** (xem dưới) Toolbox tạo một **agent** trong `agents.json` và truyền `--agent <id>` cho MCP server. Trang **Agent** trên thanh trái có ba tab:
 
-![Trang Agent: danh sách agent, phạm vi và bảng quyền](docs/images/agents.png)
+![Trang Agent: nhóm theo workspace, Toàn máy nằm ở mục nâng cao](docs/images/agents.png)
 
 | Tab | Làm gì |
 |---|---|
@@ -322,7 +331,7 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
 - Với `.bat` và `.cmd`, `cmd.exe` diễn giải chuỗi `args`. Mô tả tool nên ghi rõ tham số hợp lệ.
 - **Chưa làm so với thiết kế cũ** (`docs/plan-v10.md`): sơ đồ workflow sửa trực tiếp (dấu +, kéo thả), khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent (hiện chỉ hoàn tác ngay trên thông báo).
-- **Bản đổi giao diện (`docs/plan-ux-overhaul.md`, P1–P21)** mới được kiểm bằng test tự động và khởi động thử, chưa chạy tay đủ 8 tiêu chí nghiệm thu trên màn hình thật; ảnh chụp trong README là bản cũ. `Toolbox.exe` lớn hơn bản trước khoảng 180 KB (vượt ngân sách 150 KB của kế hoạch) và dùng thêm vài MB RAM.
+- **Bản đổi giao diện (`docs/plan-ux-overhaul.md` và `docs/plan-ux-v2.md`)** được kiểm bằng test tự động (663 test) và ảnh chụp bằng `tools/shoot.ps1`; chưa chạy tay đủ các tiêu chí nghiệm thu. Chưa thử nút **AI thiết lập** với CLI agent thật (cần CLI cài sẵn). Tab Chạy ở cửa sổ 1320×860 ước hiện khoảng 11–12 lệnh không cần cuộn, chưa đo chính xác. Vẫn còn vài cửa sổ modal ngoài trang workspace: sửa tool, nhập prompt, Worktree, danh sách kiểm. `Toolbox.exe` lớn hơn bản trước khoảng 180 KB (vượt ngân sách 150 KB của plan cũ).
 - Chế độ chạy của agent có *tự chạy*, *hỏi trước mỗi lần* và *không cho chạy*. Ở chế độ hỏi trước, agent gửi yêu cầu, GUI hiện thông báo ba nút (Cho chạy, Luôn cho lệnh này, Từ chối); agent phải gọi lại đúng lệnh để chạy, vì MCP không có cách giữ cuộc gọi chờ người dùng. Luồng này đã có test tự động, chưa thử tay với agent thật.
 - Duyệt đề xuất chỉ có kiểu sửa hoặc xoá tool dùng chung. Chưa có kiểu "chỉ áp dụng cho workspace này".
 - Cột trái xếp workspace theo ghim rồi theo tên, không còn theo thứ tự thêm.

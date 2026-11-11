@@ -264,9 +264,32 @@ namespace Toolbox.Core.Workspaces
                 string.IsNullOrWhiteSpace(entry.Name) ? entry.Id : entry.Name,
                 entry.Description ?? "",
                 null,
-                ActionsFromDef.From(entry.SuffixSource, command, entry.Id),
+                ActionsFromDef.From(entry.SuffixSource, command, entry.Id) ?? PresetActionsFrom(entry, command),
                 command,
                 entry.HelpTemplate);
+        }
+
+        /// <summary>
+        /// Tool thư viện tạo tay (Id trùng kind của preset, cùng lệnh gốc) mà thiếu nguồn hậu tố: dùng nguồn của preset,
+        /// để script npm ra <c>npm run x</c> thay vì <c>npm x</c>. Tool đã khai nguồn riêng thì không đụng tới.
+        /// </summary>
+        private static ActionsFromDef PresetActionsFrom(ToolEntry entry, string command)
+        {
+            if (entry.SuffixSource != null || string.IsNullOrEmpty(command))
+                return null;
+            IReadOnlyList<ToolDef> presets;
+            try
+            {
+                presets = ToolPresets.All;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            var preset = presets.FirstOrDefault(p => p.ActionsFrom != null
+                && string.Equals(p.Kind, entry.Id, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(p.Command, command, StringComparison.OrdinalIgnoreCase));
+            return preset?.ActionsFrom;
         }
     }
 

@@ -25,7 +25,8 @@ namespace Toolbox
         private List<TargetRow> _workspaces = new List<TargetRow>();
         private string _exe;
 
-        public AgentWindow(Installer installer)
+        /// <param name="workspacePath">Mở từ trang một workspace: lọc về workspace đó và kết nối ngay nếu chưa kết nối (giới hạn đúng workspace này).</param>
+        public AgentWindow(Installer installer, string workspacePath = null)
         {
             InitializeComponent();
             _installer = installer;
@@ -43,7 +44,16 @@ $@"{{
     ""toolbox"": {{ ""type"": ""stdio"", ""command"": ""{jsonExe}"", ""args"": [""--mcp""] }}
   }}
 }}";
-            Loaded += (s, e) => Reload();
+            Loaded += async (s, e) =>
+            {
+                Reload();
+                if (string.IsNullOrEmpty(workspacePath))
+                    return;
+                FilterBox.Text = workspacePath;
+                var row = _workspaces.FirstOrDefault(r => SamePath(r.Target.Workspace, workspacePath));
+                if (row == null || row.Link != AgentLink.Connected)
+                    await Connect(row?.Target ?? new ClaudeTarget { Workspace = workspacePath });
+            };
         }
 
         /// <summary>Người dùng đã chọn cài Toolbox vào máy trong cửa sổ này.</summary>
@@ -68,6 +78,9 @@ $@"{{
                 workspaceRow: false, toolboxWorkspaceId: null, exes: exes);
             UserRow.Content = user;
             UserHint.Visibility = user.Link == AgentLink.Connected ? Visibility.Visible : Visibility.Collapsed;
+            // Agent toàn máy đã đăng ký từ trước vẫn thấy được: mở sẵn mục nâng cao khi nó đang kết nối.
+            if (user.Link != AgentLink.NotConnected)
+                AdvancedExpander.IsExpanded = true;
 
             var registered = LoadRegistered();
             _workspaces = config.Workspaces

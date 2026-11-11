@@ -21,6 +21,40 @@
                 </DockPanel>
             </Border>
         </DataTemplate>
+        <!-- Lệnh gọn trong thẻ workspace: tên, chuỗi lệnh mờ, nút Chạy. -->
+        <DataTemplate x:Key="HomeCommandTemplate">
+            <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="2,6">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="{Binding ActionText}" Click="OnPrimary" Tag="{Binding}"
+                            MinWidth="64" VerticalAlignment="Center" Margin="10,0,0,0" AutomationProperties.Name="{Binding Title, StringFormat=Chạy {0}}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Detail}" ToolTip="{Binding Detail}" FontFamily="Consolas" FontSize="12"
+                                   Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Thẻ một workspace. -->
+        <DataTemplate x:Key="HomeCardTemplate">
+            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10"
+                    Padding="14,10" Margin="0,0,0,10">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,6">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="Mở workspace" Click="OnPrimary" Tag="{Binding Open}"
+                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Title, StringFormat=Mở workspace {0}}" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Path}" FontSize="12" Foreground="{DynamicResource Faint}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="Chưa có lệnh chạy được. Mở workspace để thêm tool hoặc lệnh." Style="{StaticResource Hint}"
+                               Visibility="{Binding EmptyVisibility}" />
+                    <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource HomeCommandTemplate}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,20" MaxWidth="900" HorizontalAlignment="Stretch">
@@ -64,6 +98,16 @@
             <StackPanel x:Name="RunningSection" Visibility="Collapsed">
                 <TextBlock Text="ĐANG CHẠY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,10,0,8" />
                 <ItemsControl x:Name="RunningList" ItemTemplate="{StaticResource HomeRowTemplate}" />
+            </StackPanel>
+
+            <StackPanel x:Name="CardsSection" Visibility="Collapsed">
+                <TextBlock Text="WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,10,0,8" />
+                <ItemsControl x:Name="CardsList" ItemTemplate="{StaticResource HomeCardTemplate}" />
+            </StackPanel>
+
+            <StackPanel x:Name="ToolsSection" Visibility="Collapsed">
+                <TextBlock Text="TOOL ĐÃ GHIM" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,10,0,8" />
+                <ItemsControl x:Name="ToolsList" ItemTemplate="{StaticResource HomeRowTemplate}" />
             </StackPanel>
 
             <StackPanel x:Name="ContinueSection" Visibility="Collapsed">

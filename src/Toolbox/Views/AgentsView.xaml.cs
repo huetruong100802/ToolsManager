@@ -103,13 +103,27 @@ namespace Toolbox.Views
                 return;
             }
 
-            foreach (var agent in agents)
+            // Nhóm theo workspace; agent "Toàn máy" (nâng cao) ở cuối.
+            var groups = agents.Where(a => !a.IsGlobal)
+                .GroupBy(a => a.WorkspaceId, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => WorkspaceName(g.Key), StringComparer.OrdinalIgnoreCase)
+                .Select(g => Tuple.Create("WORKSPACE: " + WorkspaceName(g.Key).ToUpperInvariant(), g.ToList()))
+                .ToList();
+            var global = agents.Where(a => a.IsGlobal).ToList();
+            if (global.Count > 0)
+                groups.Add(Tuple.Create("NÂNG CAO: TOÀN MÁY", global));
+
+            foreach (var group in groups)
             {
-                Body.Children.Add(AgentCard(agent));
-                if (string.Equals(agent.Id, _expanded, StringComparison.OrdinalIgnoreCase))
-                    Body.Children.Add(PermissionPanel(agent));
+                Body.Children.Add(Section(group.Item1));
+                foreach (var agent in group.Item2)
+                {
+                    Body.Children.Add(AgentCard(agent));
+                    if (string.Equals(agent.Id, _expanded, StringComparison.OrdinalIgnoreCase))
+                        Body.Children.Add(PermissionPanel(agent));
+                }
             }
-            Body.Children.Add(Hint("Agent \"toàn máy\" chỉ quản lý thư viện tool. Muốn agent làm việc trong một workspace thì kết nối theo workspace đó."));
+            Body.Children.Add(Hint("Nên kết nối theo workspace: agent chỉ thấy workspace đó. Agent \"toàn máy\" chỉ quản lý thư viện tool."));
         }
 
         private UIElement AgentCard(AgentRecord agent)

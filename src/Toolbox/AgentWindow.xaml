@@ -55,12 +55,15 @@
 
         <DockPanel Margin="20,16,20,16">
             <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource Muted}" LineHeight="19"
-                       Text="Claude Code dùng Toolbox để tìm (list_tools), chạy (run_tool) và đăng ký tool. Toàn máy: agent quản lý mọi tool. Từng workspace: agent chỉ thấy và quản lý tool đã gắn vào workspace đó, và workspace phải được đăng ký trong Toolbox." />
+                       Text="Claude Code dùng Toolbox để tìm (list_tools), chạy (run_tool) và đăng ký tool. Kết nối theo workspace: agent chỉ thấy và quản lý tool, lệnh đã gắn vào workspace đó (workspace phải được đăng ký trong Toolbox). Kết nối toàn máy nằm ở mục nâng cao bên dưới." />
 
-            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                    CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
-                <ContentControl x:Name="UserRow" ContentTemplate="{StaticResource TargetRow}" Focusable="False" />
-            </Border>
+            <Expander x:Name="AdvancedExpander" DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                      Header="Nâng cao: kết nối toàn máy (agent thấy mọi tool, không giới hạn workspace)">
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,10" Margin="0,8,0,0">
+                    <ContentControl x:Name="UserRow" ContentTemplate="{StaticResource TargetRow}" Focusable="False" />
+                </Border>
+            </Expander>
 
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                 <Button DockPanel.Dock="Right" Click="OnPickWorkspace" Margin="8,0,0,0" AutomationProperties.Name="Thư mục khác…">

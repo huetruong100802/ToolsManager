@@ -3,25 +3,26 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Toolbox.Core.Workspaces;
-using Toolbox.Views;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>Thêm hoặc sửa một lệnh riêng của workspace.</summary>
-    public partial class CommandEditWindow : Window
+    public partial class CommandEditSheet : SheetBase
     {
         private readonly Workspace _workspace;
         private readonly CustomCommand _existing;
 
+        public override double SheetWidth => 540;
+
         /// <param name="existing">Có giá trị thì là sửa (giữ nguyên Id); null là thêm mới.</param>
-        public CommandEditWindow(Workspace workspace, CustomCommand existing = null)
+        public CommandEditSheet(Workspace workspace, CustomCommand existing = null)
         {
             InitializeComponent();
             _workspace = workspace;
             _existing = existing;
+            SheetTitle = existing == null ? "Thêm lệnh riêng" : "Sửa lệnh riêng";
             if (existing != null)
             {
-                Title = "Sửa lệnh riêng";
                 LabelBox.Text = existing.Label;
                 CommandBox.Text = existing.CommandLine;
                 CwdBox.Text = existing.Cwd ?? "";
@@ -33,6 +34,8 @@ namespace Toolbox
 
         /// <summary>Lệnh sau khi lưu; Id giữ nguyên khi sửa, rỗng khi thêm mới (người gọi cấp).</summary>
         public CustomCommand Result { get; private set; }
+
+        private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
         private void OnChanged(object sender, TextChangedEventArgs e)
         {

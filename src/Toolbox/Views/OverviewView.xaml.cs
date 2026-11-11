@@ -55,6 +55,30 @@ namespace Toolbox.Views
         }
     }
 
+    /// <summary>Thẻ workspace trên Trang chủ: dòng "Mở workspace" và các dòng lệnh chạy được.</summary>
+    public sealed class HomeCardRow
+    {
+        public HomeCardRow(HomeCard card)
+        {
+            Card = card;
+            Open = new HomeRow(new HomeItem
+            {
+                Title = card.Name, Target = HomeTarget.Workspace, WorkspaceId = card.WorkspaceId, ActionText = "Mở workspace",
+            }, "Accent");
+            Rows = card.Commands.Select(c => new HomeRow(c, "Accent")).ToList();
+        }
+
+        public HomeCard Card { get; }
+        public HomeRow Open { get; }
+        public List<HomeRow> Rows { get; }
+        public string Title => Card.Name;
+        public string Path => Card.Path;
+        public Visibility EmptyVisibility => Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>Khoá nhận diện thẻ giữa hai lần dựng: workspace và các lệnh đang hiện.</summary>
+        public string Key => Card.WorkspaceId + "|" + string.Join(",", Rows.Select(r => r.Key));
+    }
+
     public sealed class OnboardingRow
     {
         public OnboardingRow(OnboardingStep step)
@@ -80,6 +104,8 @@ namespace Toolbox.Views
         private readonly List<HomeRow> _attention = new List<HomeRow>();
         private readonly List<HomeRow> _running = new List<HomeRow>();
         private readonly List<HomeRow> _continue = new List<HomeRow>();
+        private readonly List<HomeRow> _tools = new List<HomeRow>();
+        private List<HomeCardRow> _cards = new List<HomeCardRow>();
         private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         private Func<HomeFeed> _feed;
         private bool _dismissed;
@@ -113,7 +139,7 @@ namespace Toolbox.Views
         }
 
         /// <summary>Giữ số dòng đang hiện (để test).</summary>
-        public int Visible => _attention.Count + _running.Count + _continue.Count;
+        public int Visible => _attention.Count + _running.Count + _continue.Count + _cards.Count + _tools.Count;
 
         public void Refresh()
         {
@@ -131,6 +157,8 @@ namespace Toolbox.Views
 
             Sync(_attention, AttentionList, AttentionSection, feed.Attention, "Danger");
             Sync(_running, RunningList, RunningSection, feed.Running, "Ok");
+            SyncCards(feed.Cards);
+            Sync(_tools, ToolsList, ToolsSection, feed.PinnedTools, "Accent");
             Sync(_continue, ContinueList, ContinueSection, feed.Continue, "Accent");
 
             var empty = Visible == 0 && !showOnboarding;
@@ -138,6 +166,19 @@ namespace Toolbox.Views
             Subtitle.Text = feed.Attention.Count > 0
                 ? $"Có {feed.Attention.Count} việc cần bạn xử lý."
                 : feed.Running.Count > 0 ? $"Đang chạy {feed.Running.Count} tác vụ." : "Chào bạn. Chọn việc để tiếp tục, hoặc bấm Ctrl+K để tìm.";
+        }
+
+        /// <summary>Thẻ workspace: chỉ dựng lại khi workspace hoặc lệnh hiện trên thẻ đổi.</summary>
+        private void SyncCards(List<HomeCard> cards)
+        {
+            var fresh = cards.Select(c => new HomeCardRow(c)).ToList();
+            if (!fresh.Select(c => c.Key).SequenceEqual(_cards.Select(c => c.Key)))
+            {
+                _cards = fresh;
+                CardsList.ItemsSource = null;
+                CardsList.ItemsSource = _cards;
+            }
+            CardsSection.Visibility = _cards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>Cùng danh sách dòng thì chỉ cập nhật chi tiết; khác thì dựng lại.</summary>

@@ -147,6 +147,10 @@ namespace Toolbox.Core
         [DataMember(Name = "runCount", Order = 12, EmitDefaultValue = false)]
         public int RunCount { get; set; }
 
+        /// <summary>Ghim lên Trang chủ để mở nhanh.</summary>
+        [DataMember(Name = "pinned", Order = 16, EmitDefaultValue = false)]
+        public bool Pinned { get; set; }
+
         [IgnoreDataMember]
         public string ResolvedPath => Environment.ExpandEnvironmentVariables(Path ?? "");
 

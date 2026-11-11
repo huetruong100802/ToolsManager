@@ -1,6 +1,7 @@
 <UserControl x:Class="Toolbox.Views.TasksView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Toolbox.Views">
     <Grid Margin="24,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -31,8 +32,8 @@
                               Click="OnFilterChip" Tag="Finished" />
                 <ComboBox x:Name="WorkspaceFilter" MinWidth="170" Margin="8,0,8,6" SelectionChanged="OnFilterChanged"
                           AutomationProperties.Name="Lọc theo workspace" />
-                <TextBox x:Name="TaskSearch" MinWidth="180" Margin="0,0,0,6" TextChanged="OnFilterChanged"
-                         ToolTip="Tìm theo tên hoặc lệnh" AutomationProperties.Name="Tìm tác vụ" />
+                <v:SearchField x:Name="TaskSearch" MinWidth="220" Margin="0,0,0,6" TextChanged="OnTaskSearchChanged"
+                               Placeholder="Tìm tác vụ theo tên hoặc lệnh…" />
             </WrapPanel>
         </DockPanel>
 
@@ -95,8 +96,8 @@
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <CheckBox x:Name="ErrorsOnly" Content="Chỉ hiện lỗi" VerticalAlignment="Center" Margin="0,0,10,0"
                                   Click="OnLogFilterChanged" />
-                        <TextBox x:Name="LogSearch" Width="160" TextChanged="OnLogFilterChanged" VerticalAlignment="Center"
-                                 ToolTip="Tìm trong log" AutomationProperties.Name="Tìm trong log" />
+                        <v:SearchField x:Name="LogSearch" Width="200" TextChanged="OnLogSearchChanged" VerticalAlignment="Center"
+                                       Placeholder="Tìm trong log…" />
                         <Button x:Name="OpenFileButton" Style="{StaticResource GhostButton}" Content="Mở file log" Click="OnOpenLogFile"
                                 Margin="8,0,0,0" />
                         <Button x:Name="DetachButton" Style="{StaticResource GhostButton}" Content="Mở cửa sổ riêng" Click="OnDetach"

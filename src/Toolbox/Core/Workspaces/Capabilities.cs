@@ -309,7 +309,7 @@ namespace Toolbox.Core.Workspaces
                 var head = (text ?? "").Trim();
                 if (head.Length > 200)
                     head = head.Substring(0, 200) + "…";
-                outcome.Error = "Không đọc được hậu tố nào." + (head.Length > 0 ? " Đầu ra: " + head.Replace("\r", " ").Replace("\n", " ") : " Lệnh không in gì.");
+                outcome.Error = "Tool này không liệt kê lệnh theo dạng quét được. Bấm Quét lại để thử lần nữa, hoặc thêm lệnh bằng tay." + (head.Length > 0 ? " Tool trả lời: " + head.Replace("\r", " ").Replace("\n", " ") : " Tool không in gì.");
             }
             return outcome;
         }

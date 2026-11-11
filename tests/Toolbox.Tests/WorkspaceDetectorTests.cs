@@ -29,6 +29,23 @@ namespace Toolbox.Tests
         }
 
         [Fact]
+        public void DetectionOption_DemSoLenhVaGhiThuMucChay()
+        {
+            using (var dir = new TempDir())
+            {
+                dir.WriteFile(@"frontend\package.json", "{\"scripts\":{\"start\":\"ng serve\",\"build\":\"ng build\"}}");
+                var npm = WorkspaceDetector.Detect(dir.Path).Single(d => d.Kind == "npm");
+
+                var option = new Toolbox.Views.AddWorkspaceSheet.DetectionOption(npm, dir.Path);
+
+                Assert.True(option.IsChecked);
+                Assert.True(option.Commands >= 2);
+                Assert.Contains("lệnh", option.Summary);
+                Assert.Contains("frontend", option.Summary);
+            }
+        }
+
+        [Fact]
         public void Detect_BoQuaNodeModules()
         {
             using (var dir = new TempDir())

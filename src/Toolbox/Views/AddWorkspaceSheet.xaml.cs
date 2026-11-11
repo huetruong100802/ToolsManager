@@ -6,39 +6,65 @@ using System.Windows;
 using System.Windows.Controls;
 using Toolbox.Core.Workspaces;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
-    public partial class AddWorkspaceWindow : Window
+    /// <summary>
+    /// Thêm workspace từ một thư mục: sau khi chọn thư mục hiện "Tìm thấy trong repo" (tool, thư mục chạy, số lệnh),
+    /// tích sẵn, một nút "Thêm và gắn". Không nhận ra gì thì vẫn thêm được (gắn tool, thêm lệnh riêng hoặc nhờ AI thiết lập ở trang workspace).
+    /// </summary>
+    public partial class AddWorkspaceSheet : SheetBase
     {
         private readonly HashSet<string> _existing;
         private bool _nameTouched;
         private bool _settingName;
 
+        public override double SheetWidth => 560;
+
         /// <param name="existingPaths">Đường dẫn các workspace đã có, để chặn thêm trùng thư mục.</param>
-        public AddWorkspaceWindow(IEnumerable<string> existingPaths)
+        public AddWorkspaceSheet(IEnumerable<string> existingPaths)
         {
             InitializeComponent();
+            SheetTitle = "Thêm workspace";
             _existing = new HashSet<string>(existingPaths.Select(Normalize), StringComparer.OrdinalIgnoreCase);
             Loaded += (s, e) => PathBox.Focus();
         }
 
-        /// <summary>Workspace mới (chưa có Id/màu — <see cref="WorkspaceStore.Add"/> cấp). Có khi hộp thoại trả về true.</summary>
+        /// <summary>Workspace mới (chưa có Id/màu, <see cref="WorkspaceStore.Add"/> cấp). Có khi sheet xác nhận.</summary>
         public Workspace Result { get; private set; }
 
         public sealed class DetectionOption
         {
-            public DetectionOption(Detection detection)
+            public DetectionOption(Detection detection, string folder)
             {
                 Detection = detection;
                 Title = ToolPresets.Find(detection.Kind)?.Name ?? detection.Kind;
                 Reason = detection.Reason;
                 IsChecked = true;
+                var preview = new Workspace
+                {
+                    Path = folder,
+                    Bindings = new List<ToolBinding> { new ToolBinding { ToolId = detection.Kind, Cwd = detection.Cwd } },
+                };
+                try
+                {
+                    Commands = QuickCommands.For(preview).Count;
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException)
+                {
+                    Commands = 0;
+                }
             }
 
             public Detection Detection { get; }
             public string Title { get; }
             public string Reason { get; }
+            public int Commands { get; }
             public bool IsChecked { get; set; }
+
+            /// <summary>Phần nối sau tên tool: số lệnh và thư mục chạy.</summary>
+            public string Summary =>
+                (Commands > 0 ? "  ·  " + Commands + " lệnh" : "")
+                + (string.IsNullOrEmpty(Detection.Cwd) ? "" : "  ·  chạy ở " + Detection.Cwd + "\\");
         }
 
         private void OnBrowse(object sender, RoutedEventArgs e)
@@ -60,7 +86,7 @@ namespace Toolbox
 
             if (text.Length == 0)
             {
-                SetHint("Toolbox đọc thư mục này để đoán các tool trong catalog.json mà dự án dùng.", error: false);
+                SetHint("Chọn thư mục repo, Toolbox tự tìm tool và lệnh chạy được.", error: false);
                 NoDetection.Text = "Chọn thư mục để Toolbox dò tool.";
                 UpdateAddEnabled();
                 return;
@@ -97,10 +123,10 @@ namespace Toolbox
                 _settingName = false;
             }
 
-            var found = WorkspaceDetector.Detect(folder).Select(d => new DetectionOption(d)).ToList();
+            var found = WorkspaceDetector.Detect(folder).Select(d => new DetectionOption(d, folder)).ToList();
             DetectionList.ItemsSource = found;
             NoDetection.Visibility = found.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            NoDetection.Text = "Không nhận ra tool nào. Vẫn thêm được; gắn tool và lệnh riêng ở trang workspace.";
+            NoDetection.Text = "Không nhận ra tool nào. Vẫn thêm được; gắn tool, thêm lệnh riêng hoặc nhờ AI thiết lập ở trang workspace.";
             UpdateAddEnabled();
         }
 
@@ -136,8 +162,7 @@ namespace Toolbox
 
         private void OnAdd(object sender, RoutedEventArgs e)
         {
-            var path = PathBox.Text.Trim();
-            var workspace = new Workspace { Name = NameBox.Text.Trim(), Path = path };
+            var workspace = new Workspace { Name = NameBox.Text.Trim(), Path = PathBox.Text.Trim() };
             var options = DetectionList.ItemsSource as IEnumerable<DetectionOption>;
             if (options != null)
             {

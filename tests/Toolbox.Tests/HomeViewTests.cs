@@ -38,13 +38,21 @@ namespace Toolbox.Tests
                 using (var dir = new TempDir())
                 {
                     var view = new OverviewView();
-                    view.Show(Feed(dir), onboardingDismissed: true);
+                    // Không có workspace nào: không có thẻ, không có việc -> trạng thái yên ổn.
+                    view.Show(HomeFeed.Build(new List<Workspace>(), new List<ToolEntry>(), new List<TaskInfo>(), 0, true, null, null, Now, p => true),
+                        onboardingDismissed: true);
                     Assert.Equal(0, view.Visible);
                     Assert.Equal(Visibility.Visible, ((FrameworkElement)view.FindName("AllQuiet")).Visibility);
                     Assert.Equal(Visibility.Collapsed, ((FrameworkElement)view.FindName("AttentionSection")).Visibility);
 
-                    view.Show(Feed(dir, pending: 2), onboardingDismissed: true);
+                    // Có workspace: thẻ của nó luôn hiện (kể cả chưa lưu gì), nên không còn "yên ổn".
+                    view.Show(Feed(dir), onboardingDismissed: true);
                     Assert.Equal(1, view.Visible);
+                    Assert.Equal(Visibility.Visible, ((FrameworkElement)view.FindName("CardsSection")).Visibility);
+                    Assert.Equal(Visibility.Collapsed, ((FrameworkElement)view.FindName("AllQuiet")).Visibility);
+
+                    view.Show(Feed(dir, pending: 2), onboardingDismissed: true);
+                    Assert.Equal(2, view.Visible);
                     Assert.Equal(Visibility.Visible, ((FrameworkElement)view.FindName("AttentionSection")).Visibility);
                     Assert.Equal(Visibility.Collapsed, ((FrameworkElement)view.FindName("AllQuiet")).Visibility);
                 }

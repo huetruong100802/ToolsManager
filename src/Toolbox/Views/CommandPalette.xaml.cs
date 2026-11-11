@@ -45,6 +45,7 @@ namespace Toolbox.Views
     public partial class CommandPalette : UserControl
     {
         private Func<SearchIndex> _index;
+        private SearchIndex _current; // dựng một lần mỗi lần mở, không dựng lại sau mỗi phím gõ
         private UsageStore _usage = UsageStore.Shared;
 
         public CommandPalette()
@@ -74,6 +75,7 @@ namespace Toolbox.Views
         public void Open()
         {
             Visibility = Visibility.Visible;
+            _current = null;
             Input.Text = "";
             Refresh();
             Input.Focus();
@@ -84,6 +86,7 @@ namespace Toolbox.Views
             if (!IsOpen)
                 return;
             Visibility = Visibility.Collapsed;
+            _current = null;
             Input.Text = "";
         }
 
@@ -107,7 +110,9 @@ namespace Toolbox.Views
 
         private void Refresh()
         {
-            var hits = _index?.Invoke()?.Query(Input.Text, _usage) ?? new List<SearchEntry>();
+            if (_current == null)
+                _current = _index?.Invoke();
+            var hits = _current?.Query(Input.Text, _usage) ?? new List<SearchEntry>();
             Results.ItemsSource = hits.Select(h => new PaletteRow(h)).ToList();
             NoResults.Visibility = hits.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             if (hits.Count > 0)

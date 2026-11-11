@@ -132,7 +132,7 @@ namespace Toolbox.Views
             }
         }
 
-        private void OnSearch(object sender, TextChangedEventArgs e)
+        private void OnSearch(object sender, EventArgs e)
         {
             if (_workspace != null)
                 Render();

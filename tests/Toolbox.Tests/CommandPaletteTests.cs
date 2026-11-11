@@ -47,7 +47,8 @@ namespace Toolbox.Tests
                     Assert.False(palette.IsOpen);
                     palette.Open();
                     Assert.True(palette.IsOpen);
-                    Assert.Equal("add-workspace", palette.Shown[0].TargetId); // chưa dùng gì: chỉ có hành động
+                    Assert.Equal("p1", palette.Shown[0].TargetId); // lệnh đã ghim đứng đầu, hành động điều hướng sau cùng
+                    Assert.Equal("add-workspace", palette.Shown[1].TargetId);
 
                     palette.SetQuery("dev toan");
                     Assert.Equal("s1", palette.Shown.Single().TargetId);

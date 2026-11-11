@@ -78,7 +78,7 @@ namespace Toolbox.Tests
                 var preview = (System.Windows.Controls.TextBlock)sheet.FindName("PreviewText");
                 Assert.NotNull(preview);
                 Assert.False(string.IsNullOrWhiteSpace(preview.Text)); // bước 1 đã có chỗ báo, không để trống
-                Assert.Equal("Profile mới", sheet.SheetTitle);
+                Assert.Equal("Ghim lệnh", sheet.SheetTitle);
                 host.CloseCurrent();
             });
         }

@@ -6,7 +6,7 @@ using Toolbox.Core.Workspaces;
 
 namespace Toolbox.Core
 {
-    public enum HomeTarget { Agents, Task, Workspace, Library, Run, OpenPort, AddWorkspace, PickApp, ConnectAgent }
+    public enum HomeTarget { Agents, Task, Workspace, Library, Run, OpenPort, AddWorkspace, PickApp, ConnectAgent, OpenTool }
 
     /// <summary>Một dòng trên Trang chủ: việc cần xử lý, tác vụ đang chạy, hoặc mục để tiếp tục.</summary>
     public sealed class HomeItem
@@ -28,6 +28,15 @@ namespace Toolbox.Core
         public string SecondaryText { get; set; }
     }
 
+    /// <summary>Thẻ một workspace trên Trang chủ: tên, và vài lệnh chạy được ngay (ghim, dùng gần đây, rồi vài lệnh đầu).</summary>
+    public sealed class HomeCard
+    {
+        public string WorkspaceId { get; set; }
+        public string Name { get; set; }
+        public string Path { get; set; }
+        public List<HomeItem> Commands { get; } = new List<HomeItem>();
+    }
+
     /// <summary>Một bước làm quen cho lần đầu mở app.</summary>
     public sealed class OnboardingStep
     {
@@ -47,6 +56,9 @@ namespace Toolbox.Core
         public const int MaxFailedShown = 3;
         public const int MaxContinue = 6;
 
+        /// <summary>Số lệnh tối đa trên thẻ một workspace.</summary>
+        public const int MaxCardCommands = 4;
+
         /// <summary>Tác vụ lỗi trong vòng chừng này thì còn được nhắc.</summary>
         public static readonly TimeSpan FailureWindow = TimeSpan.FromHours(24);
 
@@ -54,6 +66,12 @@ namespace Toolbox.Core
         public List<HomeItem> Running { get; } = new List<HomeItem>();
         public List<HomeItem> Continue { get; } = new List<HomeItem>();
         public List<OnboardingStep> Onboarding { get; } = new List<OnboardingStep>();
+
+        /// <summary>Thẻ từng workspace (không lưu trữ, thư mục còn) kèm lệnh chạy được.</summary>
+        public List<HomeCard> Cards { get; } = new List<HomeCard>();
+
+        /// <summary>Tool đã ghim trong Thư viện, để mở nhanh.</summary>
+        public List<HomeItem> PinnedTools { get; } = new List<HomeItem>();
 
         public bool OnboardingDone => Onboarding.Count > 0 && Onboarding.All(s => s.Done);
 
@@ -68,7 +86,8 @@ namespace Toolbox.Core
             DateTime now,
             Func<string, bool> pathExists = null,
             int pendingRunRequests = 0,
-            IReadOnlyDictionary<string, int> readinessIssues = null)
+            IReadOnlyDictionary<string, int> readinessIssues = null,
+            Func<Workspace, IReadOnlyList<QuickCommand>> quickCommands = null)
         {
             var exists = pathExists ?? (p => File.Exists(p) || Directory.Exists(p));
             var feed = new HomeFeed();
@@ -157,6 +176,21 @@ namespace Toolbox.Core
                 });
             }
 
+            // ---- Thẻ workspace và tool ghim ----
+            var quickOf = quickCommands ?? QuickCommands.For;
+            foreach (var workspace in workspaces.Where(w => !w.Archived && w.PathExists).OrderBy(w => w.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                var card = new HomeCard { WorkspaceId = workspace.Id, Name = workspace.Name, Path = workspace.Path };
+                card.Commands.AddRange(CardCommands(workspace, quickOf(workspace), usage));
+                feed.Cards.Add(card);
+            }
+            foreach (var tool in tools.Where(t => t.Pinned).OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
+                feed.PinnedTools.Add(new HomeItem
+                {
+                    Glyph = "\uE718", Title = tool.Name, Detail = string.IsNullOrWhiteSpace(tool.Description) ? "Tool đã ghim" : tool.Description,
+                    Target = HomeTarget.OpenTool, ToolId = tool.Id, ActionText = "Mở", SecondaryText = "Trong Thư viện",
+                });
+
             // ---- Làm quen ----
             feed.Onboarding.Add(new OnboardingStep
             {
@@ -174,6 +208,63 @@ namespace Toolbox.Core
                 Done = hasAgent, Target = HomeTarget.ConnectAgent, ActionText = "Kết nối agent",
             });
             return feed;
+        }
+
+        /// <summary>
+        /// Lệnh hiện trên thẻ workspace: lệnh đã ghim trước, rồi lệnh dùng gần đây, rồi vài lệnh đầu của tool (ưu tiên script/lệnh con
+        /// hơn lệnh gốc). Chỉ lấy lệnh chạy được; tối đa <see cref="MaxCardCommands"/>.
+        /// </summary>
+        internal static IEnumerable<HomeItem> CardCommands(Workspace workspace, IReadOnlyList<QuickCommand> quicks, UsageStore usage)
+        {
+            var runnable = (quicks ?? new List<QuickCommand>()).Where(q => q.IsRunnable).ToList();
+            var chosen = new List<QuickCommand>();
+            void Take(IEnumerable<QuickCommand> source)
+            {
+                foreach (var q in source)
+                    if (chosen.Count < MaxCardCommands && !chosen.Contains(q))
+                        chosen.Add(q);
+            }
+
+            Take(runnable.Where(q => q.Source == QuickSource.Profile));
+            var recent = usage?.Recent(MaxCardCommands * 6) ?? (IReadOnlyList<string>)new string[0];
+            foreach (var key in recent)
+            {
+                var hit = runnable.FirstOrDefault(q => string.Equals(KeyOf(q), key, StringComparison.OrdinalIgnoreCase));
+                if (hit != null)
+                    Take(new[] { hit });
+            }
+            Take(runnable.Where(q => q.Source == QuickSource.Script));
+            Take(runnable.Where(q => q.Source == QuickSource.Custom));
+            Take(runnable.Where(q => q.Source == QuickSource.Action && !string.IsNullOrEmpty(q.ActionId)));
+            Take(runnable.Where(q => q.Source == QuickSource.Action));
+
+            return chosen.Select(q => new HomeItem
+            {
+                Glyph = "\uE768", Title = q.Title, Detail = q.CommandLine, Target = HomeTarget.Run, WorkspaceId = workspace.Id,
+                Entry = EntryOf(q), ActionText = "Chạy", SecondaryText = "Mở",
+            });
+        }
+
+        /// <summary>Khoá mức dùng của một lệnh, khớp với khoá mà bảng lệnh và nút Chạy ghi khi chạy.</summary>
+        private static string KeyOf(QuickCommand q)
+        {
+            switch (q.Source)
+            {
+                case QuickSource.Profile: return UsageStore.Key("profile", q.RefId, q.WorkspaceId);
+                case QuickSource.Custom: return UsageStore.Key("custom", q.RefId, q.WorkspaceId);
+                default: return UsageStore.QuickKey(q.Id);
+            }
+        }
+
+        /// <summary>Mục tìm kiếm tương ứng để <c>OpenEntry</c> chạy hoặc mở đúng dòng.</summary>
+        private static SearchEntry EntryOf(QuickCommand q)
+        {
+            var kind = q.Source == QuickSource.Profile ? SearchKind.Profile : q.Source == QuickSource.Custom ? SearchKind.Custom : SearchKind.Quick;
+            return new SearchEntry
+            {
+                Kind = kind, Key = KeyOf(q), Title = q.Title, Subtitle = q.CommandLine, WorkspaceId = q.WorkspaceId,
+                TargetId = kind == SearchKind.Quick ? q.Id : q.RefId, Runnable = true,
+            };
         }
 
         /// <summary>

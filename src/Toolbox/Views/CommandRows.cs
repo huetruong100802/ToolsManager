@@ -471,7 +471,30 @@ namespace Toolbox.Views
             && string.Equals(key[2], Command.Id, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Một tab: tool đã gắn hoặc tab "Lệnh riêng" (Binding = null).</summary>
+    /// <summary>Tiêu đề một nhóm trong danh sách lệnh của tab Chạy: tool đã gắn (có menu ⋯), "Lệnh riêng" hoặc "Lệnh đã ghim".</summary>
+    public sealed class GroupRow
+    {
+        public GroupRow(string title, ToolBinding binding = null, string note = null)
+        {
+            Title = title;
+            Binding = binding;
+            Note = note;
+        }
+
+        public string Title { get; }
+
+        /// <summary>Binding của tool (null với nhóm không phải tool). Có thì hiện menu ⋯ của tool.</summary>
+        public ToolBinding Binding { get; }
+
+        /// <summary>Dòng chú dưới tiêu đề: thư mục chạy không có, tool chưa có lệnh…; null nếu không có gì cần nói.</summary>
+        public string Note { get; }
+
+        public Visibility MenuVisibility => Binding == null ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility NoteVisibility => string.IsNullOrEmpty(Note) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Một tab cố định của trang workspace: Chạy, Workflow, Chia sẻ.</summary>
     public sealed class TabRow : INotifyPropertyChanged
     {
         private bool _isSelected;

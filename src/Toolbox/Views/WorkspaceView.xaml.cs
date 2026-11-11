@@ -20,8 +20,6 @@ namespace Toolbox.Views
         private readonly List<TabRow> _tabs = new List<TabRow>();
         private List<TabRow> _topTabs = new List<TabRow>();
         private readonly HashSet<string> _newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private List<TabRow> _toolNav = new List<TabRow>();
-        private readonly Dictionary<string, string> _selectedTool = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private TabRow _tab;
 
         // Giữ form đã điền khi chuyển qua lại giữa các trang: workspaceId → "kind|action" → dòng.
@@ -44,25 +42,15 @@ namespace Toolbox.Views
         {
             InitializeComponent();
             PackPage.ImportRequested += ImportPackIntoWorkspace;
-            ActionSearch.TextChanged += (s, e) => ApplyActionSearch();
         }
 
-        /// <summary>Lệnh khớp ô tìm: tên, id, hoặc tên biến thể (không phân biệt hoa thường và dấu).</summary>
-        private bool MatchesActionSearch(ActionRow row)
+        /// <summary>Lệnh khớp ô tìm: tên, id, hoặc tên cách chạy (không phân biệt hoa thường và dấu).</summary>
+        private static bool MatchesAction(ActionRow row, string query)
         {
-            var query = Core.Text.Fold((ActionSearch.Text ?? "").Trim());
             if (query.Length == 0)
                 return true;
-            var haystack = row.Title + " " + row.Action.Id + " " + string.Join(" ", row.Variants.Select(v => v.Label));
+            var haystack = row.Title + " " + row.Action.Id + " " + string.Join(" ", row.Variants.Select(v => v.Label)) + " " + row.Preview;
             return Core.Text.Fold(haystack).Contains(query);
-        }
-
-        private void ApplyActionSearch()
-        {
-            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(_actions);
-            view?.Refresh();
-            var shown = _actions.Count(MatchesActionSearch);
-            ActionSearchEmpty.Visibility = _actions.Count > 0 && shown == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private Window Host => Window.GetWindow(this);
@@ -138,27 +126,15 @@ namespace Toolbox.Views
             var ws = _workspace;
             _tabs.Clear();
             _tabs.Add(TabRow.Run());
-            foreach (var binding in ws.Bindings)
-                _tabs.Add(new TabRow(ToolCatalog.Find(binding.ToolId)?.Name ?? binding.ToolId, binding));
             _tabs.Add(TabRow.Stacks());
-            _tabs.Add(new TabRow("Lệnh riêng", null));
             _tabs.Add(new TabRow("Chia sẻ", null, PackTab.TabId));
 
             _selectedTab.TryGetValue(ws.Id, out var remembered);
             var pick = _tabs.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "\u0001", StringComparison.OrdinalIgnoreCase))
                        ?? _tabs[0];
-            _toolNav = _tabs.Where(t => t.Binding != null || t.IsCustom).ToList();
-            _topTabs = new List<TabRow>
-            {
-                new TabRow("Chạy", null, TabRow.RunId),
-                new TabRow("Tool", null, TabRow.ToolsId),
-                new TabRow("Workflow", null, TabRow.StacksId),
-                new TabRow("Chia sẻ", null, PackTab.TabId),
-            };
+            _topTabs = _tabs;
             TabStrip.ItemsSource = null;
             TabStrip.ItemsSource = _topTabs;
-            ToolNav.ItemsSource = null;
-            ToolNav.ItemsSource = _toolNav;
             Select(pick);
         }
 
@@ -170,52 +146,28 @@ namespace Toolbox.Views
             _selectedTab[_workspace.Id] = tab.Id;
 
             var isPack = string.Equals(tab.Id, PackTab.TabId, StringComparison.Ordinal);
-            var section = tab.IsRun ? TabRow.RunId : tab.IsStacks ? TabRow.StacksId : isPack ? PackTab.TabId : TabRow.ToolsId;
-            foreach (var top in _topTabs)
-                top.IsSelected = string.Equals(top.Id, section, StringComparison.Ordinal);
-            ToolNavPanel.Visibility = section == TabRow.ToolsId ? Visibility.Visible : Visibility.Collapsed;
-            if (section == TabRow.ToolsId)
-                _selectedTool[_workspace.Id] = tab.Id;
-            ToolPage.Visibility = isPack || tab.IsRun || tab.IsCustom || tab.IsStacks ? Visibility.Collapsed : Visibility.Visible;
             PackPage.Visibility = isPack ? Visibility.Visible : Visibility.Collapsed;
             RunPage.Visibility = tab.IsRun ? Visibility.Visible : Visibility.Collapsed;
-            CustomPage.Visibility = tab.IsCustom ? Visibility.Visible : Visibility.Collapsed;
             StackPage.Visibility = tab.IsStacks ? Visibility.Visible : Visibility.Collapsed;
             _stacks = new List<StackRow>();
             if (isPack)
                 PackPage.Load(_workspace, LoadLibraryStore);
             else if (tab.IsRun)
                 BuildRun();
-            else if (tab.IsStacks)
-                BuildStacks();
-            else if (tab.IsCustom)
-                BuildCustoms();
             else
-                BuildToolPage(tab.Binding);
+                BuildStacks();
             Refresh();
         }
 
-        private void BuildToolPage(ToolBinding binding)
+        /// <summary>Dòng lệnh của một tool đã gắn. Dùng lại dòng cũ (giữ form đã điền) khi action không đổi.</summary>
+        private List<ActionRow> ActionsOf(ToolBinding binding, ToolDef tool)
         {
             var ws = _workspace;
-            var tool = ToolCatalog.Find(binding.ToolId);
-            if (tool == null)
-                ToolRule.Text = $"Tool \"{binding.ToolId}\" không còn trong thư viện. Bấm \"Gỡ tool\" để dọn.";
-            else
-            {
-                var info = string.IsNullOrWhiteSpace(tool.Command) ? tool.Name : $"{tool.Name} · {tool.Command}";
-                ToolRule.Text = string.IsNullOrWhiteSpace(tool.Rule) ? info : info + " · " + tool.Rule;
-            }
-
             var cwd = ToolDir(binding);
-            ToolCwd.Text = Directory.Exists(cwd) ? "Chạy tại: " + cwd : "Không tìm thấy thư mục chạy: " + cwd;
-            ToolCwd.Foreground = (System.Windows.Media.Brush)FindResource(Directory.Exists(cwd) ? "Muted" : "Danger");
-
-            var actions = ToolCatalog.ActionsFor(ws, binding);
             if (!_actionCache.TryGetValue(ws.Id, out var cache))
                 _actionCache[ws.Id] = cache = new Dictionary<string, ActionRow>(StringComparer.OrdinalIgnoreCase);
-            _actions = new List<ActionRow>();
-            foreach (var action in actions)
+            var rows = new List<ActionRow>();
+            foreach (var action in ToolCatalog.ActionsFor(ws, binding))
             {
                 var key = binding.ToolId + "|" + action.Id;
                 // Dòng cũ chỉ dùng lại khi action cùng thư mục chạy (npm đổi script thì tạo lại).
@@ -223,24 +175,25 @@ namespace Toolbox.Views
                     cache[key] = row = new ActionRow(tool, binding, action, () => _tasks.UsedPorts(), cwd);
                 else
                     row.RefreshSuggestions();
-                _actions.Add(row);
+                rows.Add(row);
             }
-            ActionSearch.Text = "";
-            ActionList.ItemsSource = null;
-            ActionList.ItemsSource = _actions;
-            ActionSearch.Visibility = _actions.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
-            var actionView = System.Windows.Data.CollectionViewSource.GetDefaultView(_actions);
-            actionView.Filter = o => MatchesActionSearch((ActionRow)o);
-            ActionSearchEmpty.Visibility = Visibility.Collapsed;
+            return rows;
+        }
 
+        /// <summary>Chú dưới tên tool: tool không còn, thư mục chạy không có, hoặc chưa đọc được lệnh nào; null nếu ổn.</summary>
+        private string ToolNote(ToolBinding binding, ToolDef tool, int actionCount)
+        {
+            if (tool == null)
+                return $"Tool \"{binding.ToolId}\" không còn trong thư viện. Mở menu ⋯ rồi chọn \"Gỡ tool khỏi workspace\" để dọn.";
+            var cwd = ToolDir(binding);
+            if (!Directory.Exists(cwd))
+                return "Không tìm thấy thư mục chạy: " + cwd;
             // Dòng chạy lệnh gốc luôn có; chỉ báo "chưa có lệnh" khi ngoài nó không còn gì.
-            var onlyBase = _actions.Count <= 1;
-            NoActions.Visibility = onlyBase ? Visibility.Visible : Visibility.Collapsed;
-            NoActions.Text = tool?.ActionsFrom != null
-                ? "Không đọc được lệnh nào từ " + tool.ActionsFrom.Source.File + " tại thư mục chạy. Bấm \"Lệnh…\" để quét hoặc nhập tay."
-                : "Tool chưa có lệnh nào. Bấm \"Lệnh…\" để quét từ trợ giúp hoặc nhập tay; lệnh khai ở đó sẽ hiện thành lệnh và dùng được trong profile.";
-
-            BuildProfiles(binding.ToolId);
+            if (actionCount <= 1)
+                return tool.ActionsFrom != null
+                    ? "Không đọc được lệnh nào từ " + tool.ActionsFrom.Source.File + " tại thư mục chạy. Mở menu ⋯ → \"Lệnh…\" để quét hoặc nhập tay."
+                    : "Tool chưa có lệnh nào ngoài lệnh gốc. Mở menu ⋯ → \"Lệnh…\" để quét từ trợ giúp hoặc nhập tay.";
+            return null;
         }
 
         /// <summary>Thư mục chạy thật của một tool đã gắn (ghi đè theo workspace, thư mục đăng ký của tool, hoặc gốc workspace).</summary>
@@ -250,60 +203,73 @@ namespace Toolbox.Views
         /// <summary>Tab Chạy: mọi workflow và profile của workspace (lọc theo ô tìm), dùng lại dòng của các tab khác.</summary>
         private void BuildRun()
         {
-            _actions = new List<ActionRow>();
-            _customs = new List<CustomRow>();
-            var query = Core.Text.Fold(RunSearch.Text ?? "");
-            _profiles = _workspace.Profiles
-                .Where(p => query.Length == 0 || Core.Text.Fold(p.Label ?? "").Contains(query))
-                .Select(p => new ProfileRow(_workspace, p) { IsNew = _newIds.Contains(p.Id) })
-                .ToList();
-            _stacks = _workspace.Stacks.Select(s => new StackRow(_workspace, s) { IsNew = _newIds.Contains(s.Id) }).ToList();
+            var ws = _workspace;
+            var query = Core.Text.Fold((RunSearch.Text ?? "").Trim());
+            var items = new List<object>();
 
+            _stacks = ws.Stacks.Select(s => new StackRow(ws, s) { IsNew = _newIds.Contains(s.Id) }).ToList();
             RunStackList.ItemsSource = null;
             RunStackList.ItemsSource = _stacks;
-            RunProfileList.ItemsSource = null;
-            RunProfileList.ItemsSource = _profiles;
             NoRunStacks.Visibility = _stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            NoRunProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            // Lệnh đã ghim (profile) ở đầu.
+            _profiles = ws.Profiles
+                .Where(p => query.Length == 0 || Core.Text.Fold(p.Label ?? "").Contains(query))
+                .Select(p => new ProfileRow(ws, p) { IsNew = _newIds.Contains(p.Id) })
+                .ToList();
+            if (_profiles.Count > 0)
+            {
+                items.Add(new GroupRow("Lệnh đã ghim"));
+                items.AddRange(_profiles);
+            }
+
+            // Mỗi tool đã gắn một nhóm; khi đang tìm thì nhóm không khớp ẩn đi.
+            _actions = new List<ActionRow>();
+            foreach (var binding in ws.Bindings)
+            {
+                var tool = ToolCatalog.Find(binding.ToolId);
+                var rows = tool == null ? new List<ActionRow>() : ActionsOf(binding, tool);
+                _actions.AddRange(rows);
+                var shown = rows.Where(r => MatchesAction(r, query)).ToList();
+                if (query.Length > 0 && shown.Count == 0)
+                    continue;
+                items.Add(new GroupRow(tool?.Name ?? binding.ToolId, binding, query.Length == 0 ? ToolNote(binding, tool, rows.Count) : null));
+                items.AddRange(shown);
+            }
+
+            _customs = ws.Customs
+                .Where(c => query.Length == 0 || Core.Text.Fold((c.Label ?? "") + " " + (c.CommandLine ?? "")).Contains(query))
+                .Select(c => new CustomRow(c))
+                .ToList();
+            if (_customs.Count > 0)
+            {
+                items.Add(new GroupRow(QuickCommands.CustomGroup));
+                items.AddRange(_customs);
+            }
+
+            RunList.ItemsSource = null;
+            RunList.ItemsSource = items;
+
+            var anything = ws.Bindings.Count > 0 || ws.Customs.Count > 0 || ws.Profiles.Count > 0;
+            NoRunItems.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoRunItems.Text = !anything
+                ? "Workspace chưa có lệnh nào. Mở \"Tool của workspace…\" để thêm tool hoặc lệnh riêng."
+                : $"Không có lệnh nào khớp \"{RunSearch.Text}\".";
             RefreshReadiness();
-            AskSetupButton.Visibility = _workspace.Profiles.Count == 0 && _workspace.Stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            NoRunProfiles.Text = _workspace.Profiles.Count == 0
-                ? "Chưa có profile. Mở tab của một tool, chọn biến thể và tham số rồi bấm \"Lưu profile\"."
-                : $"Không có profile nào khớp \"{RunSearch.Text}\". Workspace có {_workspace.Profiles.Count} profile.";
+            AskSetupButton.Visibility = ws.Profiles.Count == 0 && ws.Stacks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Refresh();
         }
 
-        private void OnRunSearch(object sender, TextChangedEventArgs e)
+        private void OnRunSearch(object sender, EventArgs e)
         {
             if (_workspace != null && _tab != null && _tab.IsRun)
                 BuildRun();
         }
 
-        private void BuildProfiles(string kind)
-        {
-            if (_tab != null && _tab.IsRun)
-            {
-                BuildRun();
-                return;
-            }
-            _profiles = _workspace.Profiles
-                .Where(p => string.Equals(p.Kind, kind, StringComparison.OrdinalIgnoreCase))
-                .Select(p => new ProfileRow(_workspace, p) { IsNew = _newIds.Contains(p.Id) })
-                .ToList();
-            ProfileList.ItemsSource = null;
-            ProfileList.ItemsSource = _profiles;
-            NoProfiles.Visibility = _profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        }
+        /// <summary>Lệnh đã ghim thay đổi: dựng lại danh sách lệnh (ghim nằm cùng danh sách).</summary>
+        private void BuildProfiles(string kind) => BuildRun();
 
-        private void BuildCustoms()
-        {
-            _actions = new List<ActionRow>();
-            _profiles = new List<ProfileRow>();
-            _customs = _workspace.Customs.Select(c => new CustomRow(c)).ToList();
-            CustomList.ItemsSource = null;
-            CustomList.ItemsSource = _customs;
-            NoCustoms.Visibility = _customs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        }
+        private void BuildCustoms() => BuildRun();
 
         private void BuildStacks()
         {
@@ -329,28 +295,13 @@ namespace Toolbox.Views
                 SelectTop(tab);
         }
 
-        private void OnToolNavClick(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is TabRow tab)
-                Select(tab);
-        }
-
         /// <summary>Chọn một trong bốn tab cố định. Tab Tool mở lại tool đã xem lần trước (hoặc tool đầu tiên).</summary>
+        /// <summary>Chọn một trong ba tab cố định: Chạy, Workflow, Chia sẻ.</summary>
         private void SelectTop(TabRow top)
         {
             if (_workspace == null)
                 return;
-            if (top.IsRun)
-                Select(_tabs.First(t => t.IsRun));
-            else if (top.IsStacks)
-                Select(_tabs.First(t => t.IsStacks));
-            else if (string.Equals(top.Id, PackTab.TabId, StringComparison.Ordinal))
-                Select(_tabs.First(t => string.Equals(t.Id, PackTab.TabId, StringComparison.Ordinal)));
-            else
-            {
-                _selectedTool.TryGetValue(_workspace.Id, out var remembered);
-                Select(_toolNav.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "0001", StringComparison.OrdinalIgnoreCase)) ?? _toolNav.First());
-            }
+            Select(_tabs.FirstOrDefault(t => string.Equals(t.Id, top.Id, StringComparison.Ordinal)) ?? _tabs[0]);
         }
 
         /// <summary>Cấu hình worktree (file local, lệnh cài đặt) và chuẩn bị một worktree. Cùng dữ liệu với MCP prepare_worktree.</summary>
@@ -417,7 +368,7 @@ namespace Toolbox.Views
                     _workspace.Bindings.Add(binding);
             }))
                 return;
-            _selectedTab[_workspace.Id] = bindings[0].ToolId;
+            _selectedTab[_workspace.Id] = TabRow.RunId;
             Rebuild();
         }
 
@@ -472,7 +423,7 @@ namespace Toolbox.Views
             PackPage.Load(_workspace, LoadLibraryStore);
             Refresh();
             SelectTop(_topTabs[0]);
-            var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} profile, {result.StacksAdded} workflow, {result.CustomsAdded} lệnh riêng.";
+            var summary = $"Đã nhập {result.Tools.Count} tool, {result.ProfilesAdded} lệnh đã ghim, {result.StacksAdded} workflow, {result.CustomsAdded} lệnh riêng.";
             if (result.Warnings.Count > 0)
                 summary += "\n\nCảnh báo:\n" + string.Join("\n", result.Warnings);
             if (result.Warnings.Count == 0)
@@ -498,16 +449,30 @@ namespace Toolbox.Views
         public event Action<SheetBase, Action<bool>> SheetRequested;
 
         /// <summary>Người dùng bấm "Nhờ agent…" mà chưa có agent nào: mở cửa sổ Kết nối agent.</summary>
-        public event Action ConnectAgentRequested;
+        public event Action<string> ConnectAgentRequested;
 
-        private void AskAgent(string prompt) => AgentAsk.Send(prompt, () => ConnectAgentRequested?.Invoke());
+        private void AskAgent(string prompt) => AgentAsk.Send(prompt, () => ConnectAgentRequested?.Invoke(_workspace?.ResolvedPath));
+
+        private void OnConnectAgent(object sender, RoutedEventArgs e) => ConnectAgentRequested?.Invoke(_workspace?.ResolvedPath);
 
         private void OnAskSetup(object sender, RoutedEventArgs e)
         {
             if (_workspace == null)
                 return;
             var detected = _workspace.Bindings.Select(b => ToolCatalog.Find(b.ToolId)?.Name ?? b.ToolId).ToList();
-            AskAgent(AgentPrompts.SetupWorkspace(_workspace, detected));
+            var sheet = new AiSetupSheet(_workspace, detected);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null || sheet.Approved.Count == 0)
+                    return;
+                var added = 0;
+                if (!Mutate(() => added = SetupProposals.Apply(_workspace, sheet.Approved)))
+                    return;
+                BuildCustoms();
+                BuildRun();
+                Refresh();
+                Toasts.Show("Đã thêm " + added + " lệnh vào tab Chạy.", ToastKind.Success);
+            });
         }
 
         private void OnAskWorkflow(object sender, RoutedEventArgs e)
@@ -530,7 +495,7 @@ namespace Toolbox.Views
         /// <summary>Mở bảng lệnh của tool (cờ đọc từ trợ giúp, cờ cổng, mục nhập tay). Đóng cửa sổ thì vẽ lại tab.</summary>
         private void OnCapabilities(object sender, RoutedEventArgs e)
         {
-            var binding = _tab?.Binding;
+            var binding = BindingOf(sender);
             var tool = binding == null ? null : ToolCatalog.Find(binding.ToolId);
             if (binding == null || tool == null)
                 return;
@@ -540,8 +505,8 @@ namespace Toolbox.Views
             OpenSheet(sheet, ok =>
             {
                 ClearActionCache(kind);
-                if (_workspace != null && _tab?.Binding != null && string.Equals(_tab.Binding.ToolId, kind, StringComparison.OrdinalIgnoreCase))
-                    Select(_tab);
+                if (_workspace != null)
+                    BuildRun();
             });
         }
 
@@ -554,27 +519,29 @@ namespace Toolbox.Views
 
         private void OnEditTool(object sender, RoutedEventArgs e)
         {
-            var binding = _tab?.Binding;
+            var binding = BindingOf(sender);
             if (binding == null)
                 return;
-            var dialog = new ToolBindingWindow(_workspace, binding, ToolCatalog.FindEntry(binding.ToolId)) { Owner = Host };
-            if (dialog.ShowDialog() != true)
-                return;
-
-            var oldCwd = binding.Cwd;
-            var oldArgs = binding.Args;
-            if (!Mutate(() => { binding.Cwd = dialog.Result.Cwd; binding.Args = dialog.Result.Args; },
-                        () => { binding.Cwd = oldCwd; binding.Args = oldArgs; }))
-                return;
-            // Đổi thư mục chạy có thể đổi danh sách script npm và cổng; tạo lại form của tool này.
-            ClearActionCache(binding.ToolId);
-            Select(_tab);
+            var sheet = new ToolBindingSheet(_workspace, binding, ToolCatalog.FindEntry(binding.ToolId));
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null)
+                    return;
+                var oldCwd = binding.Cwd;
+                var oldArgs = binding.Args;
+                if (!Mutate(() => { binding.Cwd = sheet.Result.Cwd; binding.Args = sheet.Result.Args; },
+                            () => { binding.Cwd = oldCwd; binding.Args = oldArgs; }))
+                    return;
+                // Đổi thư mục chạy có thể đổi danh sách script npm và cổng; tạo lại form của tool này.
+                ClearActionCache(binding.ToolId);
+                BuildRun();
+            });
         }
 
         /// <summary>Sửa chính tool trong thư viện (cùng form với trang Thư viện). Mọi workspace dùng tool này đều thấy thay đổi.</summary>
         private void OnEditToolEntry(object sender, RoutedEventArgs e)
         {
-            var binding = _tab?.Binding;
+            var binding = BindingOf(sender);
             var library = binding == null ? null : LoadLibraryStore();
             var entry = library?.Find(binding.ToolId);
             if (entry == null)
@@ -603,7 +570,7 @@ namespace Toolbox.Views
 
         private void OnRemoveTool(object sender, RoutedEventArgs e)
         {
-            var binding = _tab?.Binding;
+            var binding = BindingOf(sender);
             if (binding == null)
                 return;
 
@@ -617,7 +584,7 @@ namespace Toolbox.Views
 
             var message = $"Gỡ tool \"{name}\" khỏi workspace \"{_workspace.Name}\"?";
             if (profileCount > 0)
-                message += $"\n\n{profileCount} profile của tool này cũng bị xoá.";
+                message += $"\n\n{profileCount} lệnh đã ghim của tool này cũng bị xoá.";
             if (stackSteps > 0)
                 message += $"\n\n{stackSteps} bước trong workflow đang dùng tool này sẽ không chạy được cho tới khi gắn lại.";
             if (running.Count > 0)
@@ -640,6 +607,134 @@ namespace Toolbox.Views
                     cache.Remove(key);
             _selectedTab.Remove(_workspace.Id);
             Rebuild();
+        }
+
+        // ---- Menu và sheet của tab Chạy ----
+
+        /// <summary>Binding của tool mà menu ⋯ đang mở (DataContext của mục menu là <see cref="GroupRow"/>).</summary>
+        private static ToolBinding BindingOf(object sender) =>
+            ((sender as FrameworkElement)?.DataContext as GroupRow)?.Binding;
+
+        private static MenuItem MenuEntry(string header, RoutedEventHandler click, object context)
+        {
+            var item = new MenuItem { Header = header, DataContext = context };
+            item.Click += click;
+            return item;
+        }
+
+        private static void ShowMenu(FrameworkElement anchor, ContextMenu menu)
+        {
+            menu.PlacementTarget = anchor;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
+        private void AddToolEntries(ItemCollection items, GroupRow group)
+        {
+            items.Add(MenuEntry("Lệnh…", OnCapabilities, group));
+            items.Add(MenuEntry("Thư mục chạy và tham số…", OnEditTool, group));
+            items.Add(MenuEntry("Sửa tool trong thư viện…", OnEditToolEntry, group));
+            items.Add(new Separator());
+            items.Add(MenuEntry("Gỡ tool khỏi workspace", OnRemoveTool, group));
+        }
+
+        /// <summary>Menu "Tool của workspace…": thêm tool, lệnh riêng, worktree, và quản lý từng tool đã gắn.</summary>
+        private void OnToolMenu(object sender, RoutedEventArgs e)
+        {
+            if (_workspace == null)
+                return;
+            var menu = new ContextMenu();
+            menu.Items.Add(MenuEntry("Thêm tool…", OnAddTool, null));
+            menu.Items.Add(MenuEntry("Thêm lệnh riêng…", OnAddCommand, null));
+            menu.Items.Add(MenuEntry("Ghim lệnh từ tool hoặc lệnh riêng…", OnNewProfile, null));
+            menu.Items.Add(MenuEntry("Worktree…", OnWorktreeSetup, null));
+            if (_workspace.Bindings.Count > 0)
+            {
+                menu.Items.Add(new Separator());
+                foreach (var binding in _workspace.Bindings)
+                {
+                    var group = new GroupRow(ToolCatalog.Find(binding.ToolId)?.Name ?? binding.ToolId, binding);
+                    var sub = new MenuItem { Header = group.Title };
+                    AddToolEntries(sub.Items, group);
+                    menu.Items.Add(sub);
+                }
+            }
+            ShowMenu((FrameworkElement)sender, menu);
+        }
+
+        /// <summary>Menu ⋯ ở tiêu đề nhóm một tool.</summary>
+        private void OnGroupMenu(object sender, RoutedEventArgs e)
+        {
+            if (!((sender as FrameworkElement)?.DataContext is GroupRow group) || group.Binding == null)
+                return;
+            var menu = new ContextMenu();
+            AddToolEntries(menu.Items, group);
+            ShowMenu((FrameworkElement)sender, menu);
+        }
+
+        /// <summary>Menu ⋯ của một dòng lệnh: tham số, ghim, sửa, xoá tuỳ loại dòng.</summary>
+        private void OnRowMenu(object sender, RoutedEventArgs e)
+        {
+            var context = (sender as FrameworkElement)?.DataContext;
+            var menu = new ContextMenu();
+            switch (context)
+            {
+                case ActionRow _:
+                    menu.Items.Add(MenuEntry("Tham số…", OnOpenParams, context));
+                    menu.Items.Add(MenuEntry("Ghim lệnh", OnPinAction, context));
+                    break;
+                case ProfileRow _:
+                    menu.Items.Add(MenuEntry("Tham số…", OnEditPairs, context));
+                    menu.Items.Add(MenuEntry("Đổi tên", OnRenameProfile, context));
+                    menu.Items.Add(MenuEntry("Nhân bản", OnDuplicateProfile, context));
+                    menu.Items.Add(new Separator());
+                    menu.Items.Add(MenuEntry("Bỏ ghim", OnDeleteProfile, context));
+                    break;
+                case CustomRow _:
+                    menu.Items.Add(MenuEntry("Sửa", OnEditCommand, context));
+                    menu.Items.Add(MenuEntry("Xoá", OnDeleteCommand, context));
+                    break;
+                case StackRow stack:
+                    var diagram = MenuEntry("Sửa bằng sơ đồ…", OnDiagramStack, context);
+                    var edit = MenuEntry("Sửa dạng danh sách…", OnEditStack, context);
+                    var delete = MenuEntry("Xoá", OnDeleteStack, context);
+                    diagram.IsEnabled = edit.IsEnabled = delete.IsEnabled = stack.CanEdit;
+                    menu.Items.Add(diagram);
+                    menu.Items.Add(edit);
+                    menu.Items.Add(new Separator());
+                    menu.Items.Add(delete);
+                    break;
+                default:
+                    return;
+            }
+            ShowMenu((FrameworkElement)sender, menu);
+        }
+
+        private void OnPinAction(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ActionRow row)
+                SaveProfile(row);
+        }
+
+        /// <summary>Mở sheet tham số của một lệnh; từ sheet chạy hoặc ghim luôn.</summary>
+        private void OnOpenParams(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ActionRow row)
+                OpenParams(row);
+        }
+
+        private void OpenParams(ActionRow row)
+        {
+            var sheet = new ActionSheet(row);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok)
+                    return;
+                if (sheet.Outcome == ActionSheet.RunOutcome)
+                    RunAction(row);
+                else if (sheet.Outcome == ActionSheet.PinOutcome)
+                    SaveProfile(row);
+            });
         }
 
         /// <summary>Agent vừa đổi các mục này (id profile, workflow...): đánh dấu "mới" cho tới khi bạn xem xong (rời trang).</summary>
@@ -786,7 +881,11 @@ namespace Toolbox.Views
             if (!CanStartTool(row.Binding))
                 return;
             if (row.Revalidate())
+            {
+                // Tham số nằm trong sheet nên lỗi (thiếu giá trị, cổng bận) phải mở sheet mới thấy.
+                OpenParams(row);
                 return;
+            }
             var pairs = row.Pairs;
             if (pairs.Count > 0)
             {
@@ -829,7 +928,7 @@ namespace Toolbox.Views
             if (errors.Count > 0)
             {
                 Dialogs.Error(Host, $"Không chạy được profile \"{row.Profile.Label}\":\n" + string.Join("\n", errors.Values)
-                    + "\n\nDừng tác vụ đang giữ cổng, hoặc chọn cổng khác ở thẻ lệnh rồi lưu lại profile.");
+                    + "\n\nDừng tác vụ đang giữ cổng, hoặc chọn cổng khác ở thẻ lệnh rồi ghim lại lệnh.");
                 return;
             }
             if (row.Profile.HasPairs)
@@ -868,7 +967,7 @@ namespace Toolbox.Views
             {
                 var name = string.IsNullOrWhiteSpace(pair.Key) ? "đối số" : pair.Key.Trim();
                 var prompt = new PromptWindow("Nhập giá trị", $"Giá trị cho {name} *", "",
-                    $"Profile \"{profile.Label}\" hỏi giá trị này mỗi lần chạy.") { Owner = Host };
+                    $"Lệnh đã ghim \"{profile.Label}\" hỏi giá trị này mỗi lần chạy.") { Owner = Host };
                 if (prompt.ShowDialog() != true)
                     return null;
                 answers.Add(prompt.Value);
@@ -906,10 +1005,11 @@ namespace Toolbox.Views
                 return;
             if (kind == SearchKind.Custom)
             {
-                Select(_tabs.FirstOrDefault(t => t.IsCustom) ?? _tabs[0]);
+                Select(_tabs[0]);
                 return;
             }
-            var label = kind == SearchKind.Profile ? _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))?.Label : "";
+            var label = kind == SearchKind.Profile ? _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))?.Label
+                : kind == SearchKind.Quick ? QuickCommands.For(_workspace).FirstOrDefault(q => q.Id == id)?.Title : "";
             RunSearch.Text = label ?? "";
             Select(_tabs[0]);
         }
@@ -918,6 +1018,23 @@ namespace Toolbox.Views
         /// Chạy một mục từ bảng lệnh Ctrl+K: mở tab Chạy rồi chạy profile, workflow hoặc lệnh riêng theo id,
         /// dùng đúng đường chạy của nút Chạy (hỏi giá trị lúc chạy, kiểm cổng, kiểm thư mục).
         /// </summary>
+        /// <summary>Chạy một lệnh chạy nhanh (script, lệnh của tool) theo <see cref="QuickCommand.Id"/>. False nếu lệnh không còn.</summary>
+        private bool RunQuick(string quickId)
+        {
+            var quick = QuickCommands.For(_workspace).FirstOrDefault(q => string.Equals(q.Id, quickId, StringComparison.OrdinalIgnoreCase));
+            if (quick == null || quick.Binding == null)
+                return false;
+            var row = _actions.FirstOrDefault(r => ReferenceEquals(r.Binding, quick.Binding)
+                && string.Equals(r.Action.Id ?? "", quick.ActionId ?? "", StringComparison.OrdinalIgnoreCase));
+            if (row == null)
+                return false;
+            var variant = row.Variants.FirstOrDefault(v => string.Equals(v.Id ?? "", quick.VariantId ?? "", StringComparison.OrdinalIgnoreCase));
+            if (variant != null)
+                row.Variant = variant;
+            RunAction(row);
+            return true;
+        }
+
         public bool RunTarget(SearchKind kind, string id)
         {
             if (_workspace == null || _tasks == null)
@@ -946,6 +1063,8 @@ namespace Toolbox.Views
                     Used("custom", id);
                     RunCustomCommand(custom);
                     return true;
+                case SearchKind.Quick:
+                    return RunQuick(id);
                 default:
                     return false;
             }
@@ -1022,15 +1141,20 @@ namespace Toolbox.Views
 
         private void OnAddStack(object sender, RoutedEventArgs e)
         {
-            var dialog = new StackEditWindow(_workspace) { Owner = Host };
-            if (dialog.ShowDialog() != true)
+            if (_workspace == null)
                 return;
-            var stack = dialog.Result;
-            stack.Id = WorkspaceStore.NewId();
-            if (!Mutate(() => _workspace.Stacks.Add(stack)))
-                return;
-            BuildStacks();
-            Refresh();
+            var sheet = new StackEditSheet(_workspace);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null)
+                    return;
+                var stack = sheet.Result;
+                stack.Id = WorkspaceStore.NewId();
+                if (!Mutate(() => _workspace.Stacks.Add(stack)))
+                    return;
+                BuildStacks();
+                Refresh();
+            });
         }
 
         /// <summary>Dựng workflow mới bằng sơ đồ.</summary>
@@ -1068,19 +1192,26 @@ namespace Toolbox.Views
         {
             if (!((sender as FrameworkElement)?.DataContext is StackRow row))
                 return;
-            var index = _workspace.Stacks.IndexOf(row.Stack);
-            if (index < 0)
+            var original = row.Stack;
+            if (_workspace.Stacks.IndexOf(original) < 0)
                 return;
-            var dialog = new StackEditWindow(_workspace, row.Stack) { Owner = Host };
-            if (dialog.ShowDialog() != true)
-                return;
-            var edited = dialog.Result;
-            if (!Mutate(() => _workspace.Stacks[index] = edited))
-                return;
-            // Kết quả cũ thuộc về các bước cũ.
-            _runs.Remove(RunKey(edited.Id));
-            BuildStacks();
-            Refresh();
+            var sheet = new StackEditSheet(_workspace, original);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null)
+                    return;
+                // Sheet mở lâu: tìm lại vị trí, workflow có thể đã bị xoá hay dời trong lúc sửa.
+                var index = _workspace.Stacks.IndexOf(original);
+                if (index < 0)
+                    return;
+                var edited = sheet.Result;
+                if (!Mutate(() => _workspace.Stacks[index] = edited))
+                    return;
+                // Kết quả cũ thuộc về các bước cũ.
+                _runs.Remove(RunKey(edited.Id));
+                BuildStacks();
+                Refresh();
+            });
         }
 
         private void OnDeleteStack(object sender, RoutedEventArgs e)
@@ -1143,23 +1274,21 @@ namespace Toolbox.Views
 
         // ---- Profile ----
 
-        private void OnSaveProfile(object sender, RoutedEventArgs e)
+        /// <summary>Ghim cách chạy hiện tại của một lệnh (lệnh + tham số) thành lệnh đã ghim (profile trong dữ liệu).</summary>
+        private void SaveProfile(ActionRow row)
         {
-            if (!((sender as FrameworkElement)?.DataContext is ActionRow row))
-                return;
-
             // Lưu thì không cần cổng đang trống; chỉ cần giá trị hợp lệ.
             var errors = CommandBuilder.Validate(row.Variant, row.Values());
             if (errors.Count > 0)
             {
                 row.Revalidate();
-                Dialogs.Error(Host, "Chưa lưu được profile:\n" + string.Join("\n", errors.Values));
+                Dialogs.Error(Host, "Chưa ghim được lệnh:\n" + string.Join("\n", errors.Values));
                 return;
             }
 
             if (row.Editor.Error != null)
             {
-                Dialogs.Error(Host, "Chưa lưu được profile:\n" + row.Editor.Error);
+                Dialogs.Error(Host, "Chưa ghim được lệnh:\n" + row.Editor.Error);
                 return;
             }
             var vals = new Dictionary<string, string>(CommandBuilder.Effective(row.Variant, row.Values()));
@@ -1170,14 +1299,14 @@ namespace Toolbox.Views
             if (port.HasValue)
                 suggested += " · :" + port.Value;
 
-            var prompt = new PromptWindow("Lưu profile", "Tên profile *", suggested,
-                "Profile nhớ biến thể và tham số hiện tại để chạy lại bằng một cú bấm.") { Owner = Host };
+            var prompt = new PromptWindow("Ghim lệnh", "Tên lệnh đã ghim *", suggested,
+                "Lệnh đã ghim nhớ lệnh và tham số hiện tại, nằm ở đầu danh sách để chạy lại bằng một cú bấm.") { Owner = Host };
             if (prompt.ShowDialog() != true)
                 return;
 
             var label = prompt.Value;
             var same = _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Label, label, StringComparison.OrdinalIgnoreCase));
-            if (same != null && !Dialogs.Confirm(Host, $"Đã có profile \"{label}\". Ghi đè bằng cấu hình này?", false))
+            if (same != null && !Dialogs.Confirm(Host, $"Đã có lệnh ghim \"{label}\". Ghi đè bằng cấu hình này?", false))
                 return;
 
             var profile = new Profile
@@ -1222,7 +1351,7 @@ namespace Toolbox.Views
 
             var profile = dialog.Result;
             var same = _workspace.Profiles.FirstOrDefault(p => string.Equals(p.Label, profile.Label, StringComparison.OrdinalIgnoreCase));
-            if (same != null && !Dialogs.Confirm(Host, $"Đã có profile \"{profile.Label}\". Ghi đè bằng cấu hình này?", false))
+            if (same != null && !Dialogs.Confirm(Host, $"Đã có lệnh ghim \"{profile.Label}\". Ghi đè bằng cấu hình này?", false))
                 return;
 
             string problem = null;
@@ -1240,7 +1369,7 @@ namespace Toolbox.Views
             });
             if (problem != null)
             {
-                Dialogs.Error(Host, "Chưa lưu được profile:\n" + problem);
+                Dialogs.Error(Host, "Chưa lưu được lệnh đã ghim:\n" + problem);
                 return;
             }
             if (!saved)
@@ -1343,7 +1472,7 @@ namespace Toolbox.Views
             var usedBy = _workspace.Stacks.Count(s => s.Steps.Any(st => string.Equals(st.ProfileId, row.Profile.Id, StringComparison.OrdinalIgnoreCase)));
             var message = $"Xoá profile \"{row.Profile.Label}\"?";
             if (usedBy > 0)
-                message += $"\n\n{usedBy} workflow đang dùng profile này; các bước đó sẽ chạy với tham số mặc định.";
+                message += $"\n\n{usedBy} workflow đang dùng lệnh đã ghim này; các bước đó sẽ chạy với tham số mặc định.";
             if (!Dialogs.Confirm(Host, message, usedBy > 0))
                 return;
 
@@ -1369,35 +1498,43 @@ namespace Toolbox.Views
 
         private void OnAddCommand(object sender, RoutedEventArgs e)
         {
-            var dialog = new CommandEditWindow(_workspace) { Owner = Host };
-            if (dialog.ShowDialog() != true)
+            if (_workspace == null)
                 return;
-
-            var command = dialog.Result;
-            command.Id = WorkspaceStore.NewId();
-            if (!Mutate(() => _workspace.Customs.Add(command)))
-                return;
-            BuildCustoms();
-            Refresh();
+            var sheet = new CommandEditSheet(_workspace);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null)
+                    return;
+                var command = sheet.Result;
+                command.Id = WorkspaceStore.NewId();
+                if (!Mutate(() => _workspace.Customs.Add(command)))
+                    return;
+                BuildCustoms();
+                BuildRun();
+                Refresh();
+            });
         }
 
         private void OnEditCommand(object sender, RoutedEventArgs e)
         {
             if (!((sender as FrameworkElement)?.DataContext is CustomRow row))
                 return;
-            var dialog = new CommandEditWindow(_workspace, row.Command) { Owner = Host };
-            if (dialog.ShowDialog() != true)
-                return;
-
             var old = row.Command;
-            var index = _workspace.Customs.IndexOf(old);
-            if (index < 0)
-                return;
-            if (!Mutate(() => _workspace.Customs[index] = dialog.Result, () => _workspace.Customs[index] = old))
-                return;
-            // Lệnh đang chạy giữ nguyên bản cũ tới khi chạy lại; chỉ báo để không gây hiểu nhầm.
-            BuildCustoms();
-            Refresh();
+            var sheet = new CommandEditSheet(_workspace, old);
+            OpenSheet(sheet, ok =>
+            {
+                if (!ok || _workspace == null)
+                    return;
+                var index = _workspace.Customs.IndexOf(old);
+                if (index < 0)
+                    return;
+                if (!Mutate(() => _workspace.Customs[index] = sheet.Result, () => _workspace.Customs[index] = old))
+                    return;
+                // Lệnh đang chạy giữ nguyên bản cũ tới khi chạy lại; chỉ báo để không gây hiểu nhầm.
+                BuildCustoms();
+                BuildRun();
+                Refresh();
+            });
         }
 
         private void OnDeleteCommand(object sender, RoutedEventArgs e)

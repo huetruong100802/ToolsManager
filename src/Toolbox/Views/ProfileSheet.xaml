@@ -42,7 +42,7 @@
             </DockPanel>
             <Button x:Name="CustomToolLink" Content="Không có trong danh sách? + Lệnh riêng…" Click="OnCustomTool"
                     Style="{StaticResource GhostButton}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                    ToolTip="Tạo lệnh riêng trong workspace này, rồi quay lại tạo profile cho nó." />
+                    ToolTip="Tạo lệnh riêng trong workspace này, rồi quay lại ghim lệnh cho nó." />
 
             <!-- Bước 2: lệnh -->
             <StackPanel x:Name="CommandPanel" Visibility="Collapsed">
@@ -86,7 +86,7 @@
                         <v:PairEditor x:Name="Pairs" Changed="OnPairsChanged" />
                     </StackPanel>
 
-                    <TextBlock Text="Tên profile *" Style="{StaticResource FieldLabel}" Margin="0,14,0,0" />
+                    <TextBlock Text="Tên lệnh đã ghim *" Style="{StaticResource FieldLabel}" Margin="0,14,0,0" />
                     <TextBox x:Name="NameBox" TextChanged="OnNameChanged" AutomationProperties.Name="Tên profile" />
                 </StackPanel>
             </ScrollViewer>

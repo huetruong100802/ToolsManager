@@ -37,6 +37,11 @@ namespace Toolbox
 
         public ToolEntry Tool { get; private set; }
 
+        /// <summary>Biểu tượng ghim (đang ghim: bỏ ghim) và gợi ý của nút ghim lên Trang chủ.</summary>
+        public string PinGlyph => Tool.Pinned ? "" : "";
+
+        public string PinTip => Tool.Pinned ? "Bỏ ghim khỏi Trang chủ" : "Ghim lên Trang chủ để mở nhanh";
+
         public bool IsChecked
         {
             get => _isChecked;

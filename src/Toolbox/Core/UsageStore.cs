@@ -68,6 +68,12 @@ namespace Toolbox.Core
         public static string Key(string kind, string id, string workspaceId = null) =>
             workspaceId == null ? kind + ":" + id : kind + ":" + workspaceId + ":" + id;
 
+        /// <summary>Loại khoá của lệnh chạy nhanh (<c>QuickCommand</c>).</summary>
+        public const string QuickKind = "quick";
+
+        /// <summary>Khoá mức dùng của một lệnh chạy nhanh theo <c>QuickCommand.Id</c> (đã chứa workspace id).</summary>
+        public static string QuickKey(string quickId) => Key(QuickKind, quickId);
+
         public void Record(string key, DateTime? now = null)
         {
             if (string.IsNullOrEmpty(key))

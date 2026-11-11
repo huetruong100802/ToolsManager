@@ -1,4 +1,4 @@
-<UserControl x:Class="Toolbox.Views.WorkspaceView"
+﻿<UserControl x:Class="Toolbox.Views.WorkspaceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:v="clr-namespace:Toolbox.Views">
@@ -37,56 +37,20 @@
             </Border>
         </DataTemplate>
         <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
-                            <DataTemplate x:Key="ProfileRowTemplate">
-                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Nhân bản" Click="OnDuplicateProfile" />
-                                            <Button Style="{StaticResource GhostButton}" Content="Tham số…" Click="OnEditPairs" ToolTip="Sửa các cặp tham số của profile (thêm, xoá, đổi thứ tự, hỏi lúc chạy)." />
-                                            <Button Style="{StaticResource GhostButton}" Content="Đổi tên" Click="OnRenameProfile" />
-                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteProfile" Margin="0,0,6,0" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
-                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
-                                                    Visibility="{Binding StopVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
-                                                        Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
-                                                        ToolTip="Agent vừa thêm hoặc sửa mục này">
-                                                    <TextBlock Text="mới" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" />
-                                                </Border>
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
-                                                                Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarnInk}"
-                                                       TextWrapping="Wrap" Visibility="{Binding ProblemVisibility}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-        <!-- Dòng dùng chung cho tab tool và tab Chạy. -->
                             <DataTemplate x:Key="StackRowTemplate">
                                 <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                                         CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
                                     <StackPanel>
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                                                <Button Style="{StaticResource SoftButton}" Content="Sơ đồ" Click="OnDiagramStack" Margin="0,0,6,0"
-                                                        IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Sửa workflow bằng sơ đồ" />
-                                                <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditStack"
-                                                        IsEnabled="{Binding CanEdit}" ToolTip="Sửa dạng danh sách" />
-                                                <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteStack" Margin="0,0,6,0"
-                                                        IsEnabled="{Binding CanEdit}" />
                                                 <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRunStack" MinWidth="72"
                                                         IsEnabled="{Binding CanRun}" ToolTip="{Binding RunTip}" Visibility="{Binding RunVisibility}" />
                                                 <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStopStack" MinWidth="72"
                                                         Visibility="{Binding StopVisibility}" />
+                                                <Button Style="{StaticResource GhostButton}" Click="OnRowMenu" Margin="4,0,0,0"
+                                                        AutomationProperties.Name="Thêm" ToolTip="Sửa bằng sơ đồ, sửa dạng danh sách, xoá">
+                                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
+                                                </Button>
                                             </StackPanel>
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal">
@@ -174,21 +138,20 @@
     </UserControl.Resources>
 
     <DockPanel>
-        <!-- Bốn tab cố định: Chạy, Tool, Workflow, Chia sẻ. -->
+        <!-- Ba tab cố định: Chạy (mọi lệnh), Workflow, Chia sẻ. Quản lý tool nằm ở menu bên phải. -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
                 Padding="12,0,12,0">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnWorktreeSetup" VerticalAlignment="Center"
-                        AutomationProperties.Name="Worktree" ToolTip="File local và lệnh cài đặt cho worktree mới; chuẩn bị một worktree có sẵn">
-                    <TextBlock Text="Worktree…" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnConnectAgent" VerticalAlignment="Center"
+                        AutomationProperties.Name="Kết nối agent" ToolTip="Cho Claude Code dùng workspace này qua MCP; agent chỉ thấy workspace này">
+                    <TextBlock Text="Kết nối agent" />
                 </Button>
-                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnAddTool" VerticalAlignment="Center"
-                        AutomationProperties.Name="Thêm tool" ToolTip="Gắn tool từ thư viện, nhận gợi ý từ thư mục dự án, hoặc đăng ký tool mới">
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnToolMenu" VerticalAlignment="Center"
+                        AutomationProperties.Name="Tool của workspace" ToolTip="Thêm, sửa, gỡ tool gắn vào workspace này; lệnh riêng; worktree">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
-                        <TextBlock Text="Thêm tool" />
+                        <TextBlock Text="Tool của workspace…" />
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
-
                 </Button>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                     <ItemsControl x:Name="TabStrip">
@@ -208,161 +171,125 @@
             </DockPanel>
         </Border>
 
-        <!-- Tab Tool: danh sách tool đã gắn và Lệnh riêng ở bên trái, chi tiết ở bên phải (không còn mỗi tool một tab). -->
-        <Border x:Name="ToolNavPanel" DockPanel.Dock="Left" Width="210" Visibility="Collapsed" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
-            <DockPanel Margin="10,12,10,10">
-                <TextBlock DockPanel.Dock="Top" Text="TOOL" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="8,0,0,8" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl x:Name="ToolNav">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource RailItem}" Click="OnToolNavClick" IsChecked="{Binding IsSelected, Mode=OneWay}"
-                                             AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}">
-                                    <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                                </RadioButton>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
-
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Grid Margin="20,16,20,20">
-                <!-- Trang của một tool. -->
-                <StackPanel x:Name="ToolPage">
-                    <DockPanel Margin="0,0,0,12">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                            <Button Style="{StaticResource GhostButton}" Content="Lệnh…" Click="OnCapabilities"
-                                    ToolTip="Cờ và lệnh con của tool, đọc từ trợ giúp hoặc nhập tay. Đánh dấu cờ cổng ở đây." />
-                            <Button Style="{StaticResource GhostButton}" Content="Tool…" Click="OnEditToolEntry" ToolTip="Sửa lệnh, đường dẫn, mô tả của tool trong thư viện (dùng chung mọi workspace)" />
-                            <Button Style="{StaticResource GhostButton}" Content="Sửa…" Click="OnEditTool" ToolTip="Đổi thư mục chạy và tham số riêng của workspace này" />
-                            <Button Style="{StaticResource GhostButton}" Content="Gỡ tool" Click="OnRemoveTool" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock x:Name="ToolRule" Foreground="{DynamicResource Muted}" />
-                            <TextBlock x:Name="ToolCwd" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-
-                    <TextBlock x:Name="NoActions" Style="{StaticResource Hint}" Margin="0,0,0,12" Visibility="Collapsed" />
-
-                    <v:SearchField x:Name="ActionSearch" Placeholder="Tìm lệnh theo tên hoặc biến thể…" Margin="0,0,0,10" Visibility="Collapsed" />
-                    <TextBlock x:Name="ActionSearchEmpty" Style="{StaticResource Hint}" Margin="0,0,0,12" Visibility="Collapsed" Text="Không có lệnh nào khớp." />
-
-                    <ItemsControl x:Name="ActionList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,12" Margin="0,0,0,10">
-                                    <DockPanel>
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Lưu profile" Click="OnSaveProfile" Margin="0,0,6,0"
-                                                    ToolTip="Lưu cách chạy này (biến thể + tham số) thành profile để chạy lại nhanh" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
-                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
-                                                    Visibility="{Binding StopVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
-                                                                Visibility="{Binding StopVisibility}" />
-                                            </StackPanel>
-                                            <ComboBox ItemsSource="{Binding Variants}" SelectedItem="{Binding Variant, Mode=TwoWay}"
-                                                      DisplayMemberPath="Label" HorizontalAlignment="Left" MinWidth="220" Margin="0,8,0,0"
-                                                      Visibility="{Binding VariantPickerVisibility}" AutomationProperties.Name="Biến thể" />
-                                            <ItemsControl ItemsSource="{Binding VisibleParams}" Visibility="{Binding VisibleParamsVisibility}" Margin="0,8,0,0">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <StackPanel Margin="0,0,0,6">
-                                                            <TextBlock Text="{Binding Prompt}" Style="{StaticResource FieldLabel}" />
-                                                            <!-- Nút ▾ chỉ hiện khi tham số có nguồn gợi ý (catalog khai báo); ô vẫn gõ tay được. -->
-                                                            <DockPanel HorizontalAlignment="Left" Width="260">
-                                                                <Button DockPanel.Dock="Right" Width="32" Click="OnPickOptions"
-                                                                        Visibility="{Binding OptionsVisibility}"
-                                                                        ToolTip="Chọn từ danh sách gợi ý" AutomationProperties.Name="{Binding Prompt, StringFormat='Chọn gợi ý cho {0}'}">
-                                                                    <Path Data="M 0,0 L 8,0 L 4,5 Z" Fill="{DynamicResource Muted}" Width="8" Height="5" Stretch="Fill" />
-                                                                </Button>
-                                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                                         AutomationProperties.Name="{Binding Prompt}"
-                                                                         ToolTip="{Binding Default, StringFormat='Để trống = {0}'}" />
-                                                            </DockPanel>
-                                                            <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Danger}" FontSize="12"
-                                                                       TextWrapping="Wrap" Margin="0,3,0,0" Visibility="{Binding ErrorVisibility}" />
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <TextBlock Text="Tham số" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
-                                            <ContentControl Content="{Binding Editor}" Focusable="False" IsTabStop="False" />
-                                            <TextBlock Text="{Binding Preview}" FontFamily="Consolas" FontSize="12" Foreground="{DynamicResource Muted}"
-                                                       TextWrapping="Wrap" Margin="0,8,0,0" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,12,0,6" />
-                    <TextBlock x:Name="NoProfiles" Style="{StaticResource Hint}"
-                               Text="Chưa có profile. Chọn biến thể và tham số ở trên rồi bấm &quot;Lưu profile&quot; để chạy lại bằng một cú bấm." />
-                    <ItemsControl x:Name="ProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
-                </StackPanel>
-
-                <!-- Trang Chạy: workflow và profile của cả workspace, bấm là chạy. -->
-                <StackPanel x:Name="RunPage" Visibility="Collapsed">
+                <!-- Trang Chạy: mọi lệnh của workspace trong một danh sách, nhóm theo tool; lệnh đã ghim ở đầu. -->
+                <StackPanel x:Name="RunPage">
                     <v:ReadinessPanel x:Name="ReadyPanel" />
                     <TextBlock Text="WORKFLOW" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}" Margin="2,0,0,6" />
                     <TextBlock x:Name="NoRunStacks" Style="{StaticResource Hint}" Margin="0,0,0,8"
                                Text="Chưa có workflow. Mở tab &quot;Workflow&quot; để gom nhiều bước thành một nút chạy." />
                     <ItemsControl x:Name="RunStackList" ItemTemplate="{StaticResource StackRowTemplate}" />
 
-                    <DockPanel Margin="0,14,0,6">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Content="+ Profile mới"
-                                Click="OnNewProfile" Margin="8,0,0,0" AutomationProperties.Name="Tạo profile mới" />
-                        <TextBox x:Name="RunSearch" DockPanel.Dock="Right" Width="220" TextChanged="OnRunSearch"
-                                 AutomationProperties.Name="Tìm profile" ToolTip="Tìm profile theo tên" />
-                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}"
+                    <DockPanel Margin="0,16,0,4">
+                        <v:SearchField x:Name="RunSearch" DockPanel.Dock="Right" Width="260" TextChanged="OnRunSearch"
+                                       Placeholder="Tìm lệnh theo tên…" />
+                        <TextBlock Text="LỆNH" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}"
                                    Margin="2,0,0,0" VerticalAlignment="Center" />
                     </DockPanel>
-                    <TextBlock x:Name="NoRunProfiles" Style="{StaticResource Hint}" Margin="0,0,0,8" />
-                    <Button x:Name="AskSetupButton" Style="{StaticResource SoftButton}" Content="Nhờ agent thiết lập workspace…" Click="OnAskSetup"
+                    <TextBlock x:Name="NoRunItems" Style="{StaticResource Hint}" Margin="0,4,0,8" Visibility="Collapsed" />
+                    <Button x:Name="AskSetupButton" Style="{StaticResource SoftButton}" Content="AI thiết lập…" Click="OnAskSetup"
                             HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed"
-                            ToolTip="Sao chép prompt có sẵn ngữ cảnh workspace để dán cho agent" />
-                    <ItemsControl x:Name="RunProfileList" ItemTemplate="{StaticResource ProfileRowTemplate}" />
-                </StackPanel>
+                            ToolTip="Gọi CLI agent đọc dự án và đề xuất lệnh để bạn duyệt" />
 
-                <!-- Trang "Lệnh riêng". -->
-                <StackPanel x:Name="CustomPage" Visibility="Collapsed">
-                    <DockPanel Margin="0,0,0,12">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource SoftButton}" Click="OnAddCommand" VerticalAlignment="Top"
-                                AutomationProperties.Name="Thêm lệnh riêng">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" FontSize="12" Margin="0,0,6,0" />
-                                <TextBlock Text="Thêm lệnh" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                   Text="Lệnh tự đặt cho workspace này, ngoài các tool có sẵn." />
-                    </DockPanel>
-                    <TextBlock x:Name="NoCustoms" Style="{StaticResource Hint}" Text="Chưa có lệnh riêng. Bấm &quot;Thêm lệnh&quot; để tạo." />
-                    <ItemsControl x:Name="CustomList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                                        CornerRadius="10" Padding="14,10" Margin="0,0,0,8">
+                    <ItemsControl x:Name="RunList" IsTabStop="False">
+                        <ItemsControl.Resources>
+                            <!-- Tiêu đề nhóm: tên tool, "Lệnh riêng"; tool có menu ⋯ (lệnh, thư mục chạy, gỡ). -->
+                            <DataTemplate DataType="{x:Type v:GroupRow}">
+                                <StackPanel Margin="0,16,0,2">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnGroupMenu"
+                                                Visibility="{Binding MenuVisibility}" AutomationProperties.Name="Tuỳ chọn của tool"
+                                                ToolTip="Lệnh của tool, thư mục chạy, gỡ tool">
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
+                                        </Button>
+                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding Note}" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                               Visibility="{Binding NoteVisibility}" />
+                                </StackPanel>
+                            </DataTemplate>
+
+                            <DataTemplate DataType="{x:Type v:ActionRow}">
+                                <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="4,7">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                            <Button Style="{StaticResource GhostButton}" Content="Sửa" Click="OnEditCommand" />
-                                            <Button Style="{StaticResource GhostButton}" Content="Xoá" Click="OnDeleteCommand" Margin="0,0,6,0" />
-                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="72"
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="64"
                                                     IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
-                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="72"
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="64"
                                                     Visibility="{Binding StopVisibility}" />
+                                            <Button Style="{StaticResource GhostButton}" Click="OnPinAction" Margin="4,0,0,0"
+                                                    AutomationProperties.Name="Ghim lệnh" ToolTip="Ghim lệnh này lên đầu danh sách">
+                                                <TextBlock Style="{StaticResource Icon}" Text="&#xE718;" FontSize="14" />
+                                            </Button>
+                                            <Button Style="{StaticResource GhostButton}" Click="OnRowMenu"
+                                                    AutomationProperties.Name="Thêm" ToolTip="Tham số, ghim">
+                                                <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
+                                            </Button>
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
+                                                                Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Preview}" ToolTip="{Binding Preview}" FontFamily="Consolas" FontSize="12"
+                                                       Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+
+                            <!-- Lệnh đã ghim (trong JSON vẫn là "profiles"). -->
+                            <DataTemplate DataType="{x:Type v:ProfileRow}">
+                                <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="4,7">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="64"
+                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="64"
+                                                    Visibility="{Binding StopVisibility}" />
+                                            <Button Style="{StaticResource GhostButton}" Click="OnDeleteProfile" Margin="4,0,0,0"
+                                                    AutomationProperties.Name="Bỏ ghim" ToolTip="Bỏ ghim lệnh này">
+                                                <TextBlock Style="{StaticResource Icon}" Text="&#xE77A;" FontSize="14" Foreground="{DynamicResource Accent}" />
+                                            </Button>
+                                            <Button Style="{StaticResource GhostButton}" Click="OnRowMenu"
+                                                    AutomationProperties.Name="Thêm" ToolTip="Tham số, đổi tên, nhân bản">
+                                                <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
+                                            </Button>
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <Border Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentSoftLine}" BorderThickness="1" CornerRadius="9"
+                                                        Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding NewVisibility}"
+                                                        ToolTip="Agent vừa thêm hoặc sửa mục này">
+                                                    <TextBlock Text="mới" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" />
+                                                </Border>
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
+                                                                Visibility="{Binding StopVisibility}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarnInk}"
+                                                       TextWrapping="Wrap" Visibility="{Binding ProblemVisibility}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+
+                            <DataTemplate DataType="{x:Type v:CustomRow}">
+                                <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="4,7">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                            <Button Style="{StaticResource PrimaryButton}" Content="Chạy" Click="OnRun" MinWidth="64"
+                                                    IsEnabled="{Binding CanRun}" Visibility="{Binding RunVisibility}" />
+                                            <Button Style="{StaticResource DangerButton}" Content="Dừng" Click="OnStop" MinWidth="64"
+                                                    Visibility="{Binding StopVisibility}" />
+                                            <Button Style="{StaticResource GhostButton}" Click="OnRowMenu" Margin="4,0,0,0"
+                                                    AutomationProperties.Name="Thêm" ToolTip="Sửa, xoá">
+                                                <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
+                                            </Button>
                                         </StackPanel>
                                         <StackPanel VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
@@ -375,15 +302,13 @@
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding CommandLine}" FontFamily="Consolas" FontSize="12"
+                                            <TextBlock Text="{Binding CommandLine}" ToolTip="{Binding CommandLine}" FontFamily="Consolas" FontSize="12"
                                                        Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding CwdText, StringFormat='Chạy tại: {0}'}" FontSize="12"
-                                                       Foreground="{DynamicResource Faint}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
+                        </ItemsControl.Resources>
                     </ItemsControl>
                 </StackPanel>
 

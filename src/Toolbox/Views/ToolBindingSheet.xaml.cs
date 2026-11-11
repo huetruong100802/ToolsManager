@@ -4,23 +4,23 @@ using System.Windows;
 using System.Windows.Controls;
 using Toolbox.Core;
 using Toolbox.Core.Workspaces;
-using Toolbox.Views;
 
-namespace Toolbox
+namespace Toolbox.Views
 {
     /// <summary>Sửa phần riêng của workspace cho một tool đã gắn: thư mục chạy và tham số.</summary>
-    public partial class ToolBindingWindow : Window
+    public partial class ToolBindingSheet : SheetBase
     {
         private readonly Workspace _workspace;
         private readonly ToolBinding _binding;
         private readonly ToolEntry _tool;
 
-        public ToolBindingWindow(Workspace workspace, ToolBinding binding, ToolEntry tool)
+        public ToolBindingSheet(Workspace workspace, ToolBinding binding, ToolEntry tool)
         {
             InitializeComponent();
             _workspace = workspace;
             _binding = binding;
             _tool = tool;
+            SheetTitle = "Sửa tool trong workspace";
 
             ToolNameText.Text = tool?.Name ?? binding.ToolId;
             CwdBox.Text = binding.Cwd ?? "";
@@ -34,6 +34,8 @@ namespace Toolbox
         public ToolBinding Result { get; private set; }
 
         private string Cwd => CwdBox.Text.Trim();
+
+        private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
         private void OnBrowse(object sender, RoutedEventArgs e)
         {
@@ -80,7 +82,7 @@ namespace Toolbox
             var problem = CommandBuilder.CheckExtraArgs(args);
             if (problem != null)
             {
-                Dialogs.Error(this, problem);
+                Dialogs.Error(Host, problem);
                 return;
             }
             Result = new ToolBinding

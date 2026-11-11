@@ -101,6 +101,75 @@ namespace Toolbox.Tests
         }
 
         [Fact]
+        public void Build_VoiLenhNhanh_ThemScriptVaActionVaGhiMucDungTheoId()
+        {
+            using (var dir = new TempDir())
+            {
+                var usage = UsageStore.Load(dir.Combine("usage.json"));
+                var workspace = new Workspace
+                {
+                    Id = "w1", Name = "Demo", Path = dir.Path,
+                    Bindings = new List<ToolBinding> { new ToolBinding { ToolId = "dotnet" } },
+                    Customs = new List<CustomCommand> { new CustomCommand { Id = "c1", Label = "Dọn", CommandLine = "git clean" } },
+                };
+
+                var without = SearchIndex.Build(null, new[] { workspace }, null);
+                Assert.DoesNotContain(without.Entries, e => e.Kind == SearchKind.Quick);
+
+                var index = SearchIndex.Build(null, new[] { workspace }, null, includeQuickCommands: true);
+                var hit = index.Query("dotnet build", usage, 20, Now).Single(e => e.Kind == SearchKind.Quick);
+                Assert.Equal("build", hit.Title);
+                Assert.True(hit.Runnable);
+                Assert.Equal("w1", hit.WorkspaceId);
+                Assert.Equal(UsageStore.QuickKey(hit.TargetId), hit.Key);
+                Assert.Single(index.Entries, e => e.TargetId == "c1"); // lệnh riêng không lặp
+
+                usage.Record(hit.Key, Now);
+                Assert.Equal(hit.Key, index.Query("", usage, 5, Now)[0].Key);
+            }
+        }
+
+        [Fact]
+        public void Query_GoTenWorkspace_LenhChayDuocDungTruocWorkspace()
+        {
+            using (var dir = new TempDir())
+            {
+                var usage = UsageStore.Load(dir.Combine("usage.json"));
+                var workspace = new Workspace
+                {
+                    Id = "w1", Name = "DxFactory", Path = dir.Path,
+                    Bindings = new List<ToolBinding> { new ToolBinding { ToolId = "dotnet" } },
+                };
+                var index = SearchIndex.Build(null, new[] { workspace }, null, includeQuickCommands: true);
+                var hits = index.Query("dxfac", usage, 20, Now);
+                Assert.True(hits[0].Runnable);
+                Assert.Contains(hits, e => e.Kind == SearchKind.Workspace);
+            }
+        }
+
+        [Fact]
+        public void Query_OTrong_GhimTruocGanDayTruocToolGhimTruocHanhDong_KhongLap()
+        {
+            using (var dir = new TempDir())
+            {
+                var usage = UsageStore.Load(dir.Combine("usage.json"));
+                var workspace = new Workspace
+                {
+                    Id = "w1", Name = "Demo", Path = dir.Path,
+                    Profiles = new List<Profile> { new Profile { Id = "p1", Label = "Dev" } },
+                    Customs = new List<CustomCommand> { new CustomCommand { Id = "c1", Label = "Dọn", CommandLine = "git clean" } },
+                };
+                var tools = new[] { new ToolEntry { Id = "git", Name = "Git", Command = "git", Pinned = true }, new ToolEntry { Id = "x", Name = "X", Command = "x" } };
+                var actions = new[] { new SearchEntry { Kind = SearchKind.Action, Key = "a", Title = "Thêm workspace", TargetId = "add-workspace" } };
+                var index = SearchIndex.Build(tools, new[] { workspace }, actions);
+                usage.Record(UsageStore.Key("custom", "c1", "w1"), Now);
+                usage.Record(UsageStore.Key("profile", "p1", "w1"), Now);
+                var ids = index.Query("", usage, 12, Now).Select(e => e.TargetId).ToList();
+                Assert.Equal(new[] { "p1", "c1", "git", "add-workspace" }, ids);
+            }
+        }
+
+        [Fact]
         public void UsageStore_GhiBen_GiuToiDaVaGoMucKhongConTonTai()
         {
             using (var dir = new TempDir())

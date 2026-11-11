@@ -130,5 +130,88 @@ namespace Toolbox.Tests
                 Assert.True(full.OnboardingDone);
             }
         }
+        private static QuickCommand Quick(string id, QuickSource source, string title, string refId = null, string problem = null, string actionId = "x") =>
+            new QuickCommand
+            {
+                Id = "w1:" + id, Title = title, Group = "g", CommandLine = "cmd " + title, Source = source, WorkspaceId = "w1", ToolId = "t",
+                ActionId = actionId, VariantId = "", RefId = refId, Problem = problem,
+            };
+
+        private static HomeFeed BuildCards(Workspace ws, IReadOnlyList<QuickCommand> quicks, UsageStore usage = null, IReadOnlyList<ToolEntry> tools = null) =>
+            HomeFeed.Build(new[] { ws }, tools ?? new List<ToolEntry>(), new List<TaskInfo>(), 0, false, null, usage, Now, p => true,
+                quickCommands: w => quicks);
+
+        [Fact]
+        public void TheWorkspace_ChuaLuuGi_VanCoLenhChayDuocTuTool()
+        {
+            using (var dir = new TempDir())
+            {
+                var quicks = new[] { Quick("a", QuickSource.Script, "build"), Quick("b", QuickSource.Script, "test") };
+                var card = BuildCards(Ws(dir), quicks).Cards.Single();
+
+                Assert.Equal(new[] { "build", "test" }, card.Commands.Select(c => c.Title));
+                Assert.All(card.Commands, c => Assert.Equal(HomeTarget.Run, c.Target));
+                Assert.All(card.Commands, c => Assert.Equal(SearchKind.Quick, c.Entry.Kind));
+                Assert.Equal("w1:a", card.Commands[0].Entry.TargetId);
+            }
+        }
+
+        [Fact]
+        public void TheWorkspace_LenhGhimDungTruoc_RoiGanDay_ToiDaBon_BoLenhHong()
+        {
+            using (var dir = new TempDir())
+            {
+                var quicks = new List<QuickCommand>
+                {
+                    Quick("s1", QuickSource.Script, "s1"), Quick("s2", QuickSource.Script, "s2"), Quick("s3", QuickSource.Script, "s3"),
+                    Quick("s4", QuickSource.Script, "s4"), Quick("bad", QuickSource.Script, "hong", problem: "thiếu file"),
+                    Quick("p", QuickSource.Profile, "Đã ghim", refId: "p1"),
+                };
+                var usage = UsageStore.Load(dir.Combine("usage.json"));
+                usage.Record(UsageStore.QuickKey("w1:s3"), Now);
+
+                var titles = BuildCards(Ws(dir), quicks, usage).Cards.Single().Commands.Select(c => c.Title).ToList();
+
+                Assert.Equal(new[] { "Đã ghim", "s3", "s1", "s2" }, titles);
+                Assert.DoesNotContain("hong", titles);
+            }
+        }
+
+        [Fact]
+        public void TheWorkspace_BoQuaWorkspaceLuuTruVaThuMucMat_VaDungMucProfile()
+        {
+            using (var dir = new TempDir())
+            {
+                var archived = Ws(dir, "w2");
+                archived.Archived = true;
+                var missing = new Workspace { Id = "w3", Name = "Mất", Path = dir.Combine("khong-co") };
+                var ok = Ws(dir);
+                var feed = HomeFeed.Build(new[] { ok, archived, missing }, new List<ToolEntry>(), new List<TaskInfo>(), 0, false, null, null, Now,
+                    p => true, quickCommands: w => new[] { Quick("p", QuickSource.Profile, "Ghim", refId: "p1") });
+
+                var card = feed.Cards.Single();
+                Assert.Equal("w1", card.WorkspaceId);
+                Assert.Equal(SearchKind.Profile, card.Commands.Single().Entry.Kind);
+                Assert.Equal("p1", card.Commands.Single().Entry.TargetId);
+            }
+        }
+
+        [Fact]
+        public void ToolDaGhim_HienThanhHangMoNhanh()
+        {
+            using (var dir = new TempDir())
+            {
+                var tools = new List<ToolEntry>
+                {
+                    new ToolEntry { Id = "a", Name = "Beta", Pinned = true },
+                    new ToolEntry { Id = "b", Name = "Chưa ghim" },
+                    new ToolEntry { Id = "c", Name = "Alpha", Pinned = true },
+                };
+                var feed = BuildCards(Ws(dir), new QuickCommand[0], tools: tools);
+
+                Assert.Equal(new[] { "Alpha", "Beta" }, feed.PinnedTools.Select(t => t.Title));
+                Assert.All(feed.PinnedTools, t => Assert.Equal(HomeTarget.OpenTool, t.Target));
+            }
+        }
     }
 }

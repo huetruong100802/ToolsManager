@@ -16,8 +16,16 @@ namespace Toolbox.Core
         [DataMember(Name = "onboardingDismissed", EmitDefaultValue = false)]
         public bool OnboardingDismissed { get; set; }
 
+        /// <summary>Đã đóng banner "Cài vào máy" ở Thư viện; không hiện lại.</summary>
+        [DataMember(Name = "installBannerDismissed", EmitDefaultValue = false)]
+        public bool InstallBannerDismissed { get; set; }
+
         [DataMember(Name = "theme", EmitDefaultValue = false)]
         public string Theme { get; set; }
+
+        /// <summary>Lệnh gọi CLI agent ở chế độ không tương tác, prompt đưa qua stdin. Trống = <see cref="Agents.AgentRunner.DefaultCommand"/>.</summary>
+        [DataMember(Name = "agentCommand", EmitDefaultValue = false)]
+        public string AgentCommand { get; set; }
 
         public static string DefaultPath => Path.Combine(DataDir.Root, "settings.json");
 

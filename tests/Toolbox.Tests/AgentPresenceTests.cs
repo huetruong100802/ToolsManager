@@ -139,8 +139,8 @@ namespace Toolbox.Tests
                     view.Load(ws);
 
                     view.MarkNew(new[] { "p1", "s1" });
-                    var profiles = ((System.Collections.IEnumerable)((System.Windows.Controls.ItemsControl)view.FindName("RunProfileList")).ItemsSource)
-                        .Cast<Toolbox.Views.ProfileRow>().ToList();
+                    var profiles = ((System.Collections.IEnumerable)((System.Windows.Controls.ItemsControl)view.FindName("RunList")).ItemsSource)
+                        .OfType<Toolbox.Views.ProfileRow>().ToList();
                     Assert.True(profiles.Single(p => p.Profile.Id == "p1").IsNew);
                     Assert.False(profiles.Single(p => p.Profile.Id == "p2").IsNew);
                     var stacks = ((System.Collections.IEnumerable)((System.Windows.Controls.ItemsControl)view.FindName("RunStackList")).ItemsSource)
@@ -149,8 +149,8 @@ namespace Toolbox.Tests
 
                     view.ClearNew();
                     view.Load(ws);
-                    Assert.DoesNotContain(((System.Collections.IEnumerable)((System.Windows.Controls.ItemsControl)view.FindName("RunProfileList")).ItemsSource)
-                        .Cast<Toolbox.Views.ProfileRow>(), p => p.IsNew);
+                    Assert.DoesNotContain(((System.Collections.IEnumerable)((System.Windows.Controls.ItemsControl)view.FindName("RunList")).ItemsSource)
+                        .OfType<Toolbox.Views.ProfileRow>(), p => p.IsNew);
                 }
             });
         }

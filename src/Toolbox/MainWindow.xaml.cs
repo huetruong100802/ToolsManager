@@ -43,7 +43,7 @@ namespace Toolbox
             Inspector.SetWorkspaceRootResolver(id => _workspaces?.Find(id)?.ResolvedPath);
             Inspector.HintActionRequested += OnHintAction;
             Inspector.AskAgentRequested += OnAskAgentAboutTask;
-            WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindow;
+            WorkspaceContent.ConnectAgentRequested += Library.OpenAgentWindowFor;
             Library.WorkspaceImported += id =>
             {
                 SyncFromDisk();
@@ -545,6 +545,13 @@ namespace Toolbox
                 case HomeTarget.Run:
                     OpenEntry(item.Entry, run: !secondary);
                     break;
+                case HomeTarget.OpenTool:
+                    Navigate(null);
+                    if (secondary)
+                        Library.FocusTool(item.ToolId);
+                    else if (!Library.RunTool(item.ToolId))
+                        Dialogs.Error(this, "Không tìm thấy tool này trong Thư viện. Có thể nó vừa bị xoá.");
+                    break;
             }
         }
 
@@ -643,7 +650,7 @@ namespace Toolbox
 
 
         private SearchIndex BuildSearchIndex() =>
-            SearchIndex.Build(Library.Tools, _workspaces?.Workspaces, PaletteActions());
+            SearchIndex.Build(Library.Tools, _workspaces?.Workspaces, PaletteActions(), includeQuickCommands: true);
 
         private static IEnumerable<SearchEntry> PaletteActions()
         {
@@ -811,15 +818,21 @@ namespace Toolbox
         {
             if (_workspaces == null)
                 return;
-            var dialog = new AddWorkspaceWindow(_workspaces.Workspaces.Select(w => w.Path)) { Owner = this };
-            if (dialog.ShowDialog() != true)
-                return;
+            var sheet = new Views.AddWorkspaceSheet(_workspaces.Workspaces.Select(w => w.Path));
+            Sheet.Open(sheet, ok =>
+            {
+                if (ok)
+                    CompleteAddWorkspace(sheet.Result);
+            });
+        }
 
+        private void CompleteAddWorkspace(Core.Workspaces.Workspace result)
+        {
             // Tool nhận diện được là preset: đăng ký vào thư viện để workspace mới dùng được ngay như mọi tool khác.
             try
             {
                 var library = ToolStore.Load(ToolStore.DefaultPath);
-                if (ToolPresets.EnsureInLibrary(library, dialog.Result.Bindings.Select(b => b.ToolId)))
+                if (ToolPresets.EnsureInLibrary(library, result.Bindings.Select(b => b.ToolId)))
                     library.Save();
             }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
@@ -828,7 +841,7 @@ namespace Toolbox
                 return;
             }
 
-            var workspace = _workspaces.Add(dialog.Result);
+            var workspace = _workspaces.Add(result);
             if (!TrySave())
             {
                 _workspaces.Remove(workspace.Id);

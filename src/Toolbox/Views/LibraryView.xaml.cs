@@ -96,7 +96,8 @@ namespace Toolbox.Views
             }
 
             Reload();
-            InstallBanner.Visibility = _installer.IsInstalledCopy(CurrentExe) ? Visibility.Collapsed : Visibility.Visible;
+            InstallBanner.Visibility = Settings.Load().InstallBannerDismissed || _installer.IsInstalledCopy(CurrentExe)
+                ? Visibility.Collapsed : Visibility.Visible;
             if (FileToOpen != null)
                 ImportPackage(FileToOpen);
         }
@@ -104,6 +105,12 @@ namespace Toolbox.Views
         // ---------- Cài đặt ----------
 
         private static string CurrentExe => System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+
+        private void OnDismissInstallBanner(object sender, RoutedEventArgs e)
+        {
+            Settings.Update(s => s.InstallBannerDismissed = true);
+            InstallBanner.Visibility = Visibility.Collapsed;
+        }
 
         private void OnInstall(object sender, RoutedEventArgs e)
         {
@@ -362,6 +369,35 @@ namespace Toolbox.Views
                 Reload();
                 StatusText.Text = $"Đã thêm \"{draft.Name}\".";
             }
+        }
+
+        /// <summary>Ghim hoặc bỏ ghim tool lên Trang chủ.</summary>
+        private void OnTogglePin(object sender, RoutedEventArgs e)
+        {
+            var copy = ItemOf(sender).Tool.Clone();
+            copy.Pinned = !copy.Pinned;
+            try
+            {
+                _store.Update(copy);
+            }
+            catch (KeyNotFoundException)
+            {
+                Dialogs.Error(Host, $"Tool \"{copy.Name}\" vừa bị xoá khỏi danh sách ở nơi khác.");
+                Reload();
+                return;
+            }
+            if (Save())
+                Reload();
+        }
+
+        /// <summary>Chạy một tool theo id (nút "Mở" của tool ghim ở Trang chủ). False nếu không thấy tool.</summary>
+        public bool RunTool(string toolId)
+        {
+            var item = _items.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+                return false;
+            Run(item);
+            return true;
         }
 
         private void OnEdit(object sender, RoutedEventArgs e)
@@ -666,6 +702,27 @@ namespace Toolbox.Views
             }
         }
 
+        /// <summary>Menu "…" của một dòng tool: hành động phụ (mở thư mục, sửa, gắn vào workspace) nằm đây để dòng chỉ còn một nút chính.</summary>
+        private void OnRowMenu(object sender, RoutedEventArgs e)
+        {
+            var anchor = (FrameworkElement)sender;
+            var item = ItemOf(sender);
+            var menu = new ContextMenu();
+            menu.Items.Add(RowMenuEntry("Gắn vào workspace…", OnBind, item));
+            menu.Items.Add(RowMenuEntry("Mở thư mục", OnOpenFolder, item));
+            menu.Items.Add(RowMenuEntry("Sửa…", OnEdit, item));
+            menu.PlacementTarget = anchor;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
+        private static MenuItem RowMenuEntry(string header, RoutedEventHandler click, ToolItem item)
+        {
+            var entry = new MenuItem { Header = header, Tag = item };
+            entry.Click += click;
+            return entry;
+        }
+
         // ---------- Đóng gói ----------
 
         private async void OnPack(object sender, RoutedEventArgs e)
@@ -860,7 +917,16 @@ namespace Toolbox.Views
         // ---------- Agent ----------
 
         /// <summary>Mở cửa sổ Kết nối agent từ trang Agent.</summary>
-        public void OpenAgentWindow() => OnConnectAgent(null, null);
+        public void OpenAgentWindow() => OpenAgentWindowFor(null);
+
+        /// <summary>Mở cửa sổ Kết nối agent cho một workspace (thư mục); null = cửa sổ chung.</summary>
+        public void OpenAgentWindowFor(string workspacePath)
+        {
+            var window = new AgentWindow(_installer, workspacePath) { Owner = Host };
+            window.ShowDialog();
+            if (window.InstalledNow)
+                InstallBanner.Visibility = Visibility.Collapsed;
+        }
 
         /// <summary>F5: chạy tool đang chọn trong danh sách. false nếu không có tool nào chạy được đang chọn.</summary>
         public bool RunSelected()

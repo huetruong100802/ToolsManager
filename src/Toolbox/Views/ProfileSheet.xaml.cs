@@ -43,7 +43,7 @@ namespace Toolbox.Views
             _workspace = workspace;
             _usedPorts = usedPorts;
             InitializeComponent();
-            SheetTitle = "Profile mới";
+            SheetTitle = "Ghim lệnh";
 
             var choices = new List<Choice>();
             foreach (var binding in workspace.Bindings)
@@ -53,7 +53,7 @@ namespace Toolbox.Views
                 {
                     Source = Source.Tool, Tool = tool, Binding = binding,
                     Display = (tool?.Name ?? binding.ToolId) + (tool == null ? "  (đã bị xoá khỏi thư viện)" : ""),
-                    Problem = tool == null ? "Tool này không còn trong thư viện nên chưa tạo được profile." : null,
+                    Problem = tool == null ? "Tool này không còn trong thư viện nên chưa ghim được lệnh." : null,
                 });
             }
             foreach (var custom in workspace.Customs)
@@ -91,7 +91,7 @@ namespace Toolbox.Views
                     StepTitle.Text = "1 · Chọn tool";
                     StepHint.Text = ToolList.Items.Count == 0
                         ? "Workspace chưa có tool nào. Thêm tool hoặc lệnh riêng trước."
-                        : "Profile chạy được với mọi tool đã gắn (lệnh gốc hoặc một lệnh) và lệnh riêng của workspace.";
+                        : "Lệnh đã ghim chạy được với mọi tool đã gắn (lệnh gốc hoặc một lệnh) và lệnh riêng của workspace.";
                     NextButton.IsEnabled = _choice != null && _choice.Problem == null;
                     break;
                 case 1:
