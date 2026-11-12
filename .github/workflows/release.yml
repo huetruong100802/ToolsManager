@@ -1,0 +1,43 @@
+name: release
+
+# Đẩy tag dạng v1.2.3 để build và tạo GitHub Release kèm Toolbox.exe.
+# Chạy tay (workflow_dispatch) chỉ build + test, không tạo release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test tests/Toolbox.Tests/Toolbox.Tests.csproj -c Release
+
+      - name: Build
+        run: dotnet build src/Toolbox/Toolbox.csproj -c Release
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $dir = 'src/Toolbox/bin/Release/net48'
+          (Get-FileHash "$dir/Toolbox.exe" -Algorithm SHA256).Hash.ToLower() + '  Toolbox.exe' |
+            Set-Content -Encoding ascii "$dir/Toolbox.exe.sha256"
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            src/Toolbox/bin/Release/net48/Toolbox.exe
+            src/Toolbox/bin/Release/net48/Toolbox.exe.sha256

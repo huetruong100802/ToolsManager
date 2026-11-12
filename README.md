@@ -62,6 +62,19 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 - **Tuỳ chọn:** PowerShell 7 (`pwsh`) hoặc Windows PowerShell nếu chạy file `.ps1`.
 - **Để build:** .NET SDK (đã build và test với .NET SDK 10.0.401) và .NET Framework 4.8 targeting pack.
 
+### Tải bản dựng sẵn
+
+Không cần clone repo hay cài SDK. Tải `Toolbox.exe` từ bản [Release](https://github.com/huetruong100802/ToolsManager/releases/latest):
+
+```powershell
+iwr https://github.com/huetruong100802/ToolsManager/releases/latest/download/Toolbox.exe -OutFile Toolbox.exe
+.\Toolbox.exe
+```
+
+Kiểm tra file tải về (tuỳ chọn): so `(Get-FileHash Toolbox.exe).Hash` với nội dung `Toolbox.exe.sha256` cùng trang Release.
+
+Người bảo trì phát hành bản mới bằng cách đẩy tag: `git tag v1.0.0; git push origin v1.0.0`. Workflow `.github/workflows/release.yml` sẽ test, build và tạo Release.
+
 ### Build
 
 ```powershell
