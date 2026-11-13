@@ -153,7 +153,7 @@ namespace Toolbox.Core.Workspaces
             if (ProfileKind.IsCustom(step.Kind) && !string.IsNullOrEmpty(step.ProfileId))
                 return ResolveCustomProfile(ws, step, result, answers);
             return string.Equals(step.Kind, TaskKey.Custom, StringComparison.OrdinalIgnoreCase)
-                ? ResolveCustom(ws, step, result)
+                ? ResolveCustomStep(ws, step, result, step.RunGroupId)
                 : ResolveAction(ws, step, result, library, null, answers);
         }
 
@@ -220,14 +220,16 @@ namespace Toolbox.Core.Workspaces
                 Port = port,
                 Key = profile != null ? TaskKey.ForProfile(ws.Id, profile) : TaskKey.ForCustom(ws.Id, command.Id),
             };
-            return result;
+            return WithVariables(ws, result, profile?.VariableGroupId);
         }
 
         /// <summary>
         /// Lệnh một lần theo action + tham số, không cần profile (dùng cho agent gọi trực tiếp).
         /// Cùng luật kiểm tra như bước bộ chạy; sai tên action/biến thể hoặc tham số thì trả về bước hỏng kèm lý do.
         /// </summary>
-        public static ResolvedStep ResolveAdHoc(Workspace ws, string kind, string actionId, string variantId, IDictionary<string, string> vals)
+        /// <param name="groupId">Nhóm biến (id) đưa vào môi trường của lệnh; null/rỗng = không. Nhóm lỗi thì bước hỏng (D5).</param>
+        public static ResolvedStep ResolveAdHoc(Workspace ws, string kind, string actionId, string variantId, IDictionary<string, string> vals,
+            string groupId = null)
         {
             var step = new StackStep { Kind = kind, ActionId = actionId ?? "", VariantId = variantId };
             var result = new ResolvedStep { Index = 0, Step = step, Wait = WaitKind.None, Label = kind + (string.IsNullOrEmpty(actionId) ? "" : " · " + actionId) };
@@ -237,7 +239,7 @@ namespace Toolbox.Core.Workspaces
             {
                 string extra = null;
                 vals?.TryGetValue(ProfileKind.ArgsKey, out extra);
-                return ResolveAction(ws, step, result, null, extra);
+                return WithVariables(ws, ResolveAction(ws, step, result, null, extra), groupId);
             }
 
             var tool = ToolCatalog.Find(kind);
@@ -270,10 +272,50 @@ namespace Toolbox.Core.Workspaces
                 Port = port,
                 Key = TaskKey.ForAction(ws.Id, tool.Kind, action.Id, variant.Id),
             };
-            return result;
+            return WithVariables(ws, result, groupId);
         }
 
-        private static ResolvedStep ResolveCustom(Workspace ws, StackStep step, ResolvedStep result)
+        /// <summary>
+        /// Bước lệnh riêng kiểu cũ (Kind "custom", ActionId = id lệnh) kèm nhóm biến tuỳ chọn (dùng khi agent chạy lệnh riêng
+        /// trực tiếp). <paramref name="groupId"/> null/rỗng = không biến; nhóm lỗi thì bước hỏng (D5).
+        /// </summary>
+        public static ResolvedStep ResolveCustom(Workspace ws, StackStep step, string groupId = null)
+        {
+            var result = new ResolvedStep { Index = 0, Step = step, Wait = NormalizeWait(step.Wait), Group = step.Group };
+            result.Label = FallbackLabel(ws, step);
+            if (result.Wait != WaitKind.None && result.Wait != WaitKind.Port && result.Wait != WaitKind.Exit)
+                return Broken(result, $"Kiểu chờ \"{step.Wait}\" không hợp lệ.");
+            return ResolveCustomStep(ws, step, result, groupId);
+        }
+
+        /// <summary>
+        /// Gắn biến của nhóm <paramref name="groupId"/> vào <paramref name="spec"/> (Env + Secrets để che log).
+        /// Trả thông báo lỗi (D5, nhóm không còn...) nếu không chạy được; null nếu ổn hoặc không gắn nhóm.
+        /// Dùng cho nơi tự dựng TaskSpec từ profile (giao diện) để cùng luật với bộ chạy.
+        /// </summary>
+        public static string ApplyVariables(Workspace ws, TaskSpec spec, string groupId)
+        {
+            if (spec == null || string.IsNullOrWhiteSpace(groupId))
+                return null;
+            var vars = VariableGroups.Resolve(ws, groupId);
+            if (!vars.Ok)
+                return vars.Error;
+            spec.Env = vars.Env.Count > 0 ? new Dictionary<string, string>(vars.Env, StringComparer.OrdinalIgnoreCase) : null;
+            spec.Secrets = vars.Secrets.Count > 0 ? new List<string>(vars.Secrets) : null;
+            return null;
+        }
+
+        /// <summary>Bước đã có Spec: gắn biến nhóm; nhóm lỗi thì bỏ Spec và báo hỏng.</summary>
+        private static ResolvedStep WithVariables(Workspace ws, ResolvedStep result, string groupId)
+        {
+            var error = ApplyVariables(ws, result.Spec, groupId);
+            if (error == null)
+                return result;
+            result.Spec = null;
+            return Broken(result, error);
+        }
+
+        private static ResolvedStep ResolveCustomStep(Workspace ws, StackStep step, ResolvedStep result, string groupId = null)
         {
             var command = ws.Customs.Find(c => string.Equals(c.Id, step.ActionId, StringComparison.OrdinalIgnoreCase));
             if (command == null)
@@ -294,7 +336,7 @@ namespace Toolbox.Core.Workspaces
                 Port = port,
                 Key = TaskKey.ForCustom(ws.Id, command.Id),
             };
-            return result;
+            return WithVariables(ws, result, groupId);
         }
 
         /// <summary>
@@ -362,7 +404,7 @@ namespace Toolbox.Core.Workspaces
                 Port = port,
                 Key = profile != null ? TaskKey.ForProfile(ws.Id, profile) : TaskKey.ForAction(ws.Id, tool.Kind, action.Id, variant.Id),
             };
-            return result;
+            return WithVariables(ws, result, profile?.VariableGroupId);
         }
 
         /// <summary>Chạy lệnh gốc của tool: lệnh/file + tham số hiệu lực (binding thay tool) + tham số thêm của profile.</summary>
@@ -417,7 +459,7 @@ namespace Toolbox.Core.Workspaces
                 Port = port,
                 Key = profile != null ? TaskKey.ForProfile(ws.Id, profile) : TaskKey.ForTool(ws.Id, tool.Kind),
             };
-            return result;
+            return WithVariables(ws, result, profile?.VariableGroupId);
         }
 
         /// <summary>Profile theo id; có <paramref name="answers"/> thì trả bản đã điền các cặp hỏi lúc chạy (không ghi vào workspace).</summary>

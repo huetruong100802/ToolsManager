@@ -65,6 +65,13 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "requiredKinds", Order = 4, EmitDefaultValue = false)]
         public List<string> RequiredKinds { get; set; } = new List<string>();
 
+        /// <summary>
+        /// Nhóm biến mà profile trong gói gắn vào. Chỉ tên biến và giá trị thường; secret chỉ có tên (Value/Enc luôn trống),
+        /// người nhận thấy "Cần nhập".
+        /// </summary>
+        [DataMember(Name = "variableGroups", Order = 5, EmitDefaultValue = false)]
+        public List<VariableGroup> VariableGroups { get; set; } = new List<VariableGroup>();
+
         public bool IsEmpty => Bindings.Count == 0 && Customs.Count == 0 && Profiles.Count == 0 && Stacks.Count == 0;
 
         [OnDeserialized]
@@ -75,6 +82,7 @@ namespace Toolbox.Core.Workspaces
             if (Profiles == null) Profiles = new List<Profile>();
             if (Stacks == null) Stacks = new List<StackDef>();
             if (RequiredKinds == null) RequiredKinds = new List<string>();
+            if (VariableGroups == null) VariableGroups = new List<VariableGroup>();
         }
 
         /// <summary>Kiểm gói khi đọc: id rỗng/trùng là gói hỏng.</summary>
@@ -223,6 +231,25 @@ namespace Toolbox.Core.Workspaces
                     warnings.Add("Profile \"" + src.Label + "\" trỏ lệnh riêng \"" + src.RefId + "\" không có trong workspace/gói.");
             }
 
+            // Nhóm biến của các profile đã chọn: kèm tên biến + giá trị thường, KHÔNG kèm giá trị secret.
+            foreach (var profile in data.Profiles)
+            {
+                if (string.IsNullOrEmpty(profile.VariableGroupId)
+                    || data.VariableGroups.Any(g => Same(g.Id, profile.VariableGroupId)))
+                    continue;
+                var group = VariableGroups.Find(ws, profile.VariableGroupId);
+                if (group == null)
+                {
+                    warnings.Add("Profile \"" + profile.Label + "\" gắn nhóm biến không còn trong workspace; nhóm sẽ không có trong gói.");
+                    profile.VariableGroupId = null;
+                    continue;
+                }
+                data.VariableGroups.Add(PortableGroup(group));
+                var secrets = group.Variables.Where(v => v != null && v.Secret).Select(v => v.Name).ToList();
+                if (secrets.Count > 0)
+                    warnings.Add("Nhóm biến \"" + group.Label + "\" có secret không kèm giá trị (" + string.Join(", ", secrets) + "); người nhận phải nhập.");
+            }
+
             foreach (var id in resolved.StackIds)
             {
                 var src = ws.Stacks.Find(s => Same(s.Id, id));
@@ -274,9 +301,24 @@ namespace Toolbox.Core.Workspaces
         internal static Profile CloneProfile(Profile src) => new Profile
         {
             Id = src.Id, Label = src.Label, Kind = src.Kind, ActionId = src.ActionId, VariantId = src.VariantId, RefId = src.RefId,
+            VariableGroupId = src.VariableGroupId,
             Vals = src.Vals == null ? new Dictionary<string, string>() : new Dictionary<string, string>(src.Vals),
             Pairs = src.HasPairs ? src.Pairs.Select(x => x.Clone()).ToList() : null,
         };
+
+        /// <summary>Bản nhóm để chia sẻ (D8): biến thường giữ giá trị; secret chỉ giữ tên, không Value, không Enc (DPAPI cũng không giải mã được trên máy khác).</summary>
+        internal static VariableGroup PortableGroup(VariableGroup src)
+        {
+            var copy = new VariableGroup { Id = src.Id, Label = src.Label, Description = src.Description, AllowAgent = src.AllowAgent, ModifiedAt = src.ModifiedAt };
+            foreach (var v in src.Variables ?? new List<GroupVariable>())
+            {
+                if (v == null) continue;
+                copy.Variables.Add(v.Secret
+                    ? new GroupVariable { Name = v.Name, Secret = true }
+                    : new GroupVariable { Name = v.Name, Value = v.Value });
+            }
+            return copy;
+        }
 
         private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 

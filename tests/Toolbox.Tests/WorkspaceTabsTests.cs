@@ -33,20 +33,20 @@ namespace Toolbox.Tests
             ((IEnumerable)((ItemsControl)view.FindName(list)).ItemsSource).Cast<TabRow>().Select(t => t.Title).ToArray();
 
         [Fact]
-        public void BaTabCoDinh_LenhCuaToolNamTrongTabChay()
+        public void BonTabCoDinh_LenhCuaToolNamTrongTabChay()
         {
             Sta(() =>
             {
                 using (var dir = new TempDir())
                 {
                     var view = Make(dir, 8);
-                    Assert.Equal(new[] { "Chạy", "Workflow", "Chia sẻ" }, Titles(view, "TabStrip"));
+                    Assert.Equal(new[] { "Chạy", "Workflow", "Chia sẻ", "Biến" }, Titles(view, "TabStrip"));
                 }
             });
         }
 
         [Fact]
-        public void CycleTab_QuayVongBaTab()
+        public void CycleTab_QuayVongBonTab()
         {
             Sta(() =>
             {
@@ -60,10 +60,12 @@ namespace Toolbox.Tests
                     view.CycleTab(1); // → Workflow
                     Assert.True(rows()[1].IsSelected);
                     view.CycleTab(1); // → Chia sẻ
+                    view.CycleTab(1); // → Biến
+                    Assert.True(rows().Last().IsSelected);
                     view.CycleTab(1); // quay vòng về Chạy
                     Assert.True(rows().First().IsSelected);
 
-                    view.CycleTab(-1); // lùi từ Chạy → Chia sẻ
+                    view.CycleTab(-1); // lùi từ Chạy → Biến
                     Assert.True(rows().Last().IsSelected);
                 }
             });
@@ -77,7 +79,7 @@ namespace Toolbox.Tests
                 using (var dir = new TempDir())
                 {
                     var view = Make(dir, 0);
-                    Assert.Equal(3, Titles(view, "TabStrip").Length);
+                    Assert.Equal(4, Titles(view, "TabStrip").Length);
                     view.CycleTab(1);
                     view.CycleTab(-1);
                 }

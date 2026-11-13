@@ -281,6 +281,7 @@ namespace Toolbox.Core.Workspaces
                 any |= MergeList(existing.Customs, snap.Customs, disk.Customs, x => x.Id);
                 any |= MergeList(existing.Profiles, snap.Profiles, disk.Profiles, x => x.Id);
                 any |= MergeList(existing.Stacks, snap.Stacks, disk.Stacks, x => x.Id);
+                any |= MergeList(existing.VariableGroups, snap.VariableGroups, disk.VariableGroups, x => x.Id);
                 if (Json.Canonical(existing.Worktree) == Json.Canonical(snap.Worktree)
                     && Json.Canonical(disk.Worktree) != Json.Canonical(snap.Worktree))
                 {

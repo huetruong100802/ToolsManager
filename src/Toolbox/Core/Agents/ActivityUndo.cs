@@ -314,6 +314,7 @@ namespace Toolbox.Core.Agents
                 value = new Profile
                 {
                     Id = p.Id, Label = p.Label, Kind = p.Kind, ActionId = p.ActionId, VariantId = p.VariantId, RefId = p.RefId,
+                    VariableGroupId = p.VariableGroupId,
                     Vals = new SortedDictionary<string, string>(p.Vals ?? new Dictionary<string, string>(), StringComparer.Ordinal)
                         .ToDictionary(kv => kv.Key, kv => kv.Value),
                     Pairs = p.HasPairs ? p.Pairs.Select(x => x.Clone()).ToList() : null,
