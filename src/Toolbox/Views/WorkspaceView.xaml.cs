@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Toolbox.Core;
 using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
@@ -128,6 +129,7 @@ namespace Toolbox.Views
             _tabs.Add(TabRow.Run());
             _tabs.Add(TabRow.Stacks());
             _tabs.Add(new TabRow("Chia sẻ", null, PackTab.TabId));
+            _tabs.Add(new TabRow("Biến", null, VariablesPage.TabId));
 
             _selectedTab.TryGetValue(ws.Id, out var remembered);
             var pick = _tabs.FirstOrDefault(t => string.Equals(t.Id, remembered ?? "\u0001", StringComparison.OrdinalIgnoreCase))
@@ -146,12 +148,16 @@ namespace Toolbox.Views
             _selectedTab[_workspace.Id] = tab.Id;
 
             var isPack = string.Equals(tab.Id, PackTab.TabId, StringComparison.Ordinal);
+            var isVars = string.Equals(tab.Id, VariablesPage.TabId, StringComparison.Ordinal);
             PackPage.Visibility = isPack ? Visibility.Visible : Visibility.Collapsed;
+            VarsPage.Visibility = isVars ? Visibility.Visible : Visibility.Collapsed;
             RunPage.Visibility = tab.IsRun ? Visibility.Visible : Visibility.Collapsed;
             StackPage.Visibility = tab.IsStacks ? Visibility.Visible : Visibility.Collapsed;
             _stacks = new List<StackRow>();
             if (isPack)
                 PackPage.Load(_workspace, LoadLibraryStore);
+            else if (isVars)
+                VarsPage.Load(_workspace, Mutate);
             else if (tab.IsRun)
                 BuildRun();
             else
@@ -301,6 +307,15 @@ namespace Toolbox.Views
         {
             if (_workspace == null)
                 return;
+            // Rời tab Biến khi còn nháp chưa lưu: hỏi trước. Ở lại thì dựng lại thanh tab để nút chọn không lệch.
+            var leavingVars = _tab != null && string.Equals(_tab.Id, VariablesPage.TabId, StringComparison.Ordinal)
+                              && !string.Equals(top.Id, VariablesPage.TabId, StringComparison.Ordinal);
+            if (leavingVars && !VarsPage.ConfirmLeave())
+            {
+                TabStrip.ItemsSource = null;
+                TabStrip.ItemsSource = _topTabs;
+                return;
+            }
             Select(_tabs.FirstOrDefault(t => string.Equals(t.Id, top.Id, StringComparison.Ordinal)) ?? _tabs[0]);
         }
 
@@ -683,8 +698,9 @@ namespace Toolbox.Views
                     menu.Items.Add(MenuEntry("Tham số…", OnOpenParams, context));
                     menu.Items.Add(MenuEntry("Ghim lệnh", OnPinAction, context));
                     break;
-                case ProfileRow _:
+                case ProfileRow profileRow:
                     menu.Items.Add(MenuEntry("Tham số…", OnEditPairs, context));
+                    menu.Items.Add(GroupMenu(profileRow));
                     menu.Items.Add(MenuEntry("Đổi tên", OnRenameProfile, context));
                     menu.Items.Add(MenuEntry("Nhân bản", OnDuplicateProfile, context));
                     menu.Items.Add(new Separator());
@@ -942,8 +958,16 @@ namespace Toolbox.Views
                 Start(resolved.Spec);
                 return;
             }
-            Start(SpecFor(row.Tool, row.Binding, row.Action, row.Variant, row.Profile.Vals, row.Profile.Label,
-                TaskKey.ForProfile(_workspace.Id, row.Profile)));
+            var spec = SpecFor(row.Tool, row.Binding, row.Action, row.Variant, row.Profile.Vals, row.Profile.Label,
+                TaskKey.ForProfile(_workspace.Id, row.Profile));
+            // Nhóm biến của profile: cùng luật với bộ chạy (thiếu secret, nhóm không còn → báo, không chạy).
+            var variablesError = StackResolver.ApplyVariables(_workspace, spec, row.Profile.VariableGroupId);
+            if (variablesError != null)
+            {
+                Dialogs.Error(Host, $"Không chạy được profile \"{row.Profile.Label}\":\n" + variablesError);
+                return;
+            }
+            Start(spec);
         }
 
         private ResolvedStep ResolveProfile(Profile profile, IList<string> answers) =>
@@ -1439,6 +1463,70 @@ namespace Toolbox.Views
             Refresh();
         }
 
+        // ---- Nhóm biến của lệnh đã ghim ----
+
+        /// <summary>Mục "Nhóm biến" ở menu ⋯ của lệnh đã ghim: chọn nhóm để liên kết (nhóm đang gắn có dấu chọn), bỏ liên kết, mở nhóm.</summary>
+        private MenuItem GroupMenu(ProfileRow row)
+        {
+            var root = new MenuItem { Header = "Nhóm biến" };
+            var linked = row.Profile.VariableGroupId;
+            var groups = _workspace.VariableGroups.OrderBy(g => g.Label, StringComparer.CurrentCultureIgnoreCase).ToList();
+            if (groups.Count == 0)
+                root.Items.Add(new MenuItem { Header = "Chưa có nhóm. Tạo ở tab Biến.", IsEnabled = false });
+            foreach (var group in groups)
+            {
+                var id = group.Id;
+                var item = new MenuItem
+                {
+                    Header = group.Label,
+                    IsChecked = string.Equals(linked, id, StringComparison.OrdinalIgnoreCase),
+                    ToolTip = string.IsNullOrWhiteSpace(group.Description) ? null : group.Description,
+                };
+                item.Click += (s, e) => SetProfileGroup(row, id);
+                root.Items.Add(item);
+            }
+            root.Items.Add(new Separator());
+            var unlink = MenuEntry("Bỏ liên kết", (s, e) => SetProfileGroup(row, null), row);
+            unlink.IsEnabled = !string.IsNullOrWhiteSpace(linked);
+            root.Items.Add(unlink);
+            var open = MenuEntry("Mở nhóm ở tab Biến", (s, e) => OpenVariableGroup(row.Profile.VariableGroupId), row);
+            open.IsEnabled = VariableGroups.Find(_workspace, linked) != null;
+            root.Items.Add(open);
+            return root;
+        }
+
+        /// <summary>Gắn nhóm (id) vào lệnh đã ghim, hoặc bỏ liên kết (null). Lưu lỗi thì Mutate trả liên kết cũ.</summary>
+        private void SetProfileGroup(ProfileRow row, string groupId)
+        {
+            if (_workspace == null || string.Equals(row.Profile.VariableGroupId ?? "", groupId ?? "", StringComparison.OrdinalIgnoreCase))
+                return;
+            if (!Mutate(() => row.Profile.VariableGroupId = groupId))
+                return;
+            BuildProfiles(row.Profile.Kind);
+            Refresh();
+        }
+
+        /// <summary>Chuyển sang tab Biến và mở nhóm. Nhóm không còn thì không làm gì (chip đã báo "nhóm đã xoá").</summary>
+        private void OpenVariableGroup(string groupId)
+        {
+            if (_workspace == null || VariableGroups.Find(_workspace, groupId) == null)
+                return;
+            var tab = _tabs.FirstOrDefault(t => string.Equals(t.Id, VariablesPage.TabId, StringComparison.Ordinal));
+            if (tab == null)
+                return;
+            Select(tab);
+            VarsPage.Select(groupId);
+        }
+
+        private void OnOpenGroupChip(object sender, MouseButtonEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ProfileRow row)
+            {
+                OpenVariableGroup(row.Profile.VariableGroupId);
+                e.Handled = true;
+            }
+        }
+
         /// <summary>Mở danh sách gợi ý của một ô tham số (nút ▾).</summary>
         private void OnPickOptions(object sender, RoutedEventArgs e) => ParamOptionMenu.Open((Button)sender);
 
@@ -1456,6 +1544,7 @@ namespace Toolbox.Views
                 ActionId = source.ActionId,
                 VariantId = source.VariantId,
                 RefId = source.RefId,
+                VariableGroupId = source.VariableGroupId,
                 Vals = new Dictionary<string, string>(source.Vals ?? new Dictionary<string, string>()),
                 Pairs = source.HasPairs ? source.Pairs.Select(x => x.Clone()).ToList() : null,
             };
@@ -1574,6 +1663,8 @@ namespace Toolbox.Views
             var stacks = _workspace.Stacks.ToList();
             var libraries = _workspace.LibraryBindings.ToList();
             var stackProfiles = _workspace.Stacks.SelectMany(s => s.Steps).Select(st => Tuple.Create(st, st.ProfileId)).ToList();
+            var groups = _workspace.VariableGroups.ToList();
+            var profileGroups = _workspace.Profiles.Select(p => Tuple.Create(p, p.VariableGroupId)).ToList();
 
             change();
             if (_save())
@@ -1586,6 +1677,9 @@ namespace Toolbox.Views
             _workspace.LibraryBindings = libraries;
             foreach (var pair in stackProfiles)
                 pair.Item1.ProfileId = pair.Item2;
+            _workspace.VariableGroups = groups;
+            foreach (var pair in profileGroups)
+                pair.Item1.VariableGroupId = pair.Item2;
             revert?.Invoke();
             return false;
         }

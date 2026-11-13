@@ -374,9 +374,38 @@ namespace Toolbox.Views
 
         public Visibility NewVisibility => IsNew ? Visibility.Visible : Visibility.Collapsed;
 
+        /// <summary>Tên nhóm biến đã gắn; null nếu lệnh không gắn nhóm. Nhóm đã bị xoá hiện "nhóm đã xoá".</summary>
+        public string GroupName { get; }
+
+        /// <summary>Chip cảnh báo: nhóm còn secret "Cần nhập" hoặc đã bị xoá.</summary>
+        public bool GroupWarn { get; }
+
+        public string GroupTip { get; }
+
+        public Visibility GroupVisibility => GroupName == null ? Visibility.Collapsed : Visibility.Visible;
+
         public ProfileRow(Workspace workspace, Profile profile)
         {
             Profile = profile;
+            if (!string.IsNullOrWhiteSpace(profile.VariableGroupId))
+            {
+                var group = VariableGroups.Find(workspace, profile.VariableGroupId);
+                if (group == null)
+                {
+                    GroupName = "nhóm đã xoá";
+                    GroupWarn = true;
+                    GroupTip = "Nhóm biến đã gắn không còn. Gắn nhóm khác hoặc bỏ liên kết ở menu ⋯ › Nhóm biến.";
+                }
+                else
+                {
+                    var missing = group.Variables.Where(v => v.NeedsInput).Select(v => v.Name).ToList();
+                    GroupName = group.Label;
+                    GroupWarn = missing.Count > 0;
+                    GroupTip = missing.Count > 0
+                        ? "Còn secret chưa có giá trị: " + string.Join(", ", missing) + ". Bấm để mở nhóm và nhập."
+                        : "Nhóm biến của lệnh này. Bấm để mở ở tab Biến.";
+                }
+            }
             if (ProfileKind.IsCustom(profile.Kind))
             {
                 // Lệnh riêng: không thuộc tool nào; kiểm bằng bộ resolve của workflow.

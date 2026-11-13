@@ -135,6 +135,10 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "pairs", Order = 7, EmitDefaultValue = false)]
         public List<ParamPair> Pairs { get; set; }
 
+        /// <summary>Nhóm biến (<see cref="VariableGroup.Id"/>) gắn vào profile; trống = không gắn. Biến của nhóm vào môi trường process khi chạy.</summary>
+        [DataMember(Name = "variableGroup", Order = 8, EmitDefaultValue = false)]
+        public string VariableGroupId { get; set; }
+
         public bool HasPairs => Pairs != null && Pairs.Count > 0;
 
         /// <summary>Lỗi của tham số thêm (cặp hoặc chuỗi cũ); null nếu hợp lệ.</summary>
@@ -214,6 +218,13 @@ namespace Toolbox.Core.Workspaces
         /// </summary>
         [IgnoreDataMember]
         public IList<string> Answers { get; set; }
+
+        /// <summary>
+        /// Nhóm biến (id) đưa vào môi trường của bước lệnh riêng trực tiếp (<c>run type=custom variableGroup=...</c> qua MCP).
+        /// Chỉ sống trong lần chạy này, không lưu. Bước có profile dùng nhóm của profile, không dùng trường này.
+        /// </summary>
+        [IgnoreDataMember]
+        public string RunGroupId { get; set; }
     }
 
     /// <summary>Chuỗi các bước chạy tuần tự bằng một cú bấm.</summary>
@@ -286,6 +297,20 @@ namespace Toolbox.Core.Workspaces
         [DataMember(Name = "worktree", Order = 9, EmitDefaultValue = false)]
         public WorktreeSetup Worktree { get; set; } = new WorktreeSetup();
 
+        /// <summary>Nhóm biến của workspace (giống Library › Variable groups của ADO). Secret chỉ nằm trong file dưới dạng DPAPI base64.</summary>
+        public List<VariableGroup> VariableGroups { get; set; } = new List<VariableGroup>();
+
+        /// <summary>
+        /// Dạng ghi/đọc JSON của <see cref="VariableGroups"/>: trả null khi chưa có nhóm nào để không ghi trường
+        /// (EmitDefaultValue=false chỉ bỏ null, không bỏ list rỗng), nên file của người không dùng nhóm biến không đổi.
+        /// </summary>
+        [DataMember(Name = "variableGroups", Order = 12, EmitDefaultValue = false)]
+        private List<VariableGroup> VariableGroupsJson
+        {
+            get => VariableGroups == null || VariableGroups.Count == 0 ? null : VariableGroups;
+            set => VariableGroups = value ?? new List<VariableGroup>();
+        }
+
         /// <summary>
         /// Tương thích cho caller cũ: binding của tool <paramref name="toolId"/> trong <see cref="Bindings"/> dưới dạng
         /// <see cref="LibraryBinding"/> (bản sao, sửa nó không đổi workspace; sửa qua <see cref="Binding"/>). null nếu chưa gắn.
@@ -344,6 +369,69 @@ namespace Toolbox.Core.Workspaces
             if (Stacks == null) Stacks = new List<StackDef>();
             if (LibraryBindings == null) LibraryBindings = new List<LibraryBinding>();
             if (Worktree == null) Worktree = new WorktreeSetup();
+            if (VariableGroups == null) VariableGroups = new List<VariableGroup>();
         }
+    }
+
+    /// <summary>
+    /// Nhóm biến đặt tên của workspace. Người dùng tạo/sửa ở tab Biến; agent chỉ thấy tên biến và gắn nhóm vào profile
+    /// (<see cref="AllowAgent"/> tắt thì agent không thấy nhóm).
+    /// </summary>
+    [DataContract]
+    public class VariableGroup
+    {
+        [DataMember(Name = "id", Order = 0)]
+        public string Id { get; set; }
+
+        [DataMember(Name = "label", Order = 1)]
+        public string Label { get; set; }
+
+        [DataMember(Name = "description", Order = 2, EmitDefaultValue = false)]
+        public string Description { get; set; }
+
+        /// <summary>Cho agent (MCP) liệt kê, gắn và chạy với nhóm này. Mặc định bật; file cũ/thiếu trường vẫn là bật.</summary>
+        [DataMember(Name = "allowAgent", Order = 3)]
+        public bool AllowAgent { get; set; } = true;
+
+        /// <summary>Lần sửa cuối, ISO 8601 UTC ("o").</summary>
+        [DataMember(Name = "modifiedAt", Order = 4, EmitDefaultValue = false)]
+        public string ModifiedAt { get; set; }
+
+        [DataMember(Name = "variables", Order = 5)]
+        public List<GroupVariable> Variables { get; set; } = new List<GroupVariable>();
+
+        // DataContractJsonSerializer không chạy initializer: đặt mặc định true trước khi đọc để JSON thiếu allowAgent vẫn là bật.
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context) => AllowAgent = true;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (Variables == null) Variables = new List<GroupVariable>();
+        }
+    }
+
+    /// <summary>
+    /// Một biến trong nhóm. Biến thường: <see cref="Value"/> là chữ thật. Secret: <see cref="Value"/> luôn null, giá trị nằm ở
+    /// <see cref="Enc"/> (DPAPI CurrentUser, base64); <see cref="Enc"/> trống nghĩa là "Cần nhập".
+    /// </summary>
+    [DataContract]
+    public class GroupVariable
+    {
+        [DataMember(Name = "name", Order = 0)]
+        public string Name { get; set; }
+
+        [DataMember(Name = "value", Order = 1, EmitDefaultValue = false)]
+        public string Value { get; set; }
+
+        [DataMember(Name = "secret", Order = 2, EmitDefaultValue = false)]
+        public bool Secret { get; set; }
+
+        [DataMember(Name = "enc", Order = 3, EmitDefaultValue = false)]
+        public string Enc { get; set; }
+
+        /// <summary>Secret chưa có giá trị (vd. vừa nhận từ gói chia sẻ): bước chạy sẽ báo hỏng cho tới khi nhập.</summary>
+        [IgnoreDataMember]
+        public bool NeedsInput => Secret && string.IsNullOrEmpty(Enc);
     }
 }

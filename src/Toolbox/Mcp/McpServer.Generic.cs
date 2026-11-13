@@ -18,7 +18,7 @@ namespace Toolbox.Mcp
         private const int MaxSearchLimit = 100;
         private const int DefaultLogLines = 200;
 
-        private static readonly string[] ResourceTypes = { "profile", "stack", "custom", "tool", "library" };
+        private static readonly string[] ResourceTypes = { "profile", "stack", "custom", "tool", "library", "variablegroup" };
 
         private static readonly HashSet<string> GenericNames = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -30,13 +30,14 @@ namespace Toolbox.Mcp
 
         private static object[] GenericToolDefinitions()
         {
-            var typeDoc = "Loại: profile, stack (bộ chạy), custom (lệnh riêng), tool (tool đã gắn vào workspace), library (cả thư viện).";
+            var typeDoc = "Loại: profile, stack (bộ chạy), custom (lệnh riêng), tool (tool đã gắn vào workspace), library (cả thư viện), "
+                + "variablegroup (nhóm biến do người dùng tạo; chỉ đọc, không có giá trị biến).";
             var generic = new object[]
             {
-                Tool("overview", "Tóm tắt workspace: số tool, profile, bộ chạy, lệnh riêng, đề xuất đang chờ duyệt, quyền chạy của agent. Gọi đầu tiên; không liệt kê chi tiết.",
+                Tool("overview", "Tóm tắt workspace: số tool, profile, bộ chạy, lệnh riêng, nhóm biến agent được dùng, đề xuất đang chờ duyệt, quyền chạy của agent. Gọi đầu tiên; không liệt kê chi tiết.",
                     Props()),
                 Tool("search", "Tìm trong workspace hoặc thư viện, có phân trang. Dùng thay vì đọc cả danh sách: workspace có thể có hàng trăm profile.",
-                    Props(("type", "string", typeDoc + " Bỏ trống: tìm trong profile, stack, custom, tool."), ("query", "string", "Từ khoá, không phân biệt dấu. Bỏ trống: liệt kê."),
+                    Props(("type", "string", typeDoc + " Bỏ trống: tìm trong profile, stack, custom, tool (nhóm biến chỉ hiện khi type=variablegroup)."), ("query", "string", "Từ khoá, không phân biệt dấu. Bỏ trống: liệt kê."),
                         ("limit", "integer", $"Số dòng tối đa. Mặc định {DefaultSearchLimit}, tối đa {MaxSearchLimit}."), ("offset", "integer", "Bỏ qua bao nhiêu dòng đầu, để xem trang tiếp."))),
                 Tool("get", "Xem đầy đủ một mục theo id: profile, stack, custom hoặc tool. Không trả đường dẫn máy.",
                     Props(("type", "string", typeDoc), ("id", "string", "Id lấy từ search.")), "type", "id"),
@@ -48,6 +49,7 @@ namespace Toolbox.Mcp
                         ("refId", "string", "Profile custom: id lệnh riêng. Tham số thêm gửi ở args."),
                         ("action", "string", "Profile: hậu tố (id lệnh); bỏ trống = chạy lệnh gốc của tool."), ("variant", "string", "Profile: id biến thể."), ("vals", "object", "Profile: tham số theo key."),
                         ("pairs", "array", "Profile: Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy."),
+                        ("variableGroup", "string", VariableGroupLinkDoc),
                         ("steps", "array", "Bộ chạy: các bước (kind, action, variant, profile, wait, port, group). group > 0: các bước liền nhau cùng số chạy song song; bước sau nhóm chờ mọi bước trong nhóm đạt wait."),
                         ("commandLine", "string", "Lệnh riêng: dòng lệnh."), ("cwd", "string", "Thư mục chạy, tương đối so với workspace."), ("window", "boolean", "Lệnh riêng: chạy trong cửa sổ riêng."),
                         ("name", "string", "Tool: tên hiển thị."), ("path", "string", "Tool mới: đường dẫn tuyệt đối."), ("args", "string", "Tool: tham số mặc định."),
@@ -62,7 +64,8 @@ namespace Toolbox.Mcp
                         ("waitReady", "boolean", "Chờ cổng nghe được rồi mới báo xong."), ("port", "integer", "Cổng, với custom."),
                         ("args", "string", "Tool thư viện: tham số thay cho mặc định."), ("kind", "string", "Action: loại tool."), ("action", "string", "Action: id lệnh."),
                         ("variant", "string", "Action: id biến thể."), ("vals", "object", "Action: tham số theo key."),
-                        ("answers", "array", "Profile: giá trị cho các tham số hỏi lúc chạy (ask), theo thứ tự.")), "type"),
+                        ("answers", "array", "Profile: giá trị cho các tham số hỏi lúc chạy (ask), theo thứ tự."),
+                        ("variableGroup", "string", "Custom, action: " + VariableGroupRunDoc)), "type"),
                 Tool("logs", $"Xem log gần nhất của một lần chạy hoặc tác vụ do phiên này khởi chạy. Mặc định {DefaultLogLines} dòng.",
                     Props(("id", "string", "Id lần chạy hoặc tác vụ."), ("tail", "integer", $"Số dòng. Tối đa {MaxTailLines}.")), "id"),
                 Tool("propose", "Đề xuất sửa hoặc xoá một tool dùng chung trong thư viện. Không có hiệu lực cho tới khi người dùng duyệt trong Toolbox.",
@@ -78,6 +81,8 @@ namespace Toolbox.Mcp
             $"Toolbox đang giới hạn trong workspace \"{workspace.Name}\". Bạn thêm, sửa, xoá tool riêng, profile, bộ chạy, lệnh riêng trong workspace này tuỳ ý. "
             + "Bắt đầu bằng overview, rồi search để tìm theo từ khoá thay vì đọc hết. Muốn dùng tool có sẵn trong thư viện: search type=library rồi attach. "
             + "Tool dùng chung trong thư viện thì không sửa trực tiếp: dùng propose, người dùng duyệt trong Toolbox. "
+            + "Nhóm biến (biến môi trường, secret) do người dùng tự tạo ở tab Biến: bạn chỉ liệt kê được (search type=variablegroup, không thấy giá trị nào), "
+            + "gắn vào profile bằng variableGroup, hoặc chạy lệnh kèm nhóm; không tạo, sửa, xoá nhóm. "
             + "Chạy bằng run, theo dõi bằng run_status hoặc logs. Tác vụ do agent khởi chạy dừng khi phiên kết thúc.";
 
         private object GenericCall(string name, Dictionary<string, object> a, Workspace workspace, AgentRecord record)
@@ -125,6 +130,7 @@ namespace Toolbox.Mcp
                     ["profiles"] = ws.Profiles.Count,
                     ["stacks"] = ws.Stacks.Count,
                     ["customs"] = ws.Customs.Count,
+                    ["variableGroups"] = ws.VariableGroups.Count(g => g.AllowAgent),
                 },
                 ["pendingProposals"] = pending,
                 ["runMode"] = runMode,
@@ -148,7 +154,17 @@ namespace Toolbox.Mcp
                     rows.Add(new Dictionary<string, object> { ["type"] = type, ["id"] = id, ["label"] = label ?? id, ["info"] = extra ?? "" });
             }
 
-            bool Want(string type) => typeText.Length == 0 ? type != "library" : typeText == type;
+            bool Want(string type) => typeText.Length == 0 ? type != "library" && type != "variablegroup" : typeText == type;
+            if (Want("variablegroup"))
+                foreach (var g in ws.VariableGroups.Where(x => x.AllowAgent))
+                {
+                    var names = string.Join(" ", g.Variables.Select(v => v.Name));
+                    if (query.Length > 0 && !Text.Fold(g.Label + " " + g.Id + " " + g.Description + " " + names).Contains(query))
+                        continue;
+                    var row = GroupView(g);
+                    row["type"] = "variablegroup";
+                    rows.Add(row);
+                }
             if (Want("profile"))
                 foreach (var p in ws.Profiles)
                     Add("profile", p.Id, p.Label, p.Kind + " " + (ProfileKind.IsCustom(p.Kind) ? p.RefId : p.ActionId));
@@ -217,6 +233,11 @@ namespace Toolbox.Mcp
                     if (c != null)
                         view = new Dictionary<string, object> { ["id"] = c.Id, ["label"] = c.Label, ["commandLine"] = c.CommandLine, ["cwd"] = c.Cwd, ["window"] = c.Window };
                     break;
+                case "variablegroup":
+                    var group = AgentGroup(ws, id);
+                    if (group != null)
+                        view = GroupView(group);
+                    break;
                 default:
                     var tool = _loadStore().Find(id);
                     if (tool != null)
@@ -228,13 +249,40 @@ namespace Toolbox.Mcp
                     break;
             }
 
+            if (type == "profile" && view != null)
+            {
+                var linked = ws.Profiles.Find(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+                var linkedGroup = string.IsNullOrWhiteSpace(linked?.VariableGroupId) ? null : VariableGroups.Find(ws, linked.VariableGroupId);
+                if (linkedGroup != null && linkedGroup.AllowAgent)
+                    view["variableGroup"] = linkedGroup.Label;
+            }
+
             return view == null
                 ? ToolResult($"Không có {type} \"{id}\". Dùng search để tìm id.", isError: true)
                 : ToolResult(_json.Serialize(view), isError: false);
         }
 
+        /// <summary>Nhóm biến cho agent: id, tên, mô tả và từng biến {name, secret, hasValue}. Không bao giờ có giá trị.</summary>
+        private static Dictionary<string, object> GroupView(VariableGroup g) => new Dictionary<string, object>
+        {
+            ["id"] = g.Id,
+            ["label"] = g.Label,
+            ["description"] = g.Description ?? "",
+            ["variables"] = g.Variables.Select(v => (object)new Dictionary<string, object>
+            {
+                ["name"] = v.Name,
+                ["secret"] = v.Secret,
+                ["hasValue"] = v.Secret ? !v.NeedsInput : !string.IsNullOrEmpty(v.Value),
+            }).ToArray(),
+        };
+
+        private static bool IsVariableGroupType(Dictionary<string, object> a) =>
+            string.Equals((GetString(a, "type") ?? "").Trim(), "variablegroup", StringComparison.OrdinalIgnoreCase);
+
         private object GSave(Dictionary<string, object> a, Workspace ws, AgentRecord record)
         {
+            if (IsVariableGroupType(a))
+                return ToolResult(VariableGroupRefusal, isError: true);
             var type = TypeArg(a, "profile", "stack", "custom", "tool");
             var update = !string.IsNullOrWhiteSpace(GetString(a, "id"));
             var legacy = type == "tool" ? (update ? "update_tool" : "register_tool") : (update ? "update_" : "create_") + type;
@@ -243,6 +291,8 @@ namespace Toolbox.Mcp
 
         private object GDelete(Dictionary<string, object> a, Workspace ws, AgentRecord record)
         {
+            if (IsVariableGroupType(a))
+                return ToolResult(VariableGroupRefusal, isError: true);
             var type = TypeArg(a, "profile", "stack", "custom", "tool");
             return Dispatch(type == "tool" ? "unregister_tool" : "delete_" + type, a, ws, record);
         }

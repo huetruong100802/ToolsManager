@@ -255,7 +255,7 @@
                                                 <TextBlock Style="{StaticResource Icon}" Text="&#xE77A;" FontSize="14" Foreground="{DynamicResource Accent}" />
                                             </Button>
                                             <Button Style="{StaticResource GhostButton}" Click="OnRowMenu"
-                                                    AutomationProperties.Name="Thêm" ToolTip="Tham số, đổi tên, nhân bản">
+                                                    AutomationProperties.Name="Thêm" ToolTip="Tham số, nhóm biến, đổi tên, nhân bản">
                                                 <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
                                             </Button>
                                         </StackPanel>
@@ -269,6 +269,35 @@
                                                 </Border>
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RunningBadge}"
                                                                 Visibility="{Binding StopVisibility}" />
+                                                <!-- Chip nhóm biến: bấm để mở nhóm ở tab Biến; vàng khi còn secret "Cần nhập" hoặc nhóm đã xoá. -->
+                                                <Border CornerRadius="9" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center" Cursor="Hand"
+                                                        BorderThickness="1" MouseLeftButtonUp="OnOpenGroupChip"
+                                                        Visibility="{Binding GroupVisibility}" ToolTip="{Binding GroupTip}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource TagBg}" />
+                                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding GroupWarn}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource WarnLine}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding GroupName}" FontSize="11" FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource TagInk}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding GroupWarn}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource WarnInk}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Problem}" FontSize="12" Foreground="{DynamicResource WarnInk}"
@@ -314,6 +343,9 @@
 
                 <!-- Trang "Workflow". -->
                 <v:PackTab x:Name="PackPage" Visibility="Collapsed" />
+
+                <!-- Trang "Biến": nhóm biến môi trường của workspace (kiểu ADO Library). -->
+                <v:VariablesPage x:Name="VarsPage" Visibility="Collapsed" />
 
                 <StackPanel x:Name="StackPage" Visibility="Collapsed">
                     <DockPanel Margin="0,0,0,12">

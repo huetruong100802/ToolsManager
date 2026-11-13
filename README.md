@@ -47,6 +47,7 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 | | Tab đầu tiên **Chạy** gom mọi workflow và profile của workspace, có ô tìm profile, bấm **Chạy** là chạy. Cột trái có ô tìm workspace (từ 6 workspace trở lên) và **Ghim lên đầu** (chuột phải vào workspace). |
 | | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. **Trang chủ** và tab **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
 | | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
+| **Nhóm biến** | Tab **Biến** của workspace giống *Library › Variable groups* của Azure DevOps: tạo nhóm biến môi trường (có secret), gắn vào lệnh đã ghim để cùng một lệnh chạy với chuỗi kết nối A hay B. Secret mã hoá bằng Windows DPAPI, không xem lại được, tự che trong log. Agent chỉ thấy tên biến và gắn nhóm vào lệnh, không đọc được giá trị nào. |
 | **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`. |
 | **An toàn dữ liệu** | Sao lưu `tools.json` trước mỗi lần thay đổi danh sách (giữ 50 bản mới nhất). Ghi nhật ký `changes.log` gồm nguồn (GUI hoặc MCP). Mọi lần ghi giữ mutex để không ghi chồng nhau. |
 
@@ -154,6 +155,17 @@ Tab **Chạy** là tab đầu của mỗi workspace: các workflow hiện kèm c
 ![Tab Chạy: lệnh nhóm theo tool, mỗi dòng có Chạy, ghim và menu …](docs/images/workspace-run.png)
 
 Cột trái giữ workspace theo thứ tự: ghim trước, còn lại theo tên. Chuột phải vào một workspace để ghim hoặc bỏ ghim.
+
+### Nhóm biến
+
+Cùng một lệnh có khi phải chạy với cấu hình khác nhau, ví dụ `dotnet run` với chuỗi kết nối Dev-A rồi Dev-B. Tab **Biến** (sau tab **Chia sẻ**) giữ các **nhóm biến** của workspace, bố cục theo Azure DevOps: danh sách nhóm ở trên (tên, mô tả, số biến, đang dùng, sửa lần cuối, ô lọc), editor ở dưới.
+
+- **Tạo nhóm:** bấm **+ Nhóm biến**, đặt tên, bấm **Thêm** cho từng biến (tên và giá trị). Bấm biểu tượng khoá để đổi biến thành **secret**. **Lưu** (hoặc Ctrl+S) chỉ bật khi có thay đổi; rời trang hay đổi nhóm khi còn thay đổi chưa lưu thì Toolbox hỏi. **Nhân bản** chép nhóm (secret giữ nguyên bản đã mã hoá). Nhóm đang có lệnh dùng thì không xoá được, hộp thoại liệt kê các lệnh đó.
+- **Secret:** mã hoá khi lưu bằng Windows DPAPI (tài khoản Windows hiện tại), file `workspaces.json` chỉ chứa chuỗi đã mã hoá. Sau khi lưu chỉ hiện `********` và nút **Đổi giá trị**; không có cách xem lại. Đổi secret về biến thường thì giá trị cũ bị xoá. Giá trị secret xuất hiện trong output hay log được thay bằng `***`.
+- **Gắn vào lệnh:** ở tab **Chạy**, menu ⋯ của lệnh đã ghim › **Nhóm biến** chọn nhóm (hoặc **Bỏ liên kết**). Khi ghim lệnh mới, bước cuối có ô **Nhóm biến**. Lệnh có nhóm hiện một chip tên nhóm; chip vàng nghĩa là nhóm còn secret **Cần nhập** hoặc đã bị xoá, bấm chip để mở nhóm. Mỗi lệnh gắn tối đa một nhóm; workflow dùng lệnh đã ghim thì kế thừa nhóm.
+- **Truyền vào tiến trình:** qua biến môi trường của tiến trình con, không qua tham số, không ghi file tạm. Biến của nhóm ghi đè biến cùng tên Toolbox kế thừa. Trong cấu hình .NET, biến môi trường thắng `secrets.json` và `appsettings`; chỉ tham số dòng lệnh mới thắng biến môi trường.
+- **Chia sẻ:** gói chia sẻ kèm nhóm của các lệnh đã chọn, kèm tên biến và giá trị thường. Secret chỉ đi kèm tên; người nhận thấy **Cần nhập** và phải tự nhập.
+- **Agent (MCP):** `search` hoặc `get` với `type=variablegroup` trả tên nhóm, mô tả, tên biến, cờ secret và đã có giá trị hay chưa, không bao giờ trả giá trị. Agent gắn hoặc bỏ gắn nhóm vào profile (`save type=profile` kèm `variableGroup`) và chạy `run type=custom` hoặc `type=action` kèm `variableGroup`, nhưng không tạo, sửa, xoá nhóm. Tắt **Cho agent dùng nhóm này** thì agent không thấy nhóm và không chạy được lệnh dùng nhóm đó.
 
 ## Kết nối AI agent (MCP)
 
@@ -349,6 +361,7 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 - Duyệt đề xuất chỉ có kiểu sửa hoặc xoá tool dùng chung. Chưa có kiểu "chỉ áp dụng cho workspace này".
 - Cột trái xếp workspace theo ghim rồi theo tên, không còn theo thứ tự thêm.
 - Trang **Agent**, tab **Chạy**, ô tìm và ghim workspace: phần dữ liệu và MCP có test tự động; giao diện mới chỉ dựng ra ảnh để xem, chưa thử tay đầy đủ (bấm Duyệt, Gỡ agent, ghim workspace).
+- **Nhóm biến** (`docs/plan-env-sets.md`): chỉ thuộc một workspace, mỗi lệnh gắn một nhóm; chưa có nhóm dùng chung toàn máy, Key Vault hay phê duyệt trước khi chạy. Secret mã hoá theo tài khoản Windows nên không dùng lại được trên máy hoặc tài khoản khác. Lệnh chạy ở **cửa sổ riêng** không có log nên không che được secret nếu lệnh tự in ra. Secret chèn vào tham số bằng `%TÊN%` lộ trong danh sách tiến trình của máy. **Chạy lại** dùng giá trị biến lúc chạy lần đầu, không đọc lại nhóm. Đổi sang workspace khác khi nhóm đang sửa dở chưa có hộp thoại hỏi (đổi tab trong workspace thì có).
 - Luồng gói `setup` → nhập → **Cài đặt** chưa được kiểm thử tay trên GUI. Kết nối Claude Code đã thử với CLI thật ở scope `local`, chưa thử scope `user`.
 
 Tiến độ chi tiết và các bước đã xong nằm ở [docs/design.md](docs/design.md#7-tiến-độ).

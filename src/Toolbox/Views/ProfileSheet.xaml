@@ -88,6 +88,14 @@
 
                     <TextBlock Text="Tên lệnh đã ghim *" Style="{StaticResource FieldLabel}" Margin="0,14,0,0" />
                     <TextBox x:Name="NameBox" TextChanged="OnNameChanged" AutomationProperties.Name="Tên profile" />
+
+                    <!-- Chỉ hiện khi workspace đã có nhóm biến. -->
+                    <StackPanel x:Name="GroupPanel" Margin="0,14,0,0" Visibility="Collapsed">
+                        <TextBlock Text="Nhóm biến" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="GroupBox" DisplayMemberPath="Display" AutomationProperties.Name="Nhóm biến" />
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                   Text="Lệnh chạy với biến môi trường của nhóm (vd. chuỗi kết nối). Tạo và sửa nhóm ở tab Biến." />
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

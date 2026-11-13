@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 
 namespace Toolbox.Core.Workspaces
 {
@@ -42,7 +44,27 @@ namespace Toolbox.Core.Workspaces
         /// <summary>Khoá để giao diện biết dòng nào đang chạy: workspace|tool|action|variant|profile.</summary>
         public string Key { get; set; }
 
-        public TaskSpec Clone() => (TaskSpec)MemberwiseClone();
+        /// <summary>
+        /// Biến môi trường của nhóm biến (plaintext, ghi đè biến cùng tên kế thừa từ Toolbox); null/rỗng = chỉ kế thừa.
+        /// Chỉ giữ trong bộ nhớ: không serialize, không trả qua MCP.
+        /// </summary>
+        [IgnoreDataMember, ScriptIgnore]
+        public Dictionary<string, string> Env { get; set; }
+
+        /// <summary>Giá trị secret cần che (<see cref="VariableGroups.Mask"/>) trong output và file log. Không serialize.</summary>
+        [IgnoreDataMember, ScriptIgnore]
+        public List<string> Secrets { get; set; }
+
+        internal bool HasEnv => Env != null && Env.Count > 0;
+
+        /// <summary>Bản sao để chạy lại; Env/Secrets được chép riêng (chạy lại dùng giá trị lúc chạy đầu).</summary>
+        public TaskSpec Clone()
+        {
+            var copy = (TaskSpec)MemberwiseClone();
+            copy.Env = Env == null ? null : new Dictionary<string, string>(Env, StringComparer.OrdinalIgnoreCase);
+            copy.Secrets = Secrets == null ? null : new List<string>(Secrets);
+            return copy;
+        }
     }
 
     /// <summary>Một tác vụ đã/đang chạy. Đọc được từ mọi luồng.</summary>
@@ -167,6 +189,9 @@ namespace Toolbox.Core.Workspaces
 
             var id = WorkspaceStore.NewId();
             var info = new TaskInfo(id, spec, spec.Window ? null : Path.Combine(_runsDir, id + ".log"));
+            // Cửa sổ riêng có biến nhóm: ShellExecute bỏ qua Environment, nên mở bằng CreateProcessW (ConsoleLauncher).
+            if (spec.Window && spec.HasEnv)
+                return StartConsole(info);
             var process = new Process { StartInfo = CreateStartInfo(spec), EnableRaisingEvents = true };
 
             StreamWriter log = null;
@@ -216,6 +241,34 @@ namespace Toolbox.Core.Workspaces
             return info;
         }
 
+        /// <summary>Cửa sổ riêng kèm biến môi trường: không có log/output; theo dõi Exited và Dừng (KillTree) như đường thường.</summary>
+        private TaskInfo StartConsole(TaskInfo info)
+        {
+            var spec = info.Spec;
+            var cwd = string.IsNullOrWhiteSpace(spec.Cwd) ? null : spec.Cwd;
+            var process = ConsoleLauncher.Start($"/k \"{spec.CommandLine}\"", cwd, spec.Env);
+            try
+            {
+                info.ProcessId = process.Id;
+                lock (_sync)
+                {
+                    _tasks.Add(info);
+                    Trim();
+                }
+                process.Exited += (s, e) => Task.Run(() => OnExited(info, process, null));
+                process.EnableRaisingEvents = true;
+            }
+            catch
+            {
+                process.Dispose();
+                lock (_sync)
+                    _tasks.Remove(info);
+                throw;
+            }
+            Changed?.Invoke();
+            return info;
+        }
+
         /// <summary>Dừng cả cây tiến trình (ép tắt). Không chờ; trạng thái đổi khi tiến trình thật sự thoát.</summary>
         public void Stop(string id)
         {
@@ -257,7 +310,7 @@ namespace Toolbox.Core.Workspaces
             if (spec.Window)
                 return new ProcessStartInfo("cmd.exe", $"/k \"{spec.CommandLine}\"") { UseShellExecute = true, WorkingDirectory = cwd };
 
-            return new ProcessStartInfo("cmd.exe", $"/c \"{spec.CommandLine}\"")
+            var info = new ProcessStartInfo("cmd.exe", $"/c \"{spec.CommandLine}\"")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -269,13 +322,22 @@ namespace Toolbox.Core.Workspaces
                 StandardErrorEncoding = Encoding.UTF8,
                 WorkingDirectory = cwd,
             };
+            // D6: biến nhóm qua môi trường của process (kế thừa môi trường Toolbox, biến nhóm ghi đè cùng tên).
+            if (spec.HasEnv)
+                foreach (var pair in spec.Env)
+                    info.Environment[pair.Key] = pair.Value ?? "";
+            return info;
         }
+
+        /// <summary>D7: che giá trị secret của lần chạy (nếu có) trước khi lưu vào bộ đệm hoặc ghi log.</summary>
+        private static string Mask(TaskSpec spec, string text) =>
+            spec.Secrets == null || spec.Secrets.Count == 0 ? text : VariableGroups.MaskSecrets(text, spec.Secrets);
 
         private void OnLine(TaskInfo info, StreamWriter log, string raw)
         {
             if (raw == null)
                 return;
-            var line = Ansi.Replace(raw, "");
+            var line = Mask(info.Spec, Ansi.Replace(raw, ""));
             info.AddLine(line, MaxLines);
             WriteLog(log, line);
 
@@ -322,8 +384,8 @@ namespace Toolbox.Core.Workspaces
                 Directory.CreateDirectory(_runsDir);
                 var stream = new FileStream(info.LogPath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
-                writer.WriteLine($"# {info.Spec.CommandLine}");
-                writer.WriteLine($"# thư mục: {info.Spec.Cwd}");
+                writer.WriteLine(Mask(info.Spec, $"# {info.Spec.CommandLine}"));
+                writer.WriteLine(Mask(info.Spec, $"# thư mục: {info.Spec.Cwd}"));
                 return writer;
             }
             catch (IOException) { return null; }      // log là phụ: không có thì vẫn chạy

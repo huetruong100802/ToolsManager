@@ -28,6 +28,13 @@ namespace Toolbox.Views
             public string Problem;
         }
 
+        /// <summary>Một lựa chọn trong ô "Nhóm biến"; Id rỗng là không dùng nhóm.</summary>
+        private sealed class GroupChoice
+        {
+            public string Id;
+            public string Display { get; set; }
+        }
+
         private readonly Workspace _workspace;
         private readonly Func<IReadOnlyDictionary<int, string>> _usedPorts;
         private int _step;
@@ -61,6 +68,17 @@ namespace Toolbox.Views
 
             ToolList.ItemsSource = choices;
             ToolSearch.Attach(choices, o => ((Choice)o).Display);
+
+            if (workspace.VariableGroups.Count > 0)
+            {
+                var groupChoices = new List<GroupChoice> { new GroupChoice { Display = "(không dùng nhóm biến)" } };
+                groupChoices.AddRange(workspace.VariableGroups
+                    .OrderBy(g => g.Label, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(g => new GroupChoice { Id = g.Id, Display = g.Label }));
+                GroupBox.ItemsSource = groupChoices;
+                GroupBox.SelectedIndex = 0;
+                GroupPanel.Visibility = Visibility.Visible;
+            }
             ShowStep(0);
         }
 
@@ -349,6 +367,7 @@ namespace Toolbox.Views
             }
             var pairs = Pairs.GetPairs();
             profile.Pairs = pairs.Count > 0 ? pairs : null;
+            profile.VariableGroupId = (GroupBox.SelectedItem as GroupChoice)?.Id;
             Result = profile;
             RunAfter = run;
             DialogResult = true;

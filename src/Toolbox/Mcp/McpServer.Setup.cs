@@ -52,6 +52,7 @@ namespace Toolbox.Mcp
                     ["id"] = Property("string", "Id lệnh riêng (lấy từ list_setup)."),
                     ["port"] = Property("integer", "Cổng lệnh nghe, dùng để chờ và chống trùng cổng."),
                     ["waitReady"] = Property("boolean", "true: chờ cổng sẵn sàng."),
+                    ["variableGroup"] = Property("string", VariableGroupRunDoc),
                 }, "id"),
             },
             new Dictionary<string, object>
@@ -74,6 +75,7 @@ namespace Toolbox.Mcp
                     ["action"] = Property("string", "Id action của tool (lấy từ list_setup)."),
                     ["variant"] = Property("string", "Id biến thể. Bỏ trống thì dùng biến thể mặc định."),
                     ["vals"] = Property("object", "Tham số theo key, ví dụ {\"port\": \"4200\"}. Key lấy từ params trong list_setup."),
+                    ["variableGroup"] = Property("string", VariableGroupRunDoc),
                 }, "kind", "action"),
             },
             new Dictionary<string, object>
@@ -130,12 +132,14 @@ namespace Toolbox.Mcp
             Tool("create_profile", "Tạo profile: cách chạy đặt tên cho một lệnh của tool trong workspace. Tham số kiểm đúng luật như khi chạy.",
                 Props(("label", "string", "Tên profile."), ("kind", "string", "Loại tool."), ("action", "string", "Id lệnh (xem list_setup)."),
                     ("variant", "string", "Id biến thể. Bỏ trống là mặc định."), ("vals", "object", "Tham số theo key, ví dụ {\"port\": \"4200\"}."),
-                    ("pairs", "array", "Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy.")),
+                    ("pairs", "array", "Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy."),
+                    ("variableGroup", "string", VariableGroupLinkDoc)),
                 "label", "kind", "action"),
             Tool("update_profile", "Sửa tên, biến thể hoặc tham số của profile. Không đổi tool và lệnh; muốn đổi thì xoá rồi tạo lại.",
                 Props(("id", "string", "Id profile."), ("label", "string", "Tên mới."), ("variant", "string", "Biến thể mới."),
                     ("vals", "object", "Tham số mới (thay toàn bộ)."),
-                    ("pairs", "array", "Cặp tham số mới (thay toàn bộ; mảng rỗng là xoá). Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy.")), "id"),
+                    ("pairs", "array", "Cặp tham số mới (thay toàn bộ; mảng rỗng là xoá). Tham số dạng cặp theo thứ tự: [{\"key\":\"--project\",\"value\":\"A.csproj\"},{\"key\":\"--dry-run\"},{\"key\":\"\",\"value\":\"all\"},{\"key\":\"--name\",\"ask\":true}]. key rỗng = đối số vị trí; value rỗng = công tắc; key lặp được; key \"--\" tách tham số của app; ask=true: hỏi giá trị lúc chạy."),
+                    ("variableGroup", "string", VariableGroupLinkDoc)), "id"),
             Tool("delete_profile", "Xoá profile. Từ chối nếu bộ chạy còn dùng.",
                 Props(("id", "string", "Id profile.")), "id"),
             Tool("create_custom", "Tạo lệnh riêng: một dòng lệnh chạy trong thư mục của workspace.",
@@ -342,12 +346,16 @@ namespace Toolbox.Mcp
             if (command == null)
                 return ToolResult($"Không có lệnh riêng \"{id}\". Dùng list_setup để xem id.", isError: true);
 
+            var groupError = RunGroup(workspace, arguments, out var groupId);
+            if (groupError != null)
+                return ToolResult(groupError, isError: true);
             var step = new StackStep
             {
                 Kind = TaskKey.Custom,
                 ActionId = command.Id,
                 Port = IntArg(arguments, "port"),
                 Wait = WaitOf(arguments),
+                RunGroupId = groupId,
             };
             return LaunchStack(workspace, new StackDef { Id = command.Id, Label = command.Label, Steps = { step } });
         }
@@ -368,8 +376,11 @@ namespace Toolbox.Mcp
                 foreach (var pair in map)
                     vals[pair.Key] = pair.Value?.ToString() ?? "";
 
+            var groupError = RunGroup(workspace, arguments, out var groupId);
+            if (groupError != null)
+                return ToolResult(groupError, isError: true);
             var resolved = StackResolver.ResolveAdHoc(
-                workspace, GetString(arguments, "kind") ?? "", GetString(arguments, "action") ?? "", GetString(arguments, "variant"), vals);
+                workspace, GetString(arguments, "kind") ?? "", GetString(arguments, "action") ?? "", GetString(arguments, "variant"), vals, groupId);
             try
             {
                 var task = Session.StartResolved(resolved, out var reused);
@@ -430,6 +441,102 @@ namespace Toolbox.Mcp
             return error != null ? ToolResult(error, isError: true) : ToolResult(success(), isError: false);
         }
 
+        // ----- Nhóm biến (D3): người dùng tự tạo ở tab Biến; agent chỉ liệt kê, gắn vào profile và chạy kèm nhóm -----
+
+        private const string VariableGroupRefusal =
+            "Nhóm biến do người dùng tạo ở tab Biến trong Toolbox. Agent chỉ liệt kê (search/get type=variablegroup), "
+            + "gắn vào profile (variableGroup) và chạy kèm nhóm; không tạo, sửa, xoá nhóm và không đọc được giá trị.";
+
+        private const string VariableGroupLinkDoc =
+            "Nhóm biến (id hoặc tên, xem search type=variablegroup) gắn vào profile: lúc chạy biến của nhóm vào môi trường. "
+            + "Chuỗi rỗng là bỏ gắn; bỏ trống là giữ nguyên.";
+
+        private const string VariableGroupRunDoc =
+            "Nhóm biến (id hoặc tên, xem search type=variablegroup) đưa vào môi trường của lệnh này. Bỏ trống: không dùng nhóm.";
+
+        /// <summary>Nhóm agent được dùng theo id hoặc tên (id ưu tiên). Nhóm tắt "Cho agent dùng" coi như không có.</summary>
+        private static VariableGroup AgentGroup(Workspace ws, string idOrName)
+        {
+            if (string.IsNullOrWhiteSpace(idOrName))
+                return null;
+            var key = idOrName.Trim();
+            var usable = ws.VariableGroups.Where(g => g.AllowAgent).ToList();
+            return usable.Find(g => string.Equals(g.Id, key, StringComparison.OrdinalIgnoreCase))
+                ?? usable.Find(g => string.Equals(g.Label, key, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string GroupNotFound(string key) =>
+            $"Không có nhóm biến \"{key}\". Dùng search type=variablegroup để xem.";
+
+        /// <summary>Cảnh báo nếu nhóm còn biến secret chưa có giá trị; null nếu đủ.</summary>
+        private static string GroupWarning(VariableGroup group)
+        {
+            var missing = group.Variables.Where(v => v.NeedsInput).Select(v => v.Name).ToList();
+            return missing.Count == 0
+                ? null
+                : $"Cảnh báo: nhóm \"{group.Label}\" còn {missing.Count} biến chưa có giá trị ({string.Join(", ", missing)}); người dùng nhập ở tab Biến trước khi chạy.";
+        }
+
+        private static string WarningSuffix(string warning) => string.IsNullOrEmpty(warning) ? "" : " " + warning;
+
+        /// <summary>
+        /// Gắn hoặc bỏ gắn nhóm biến theo tham số <c>variableGroup</c> (không có hoặc null: giữ nguyên; chuỗi rỗng: bỏ gắn).
+        /// Trả lỗi nếu nhóm không có hoặc không cho agent dùng. Nhóm còn biến chưa có giá trị vẫn gắn được, kèm cảnh báo.
+        /// </summary>
+        private static string LinkGroup(Workspace ws, Profile profile, Dictionary<string, object> arguments, out string warning)
+        {
+            warning = null;
+            if (!arguments.TryGetValue("variableGroup", out var raw) || raw == null)
+                return null;
+            var key = (raw.ToString() ?? "").Trim();
+            if (key.Length == 0)
+            {
+                profile.VariableGroupId = null;
+                return null;
+            }
+            var group = AgentGroup(ws, key);
+            if (group == null)
+                return GroupNotFound(key);
+            profile.VariableGroupId = group.Id;
+            warning = GroupWarning(group);
+            return null;
+        }
+
+        /// <summary>Nhóm biến cho lần chạy trực tiếp (custom, action): trả lỗi nếu không có hoặc không cho agent dùng.</summary>
+        private static string RunGroup(Workspace ws, Dictionary<string, object> arguments, out string groupId)
+        {
+            groupId = null;
+            var key = GetString(arguments, "variableGroup");
+            if (string.IsNullOrWhiteSpace(key))
+                return null;
+            var group = AgentGroup(ws, key);
+            if (group == null)
+                return GroupNotFound(key.Trim());
+            groupId = group.Id;
+            return null;
+        }
+
+        /// <summary>
+        /// D3: bộ chạy có bước dùng profile liên kết nhóm tắt "Cho agent dùng" thì agent không chạy được.
+        /// Thông báo không nêu tên nhóm. Nhóm không còn thì để bộ chạy báo hỏng như thường.
+        /// </summary>
+        private static string BlockedGroupMessage(Workspace ws, StackDef stack)
+        {
+            foreach (var step in stack.Steps)
+            {
+                if (string.IsNullOrWhiteSpace(step.ProfileId))
+                    continue;
+                var profile = ws.Profiles.Find(p => string.Equals(p.Id, step.ProfileId, StringComparison.OrdinalIgnoreCase));
+                if (profile == null || string.IsNullOrWhiteSpace(profile.VariableGroupId))
+                    continue;
+                var group = VariableGroups.Find(ws, profile.VariableGroupId);
+                if (group != null && !group.AllowAgent)
+                    return $"Profile \"{profile.Label}\" dùng một nhóm biến mà người dùng không cho agent dùng. "
+                        + "Nhờ người dùng bật \"Cho agent dùng nhóm này\" ở tab Biến, hoặc bỏ gắn nhóm khỏi profile (variableGroup rỗng).";
+            }
+            return null;
+        }
+
         private object Manage(string name, Dictionary<string, object> a, Workspace workspace)
         {
             switch (name)
@@ -465,18 +572,26 @@ namespace Toolbox.Mcp
                     };
                     if (ProfileKind.IsRef(profile.Kind) || string.IsNullOrWhiteSpace(profile.ActionId))
                         profile.Vals = WithArgs(a, profile.Vals);
-                    return Write(ws => WorkspaceEditor.CreateProfile(ws, profile),
-                        () => $"Đã tạo profile \"{profile.Label}\" (id {profile.Id}).");
+                    string createWarning = null;
+                    return Write(ws =>
+                    {
+                        var linkError = LinkGroup(ws, profile, a, out createWarning);
+                        return linkError ?? WorkspaceEditor.CreateProfile(ws, profile);
+                    }, () => $"Đã tạo profile \"{profile.Label}\" (id {profile.Id})." + WarningSuffix(createWarning));
                 }
                 case "update_profile":
+                {
+                    string updateWarning = null;
                     return Write(ws =>
                     {
                         var current = ws.Profiles.Find(p => string.Equals(p.Id, GetString(a, "id"), StringComparison.OrdinalIgnoreCase));
                         var vals = ParseVals(a);
                         if (current != null && (ProfileKind.IsCustom(current.Kind) || string.IsNullOrEmpty(current.ActionId)))
                             vals = WithArgs(a, vals, current.Vals);
-                        return WorkspaceEditor.UpdateProfile(ws, GetString(a, "id"), GetString(a, "label"), GetString(a, "variant"), vals, ParsePairs(a));
-                    }, () => $"Đã cập nhật profile {GetString(a, "id")}.");
+                        var error = WorkspaceEditor.UpdateProfile(ws, GetString(a, "id"), GetString(a, "label"), GetString(a, "variant"), vals, ParsePairs(a));
+                        return error ?? (current == null ? null : LinkGroup(ws, current, a, out updateWarning));
+                    }, () => $"Đã cập nhật profile {GetString(a, "id")}." + WarningSuffix(updateWarning));
+                }
                 case "delete_profile":
                     return Write(ws => WorkspaceEditor.DeleteProfile(ws, GetString(a, "id")), () => $"Đã xoá profile {GetString(a, "id")}.");
                 case "create_custom":
@@ -617,6 +732,9 @@ namespace Toolbox.Mcp
 
         private object LaunchStack(Workspace workspace, StackDef stack)
         {
+            var refused = BlockedGroupMessage(workspace, stack);
+            if (refused != null)
+                return ToolResult(refused, isError: true);
             string id;
             try
             {

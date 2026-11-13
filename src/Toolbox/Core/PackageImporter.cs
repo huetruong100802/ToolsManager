@@ -14,6 +14,7 @@ namespace Toolbox.Core
         public int CustomsAdded { get; set; }
         public int ProfilesAdded { get; set; }
         public int StacksAdded { get; set; }
+        public int VariableGroupsAdded { get; set; }
         /// <summary>Id tool trong gói → id thật trong thư viện sau khi nhập.</summary>
         public Dictionary<string, string> ToolMap { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public List<string> Warnings { get; } = new List<string>();
@@ -120,6 +121,46 @@ namespace Toolbox.Core
                 result.CustomsAdded++;
             }
 
+            // Nhóm biến (D8): gói chỉ có tên biến + giá trị thường; secret nhập về trạng thái "Cần nhập". Gói cũ không có phần này.
+            var groupMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var src in data.VariableGroups)
+            {
+                if (src == null || string.IsNullOrEmpty(src.Id)) continue;
+                var incoming = ImportedVariables(src);
+                var existing = ws.VariableGroups.Find(g => SameLabel(g.Label, src.Label));
+                if (existing != null && itemConflict != ConflictResolution.KeepBoth)
+                {
+                    groupMap[src.Id] = existing.Id;
+                    if (itemConflict == ConflictResolution.Replace)
+                    {
+                        // Giữ secret đã nhập ở máy này nếu tên trùng; gói không bao giờ mang giá trị secret.
+                        foreach (var v in incoming.Where(v => v.Secret))
+                        {
+                            var mine = existing.Variables.Find(x => x != null && x.Secret && string.Equals(x.Name, v.Name, StringComparison.OrdinalIgnoreCase));
+                            if (mine != null) v.Enc = mine.Enc;
+                        }
+                        existing.Description = src.Description;
+                        existing.Variables = incoming;
+                        existing.ModifiedAt = DateTime.UtcNow.ToString("o");
+                        WarnNeedInput(result, existing);
+                    }
+                    continue;
+                }
+                var group = new VariableGroup
+                {
+                    Id = NewId(ws.VariableGroups.Select(g => g.Id)),
+                    Label = UniqueLabel(src.Label, ws.VariableGroups.Select(g => g.Label)),
+                    Description = src.Description,
+                    AllowAgent = src.AllowAgent,
+                    ModifiedAt = DateTime.UtcNow.ToString("o"),
+                    Variables = incoming,
+                };
+                ws.VariableGroups.Add(group);
+                groupMap[src.Id] = group.Id;
+                result.VariableGroupsAdded++;
+                WarnNeedInput(result, group);
+            }
+
             var profileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var profileKind = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var src in data.Profiles)
@@ -148,6 +189,17 @@ namespace Toolbox.Core
                         result.Warnings.Add("Profile \"" + src.Label + "\" trỏ lệnh riêng \"" + src.RefId + "\" không có trong gói.");
                 }
 
+                if (!string.IsNullOrEmpty(mapped.VariableGroupId))
+                {
+                    if (groupMap.TryGetValue(mapped.VariableGroupId, out var groupId))
+                        mapped.VariableGroupId = groupId;
+                    else
+                    {
+                        result.Warnings.Add("Profile \"" + src.Label + "\" gắn nhóm biến không có trong gói; profile này chưa gắn nhóm nào.");
+                        mapped.VariableGroupId = null;
+                    }
+                }
+
                 var existing = ws.Profiles.Find(p => SameLabel(p.Label, src.Label));
                 if (existing != null && itemConflict != ConflictResolution.KeepBoth)
                 {
@@ -156,6 +208,7 @@ namespace Toolbox.Core
                     {
                         existing.Kind = mapped.Kind; existing.ActionId = mapped.ActionId; existing.VariantId = mapped.VariantId;
                         existing.RefId = mapped.RefId; existing.Vals = mapped.Vals; existing.Pairs = mapped.Pairs;
+                        existing.VariableGroupId = mapped.VariableGroupId;
                     }
                     continue;
                 }
@@ -232,6 +285,28 @@ namespace Toolbox.Core
             if (missing.Count > 0)
                 result.Warnings.Add("Workspace này chưa gắn tool dựng sẵn mà gói cần: " + string.Join(", ", missing) + ".");
             return result;
+        }
+
+        /// <summary>Biến của nhóm trong gói: tên + giá trị thường; secret bị ép về "Cần nhập" (bỏ Value/Enc kể cả khi gói viết tay có), biến tên hỏng bị bỏ.</summary>
+        private static List<GroupVariable> ImportedVariables(VariableGroup src)
+        {
+            var list = new List<GroupVariable>();
+            foreach (var v in src.Variables ?? new List<GroupVariable>())
+            {
+                if (v == null || VariableGroups.ValidateName(v.Name) != null) continue;
+                if (list.Any(x => string.Equals(x.Name, v.Name, StringComparison.OrdinalIgnoreCase))) continue;
+                list.Add(v.Secret
+                    ? new GroupVariable { Name = v.Name, Secret = true }
+                    : new GroupVariable { Name = v.Name, Value = v.Value });
+            }
+            return list;
+        }
+
+        private static void WarnNeedInput(WorkspaceImportResult result, VariableGroup group)
+        {
+            var need = group.Variables.Where(v => v.NeedsInput).Select(v => v.Name).ToList();
+            if (need.Count > 0)
+                result.Warnings.Add("Nhóm biến \"" + group.Label + "\" cần nhập giá trị secret ở tab Biến: " + string.Join(", ", need) + ".");
         }
 
         private static bool SameLabel(string a, string b) =>
