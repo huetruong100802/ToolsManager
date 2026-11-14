@@ -198,17 +198,32 @@ Agent trong workspace đăng ký lại một tool trùng đường dẫn thì ch
 
 Kết nối cũ không có `--agent` vẫn chạy được như trước (không có quyền riêng). Trong chế độ workspace, sửa tool dùng chung luôn là đề xuất, kể cả khi chưa đăng ký agent.
 
-### Claude Code (một nút)
+### Kết nối một agent
 
-1. Bấm **Kết nối agent…** trong cửa sổ chính.
-2. Chọn **Toàn bộ máy** (scope `user`) hoặc một workspace (scope `local`, riêng cho bạn, không ghi `.mcp.json` vào repo).
-3. Bấm **Kết nối**. Toolbox gọi `claude mcp add`, nên máy cần CLI `claude` trên `PATH`.
+1. Bấm **Kết nối agent…** (trong Thư viện, trang Agent, hoặc trên thanh của một workspace).
+2. Cột trái: chọn app agent. App Toolbox không thấy trên máy hiện mờ, vẫn kết nối được (ghi cấu hình sẵn).
+3. Bên phải: bấm **Kết nối** ở workspace cần dùng. Kết nối toàn máy nằm ở mục **Nâng cao**. Tên agent và quyền chạy áp dụng khi tạo agent lần đầu.
 
-Trạng thái mỗi dòng là *Chưa kết nối*, *Đã kết nối* hoặc *Trỏ tới exe khác*. Bạn có thể bấm **Kết nối lại** hoặc **Huỷ kết nối**.
+| Agent | Ghi vào đâu | Kết nối theo workspace |
+|---|---|---|
+| **Claude Code** | `claude mcp add` (scope `user` hoặc `local`, cần CLI `claude`) | scope `local`, riêng cho bạn, không ghi `.mcp.json` vào repo |
+| **Cursor** | `~/.cursor/mcp.json` | `<repo>/.cursor/mcp.json` |
+| **VS Code · Copilot** | `%APPDATA%\Code\User\mcp.json` (khoá `servers`) | `<repo>/.vscode/mcp.json` |
+| **Claude Desktop** | `claude_desktop_config.json` (cả bản cài MSIX) | server riêng `toolbox-<tên workspace>` |
+| **Codex CLI** | `~/.codex/config.toml` (`[mcp_servers.toolbox]`) | server riêng `toolbox-<tên workspace>` |
+| **Gemini CLI** | `~/.gemini/settings.json` | `<repo>/.gemini/settings.json` |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | server riêng `toolbox-<tên workspace>` |
+| **Agent khác** (Cline, Zed, JetBrains, Continue…) | Toolbox tạo agent rồi copy cấu hình `mcpServers` để bạn tự dán | như trên |
 
-### Client khác
+Agent phải chạy trên cùng máy với Toolbox: kết nối là MCP qua stdio, agent tự chạy `Toolbox.exe --mcp`. Agent trên cloud (Claude trên web, Codex cloud, Copilot coding agent) chưa dùng được.
 
-Claude Desktop, Cursor và VS Code/Copilot được khai báo tay. Cửa sổ **Kết nối agent…** có nút **Copy** cho từng client. Cấu hình có dạng:
+Khi ghi file của app khác, Toolbox chỉ thay mục `toolbox` của mình, giữ nguyên các server và cài đặt khác, và để bản cũ ở `<file>.toolbox.bak`. File có chú thích (`//`, JSONC) thì Toolbox không ghi đè để khỏi mất chú thích; bạn dán tay đoạn ở mục **Tự khai báo**. File cấu hình dự án mới tạo trong một repo git được thêm vào `.git/info/exclude`, vì nó chứa đường dẫn exe và id agent riêng của máy bạn.
+
+Mỗi dòng cho biết trạng thái khai báo (*Chưa kết nối*, *Đã kết nối*, *Trỏ tới exe khác*, *Kết nối cũ*) và agent đã thực sự gọi tới Toolbox chưa. Lúc bắt tay MCP, Toolbox ghi tên và phiên bản app agent tự báo (`clientInfo`), nên ngay khi bạn mở lại app, dòng đó đổi thành *Agent đang hoạt động · cursor-vscode 1.7*. Trang **Agent** cũng hiện app của từng agent.
+
+### Tự khai báo
+
+Mục **Tự khai báo** trong cửa sổ có đoạn cấu hình đúng định dạng của app đang chọn (không kèm agent). Dạng phổ biến:
 
 ```json
 {
@@ -267,7 +282,7 @@ Quy tắc chọn kiểu lưu và chế độ đóng gói khi `register_tool` n�
 | `create_*`, `update_*`, `delete_*` | Tạo, sửa, xoá profile, lệnh riêng và workflow. `delete_custom` từ chối nếu workflow còn dùng lệnh đó. |
 | `set_worktree` | Cấu hình file local đưa vào worktree và lệnh cài đặt (`files=[]` hoặc `command=""` để xoá). |
 
-> **Lưu ý bảo mật:** phạm vi, quyền chạy và duyệt đề xuất là rào chắn chống nhầm lẫn, không phải ranh giới bảo mật. Agent có quyền chạy shell vẫn có thể tự khởi chạy `Toolbox.exe --mcp` không kèm phạm vi, hoặc sửa file cấu hình của chính nó. Trong một workspace, agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã gắn. `create_custom` cho agent lưu một dòng lệnh shell tuỳ ý vào workspace, và `run_custom` chạy dòng lệnh đó với quyền của bạn. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và client như Claude Code vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
+> **Lưu ý bảo mật:** phạm vi, quyền chạy và duyệt đề xuất là rào chắn chống nhầm lẫn, không phải ranh giới bảo mật. Agent có quyền chạy shell vẫn có thể tự khởi chạy `Toolbox.exe --mcp` không kèm phạm vi, hoặc sửa file cấu hình của chính nó. Trong một workspace, agent có thể đăng ký, sửa, bỏ và chạy mọi tool đã gắn. `create_custom` cho agent lưu một dòng lệnh shell tuỳ ý vào workspace, và `run_custom` chạy dòng lệnh đó với quyền của bạn. Các rào thay thế là: mọi thay đổi đều được sao lưu và ghi nhật ký, và các app agent (Claude Code, Cursor, VS Code…) vẫn hỏi quyền trước mỗi lần gọi MCP tool theo cấu hình của bạn.
 
 ## Dữ liệu và sao lưu
 

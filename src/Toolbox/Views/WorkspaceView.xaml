@@ -143,7 +143,7 @@
                 Padding="12,0,12,0">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnConnectAgent" VerticalAlignment="Center"
-                        AutomationProperties.Name="Kết nối agent" ToolTip="Cho Claude Code dùng workspace này qua MCP; agent chỉ thấy workspace này">
+                        AutomationProperties.Name="Kết nối agent" ToolTip="Cho Claude Code, Cursor, VS Code, Codex… dùng workspace này qua MCP; agent chỉ thấy workspace này">
                     <TextBlock Text="Kết nối agent" />
                 </Button>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnToolMenu" VerticalAlignment="Center"
