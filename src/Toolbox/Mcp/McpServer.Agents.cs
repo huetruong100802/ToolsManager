@@ -76,6 +76,21 @@ namespace Toolbox.Mcp
             return null;
         }
 
+        /// <summary>
+        /// Lúc bắt tay: ghi agent đã kết nối, kèm tên và phiên bản app (clientInfo), để cửa sổ Kết nối agent xác nhận được ngay
+        /// mà không phải chờ agent gọi công cụ đầu tiên.
+        /// </summary>
+        private void NoteClient(Dictionary<string, object> parameters)
+        {
+            if (_agent == null || string.IsNullOrEmpty(_agent.AgentId))
+                return;
+            var info = parameters != null && parameters.TryGetValue("clientInfo", out var value) ? value as Dictionary<string, object> : null;
+            var name = info != null && info.TryGetValue("name", out var n) ? n as string : null;
+            var version = info != null && info.TryGetValue("version", out var v) ? v as string : null;
+            try { AgentStore.Touch(_agent.AgentsPath, _agent.AgentId, name, version); }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException) { /* phụ, không làm hỏng bắt tay */ }
+        }
+
         private void TouchAgent()
         {
             if (_agent == null || string.IsNullOrEmpty(_agent.AgentId))

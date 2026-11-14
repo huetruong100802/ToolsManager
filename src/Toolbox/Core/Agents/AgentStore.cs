@@ -32,6 +32,10 @@ namespace Toolbox.Core.Agents
         [DataMember(Name = "createdAt")] public string CreatedAt { get; set; }
         [DataMember(Name = "lastSeenAt")] public string LastSeenAt { get; set; }
 
+        /// <summary>Tên và phiên bản app agent tự báo lúc bắt tay MCP (clientInfo), ví dụ "cursor-vscode" "1.7.2".</summary>
+        [DataMember(Name = "clientName", EmitDefaultValue = false)] public string ClientName { get; set; }
+        [DataMember(Name = "clientVersion", EmitDefaultValue = false)] public string ClientVersion { get; set; }
+
         /// <summary>Các lệnh người dùng chọn "Luôn cho lệnh này" (chuỗi chuẩn hoá của <see cref="RunApprovals.Print"/>): chạy luôn, không hỏi lại.</summary>
         [DataMember(Name = "allowRuns", EmitDefaultValue = false)] public List<string> AllowRuns { get; set; }
 
@@ -170,13 +174,18 @@ namespace Toolbox.Core.Agents
         }
 
         /// <summary>Ghi lại lần cuối agent hoạt động. Không có agent thì bỏ qua.</summary>
-        public static void Touch(string filePath, string id) =>
+        public static void Touch(string filePath, string id, string clientName = null, string clientVersion = null) =>
             Update(filePath, store =>
             {
                 var agent = store.Find(id);
                 if (agent == null)
                     return false;
                 agent.LastSeenAt = ListFile.Now();
+                if (!string.IsNullOrWhiteSpace(clientName))
+                {
+                    agent.ClientName = clientName.Trim();
+                    agent.ClientVersion = string.IsNullOrWhiteSpace(clientVersion) ? null : clientVersion.Trim();
+                }
                 return true;
             });
     }

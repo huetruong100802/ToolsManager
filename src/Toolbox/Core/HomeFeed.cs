@@ -204,7 +204,7 @@ namespace Toolbox.Core
             });
             feed.Onboarding.Add(new OnboardingStep
             {
-                Title = "Kết nối agent", Detail = "Để Claude Code hay Cursor dùng tool của bạn qua MCP.",
+                Title = "Kết nối agent", Detail = "Claude Code, Cursor, VS Code, Codex… dùng tool của bạn qua MCP.",
                 Done = hasAgent, Target = HomeTarget.ConnectAgent, ActionText = "Kết nối agent",
             });
             return feed;
