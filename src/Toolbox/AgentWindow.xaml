@@ -1,10 +1,37 @@
 <Window x:Class="Toolbox.AgentWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Kết nối agent (MCP)" Width="760" Height="620" MinHeight="420"
+        Title="Kết nối agent (MCP)" Width="1000" Height="680" MinWidth="780" MinHeight="480"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Window.Resources>
-        <!-- Một dòng: tên + đường dẫn, chip trạng thái, nút Kết nối / Huỷ kết nối. -->
+        <!-- Cột trái: một app agent. Chấm xanh khi có agent của app đang gọi tới Toolbox. -->
+        <DataTemplate x:Key="ClientCard">
+            <DockPanel x:Name="Root">
+                <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="9" Margin="0,0,11,0" Background="{DynamicResource AccentSoft}">
+                    <TextBlock Text="{Binding Monogram}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource Accent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Ellipse x:Name="Dot" DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,0,0" VerticalAlignment="Center"
+                         Fill="{DynamicResource Accent}" Visibility="Collapsed" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Status}" FontSize="11.5" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0" />
+                </StackPanel>
+            </DockPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasConnections}" Value="True">
+                    <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLive}" Value="True">
+                    <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Ok}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsInstalled}" Value="False">
+                    <Setter TargetName="Root" Property="Opacity" Value="0.6" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Một phạm vi: tên + đường dẫn + agent đã gọi tới chưa, chip trạng thái, nút Kết nối / Huỷ kết nối. -->
         <DataTemplate x:Key="TargetRow">
             <Grid ToolTip="{Binding ToolTip}">
                 <Grid.ColumnDefinitions>
@@ -14,30 +41,45 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <StackPanel x:Name="PresenceLine" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Ellipse x:Name="LiveDot" Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource InputLine}" />
+                        <TextBlock x:Name="PresenceText" Text="{Binding Presence}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                 </StackPanel>
                 <Border x:Name="Chip" Grid.Column="1" CornerRadius="9" Padding="8,1" Margin="12,0" VerticalAlignment="Center"
                         Background="{DynamicResource Hover}">
                     <TextBlock x:Name="ChipText" Text="{Binding ChipText}" FontSize="11" Foreground="{DynamicResource Muted}" />
                 </Border>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="ConnectButton" Content="Kết nối" Click="OnConnect" MinWidth="104" Style="{StaticResource PrimaryButton}" />
+                    <Button x:Name="ConnectButton" Content="{Binding ConnectText}" Click="OnConnect" MinWidth="110" Style="{StaticResource PrimaryButton}" />
                     <Button x:Name="DisconnectButton" Content="Huỷ kết nối" Click="OnDisconnect" MinWidth="104" Margin="6,0,0,0"
                             Style="{StaticResource DangerButton}" Visibility="Collapsed" />
                 </StackPanel>
             </Grid>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Presence}" Value="{x:Null}">
+                    <Setter TargetName="PresenceLine" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLive}" Value="True">
+                    <Setter TargetName="LiveDot" Property="Fill" Value="{DynamicResource Ok}" />
+                    <Setter TargetName="PresenceText" Property="Foreground" Value="{DynamicResource Ink}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Link}" Value="Connected">
-                    <Setter TargetName="Chip" Property="Background" Value="{DynamicResource AccentSoft}" />
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource Accent}" />
+                    <Setter TargetName="Chip" Property="Background" Value="{DynamicResource OkSoft}" />
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource Ok}" />
                     <Setter TargetName="ConnectButton" Property="Visibility" Value="Collapsed" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Link}" Value="Stale">
                     <Setter TargetName="Chip" Property="Background" Value="{DynamicResource WarnSoft}" />
                     <Setter TargetName="ChipText" Property="Foreground" Value="{DynamicResource WarnInk}" />
-                    <Setter TargetName="ConnectButton" Property="Content" Value="Kết nối lại" />
                     <Setter TargetName="DisconnectButton" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsManual}" Value="True">
+                    <Setter TargetName="ConnectButton" Property="Style" Value="{StaticResource SoftButton}" />
+                    <Setter TargetName="ConnectButton" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="DisconnectButton" Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -48,83 +90,119 @@
                 BorderThickness="0,1,0,0" Padding="20,12">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Đóng" IsCancel="True" MinWidth="90" />
-                <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
-                           Text="Phiên Claude Code đang mở cần mở lại để nhận thay đổi. Claude vẫn hỏi bạn trước mỗi lần chạy tool." />
+                <TextBlock x:Name="FooterHint" Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
             </DockPanel>
         </Border>
 
-        <DockPanel Margin="20,16,20,16">
-            <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource Muted}" LineHeight="19"
-                       Text="Claude Code dùng Toolbox để tìm (list_tools), chạy (run_tool) và đăng ký tool. Kết nối theo workspace: agent chỉ thấy và quản lý tool, lệnh đã gắn vào workspace đó (workspace phải được đăng ký trong Toolbox). Kết nối toàn máy nằm ở mục nâng cao bên dưới." />
+        <!-- Cột trái: chọn app agent. -->
+        <Border DockPanel.Dock="Left" Width="248" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="14,16,14,12">
+                <TextBlock DockPanel.Dock="Top" Text="CHỌN AGENT" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="2,0,0,10" />
+                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="2,10,0,0"
+                           Text="Mọi agent nói MCP đều dùng được Toolbox. App mờ là chưa thấy trên máy, vẫn ghi cấu hình sẵn được." />
+                <ListBox x:Name="ClientList" ItemTemplate="{StaticResource ClientCard}" HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="OnClientChanged"
+                         AutomationProperties.Name="Chọn agent">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="10,8" />
+                            <Setter Property="Margin" Value="0,0,0,4" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+        </Border>
 
-            <Expander x:Name="AdvancedExpander" DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                      Header="Nâng cao: kết nối toàn máy (agent thấy mọi tool, không giới hạn workspace)">
-                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                        CornerRadius="8" Padding="14,10" Margin="0,8,0,0">
-                    <ContentControl x:Name="UserRow" ContentTemplate="{StaticResource TargetRow}" Focusable="False" />
+        <!-- Bên phải: app đang chọn. -->
+        <DockPanel Margin="22,16,22,14">
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <Border DockPanel.Dock="Left" Width="44" Height="44" CornerRadius="11" Margin="0,0,14,0" Background="{DynamicResource AccentSoft}">
+                    <TextBlock x:Name="HeaderMonogram" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource Accent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-            </Expander>
+                <Button x:Name="OpenConfigButton" DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnOpenConfig"
+                        VerticalAlignment="Center" AutomationProperties.Name="Mở thư mục cấu hình">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE838;" Margin="0,0,7,0" />
+                        <TextBlock Text="Mở file cấu hình" />
+                    </StackPanel>
+                </Button>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="HeaderName" FontSize="{StaticResource FontSizeTitle}" FontWeight="SemiBold" Foreground="{DynamicResource Ink}" />
+                    <TextBlock x:Name="HeaderTagline" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border x:Name="NotInstalledBanner" DockPanel.Dock="Top" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnLine}"
+                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,12" Visibility="Collapsed">
+                <TextBlock x:Name="NotInstalledText" Foreground="{DynamicResource WarnInk}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Agent mới: tên và quyền chạy, áp dụng khi tạo agent lần đầu. -->
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                    CornerRadius="10" Padding="14,10" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Tên agent mới" />
+                        <TextBox x:Name="AgentName" AutomationProperties.Name="Tên agent mới" Margin="0,4,0,0" />
+                        <TextBlock x:Name="AgentNameHint" Style="{StaticResource Hint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Khi agent chạy lệnh" />
+                        <ComboBox x:Name="RunMode" SelectedIndex="0" Margin="0,4,0,0" AutomationProperties.Name="Khi agent chạy lệnh">
+                            <ComboBoxItem Content="Tự chạy profile, workflow và tool đã có" />
+                            <ComboBoxItem Content="Hỏi trước mỗi lần chạy" />
+                            <ComboBoxItem Content="Không cho chạy" />
+                        </ComboBox>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"
+                                   Text="Áp dụng khi tạo agent lần đầu; đổi sau ở trang Agent." />
+                    </StackPanel>
+                </Grid>
+            </Border>
 
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Button DockPanel.Dock="Right" Click="OnPickWorkspace" Margin="8,0,0,0" AutomationProperties.Name="Thư mục khác…">
+                <Button DockPanel.Dock="Right" Click="OnPickWorkspace" Margin="8,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Thư mục khác…">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" Margin="0,0,7,0" />
                         <TextBlock Text="Thư mục khác…" />
                     </StackPanel>
                 </Button>
-                <TextBox x:Name="FilterBox" DockPanel.Dock="Right" Width="220" TextChanged="OnFilterChanged" ToolTip="Lọc workspace theo đường dẫn"
+                <TextBox x:Name="FilterBox" DockPanel.Dock="Right" Width="220" VerticalAlignment="Center" TextChanged="OnFilterChanged" ToolTip="Lọc workspace theo tên hoặc đường dẫn"
                          AutomationProperties.Name="Lọc workspace" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Workspace Claude Code" FontWeight="SemiBold" />
-                    <TextBlock x:Name="UserHint" Style="{StaticResource Hint}" Margin="0,2,0,0" Visibility="Collapsed"
-                               Text="Đã kết nối toàn máy: agent quản lý mọi tool, không giới hạn workspace." />
+                    <TextBlock Text="Workspace" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ScopeHint" Style="{StaticResource Hint}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </DockPanel>
 
-            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
-                    CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
-                <StackPanel>
-                    <TextBlock Text="Agent mới khi kết nối" FontWeight="SemiBold" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,8" TextWrapping="Wrap"
-                               Text="Cần CLI claude trên PATH. Tên và quyền chạy áp dụng khi tạo agent lần đầu; đổi sau ở trang Agent." />
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Left" Text="Tên agent" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBox x:Name="AgentName" Text="Claude Code" AutomationProperties.Name="Tên agent" />
-                    </DockPanel>
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="Khi agent chạy" />
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <RadioButton x:Name="RunAuto" GroupName="NewAgentRun" IsChecked="True" Content="Tự chạy profile, workflow và tool đã có" Margin="0,0,18,0" />
-                        <RadioButton x:Name="RunAsk" GroupName="NewAgentRun" Content="Hỏi trước mỗi lần chạy" Margin="0,0,18,0" />
-                        <RadioButton x:Name="RunNone" GroupName="NewAgentRun" Content="Không cho chạy" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <Expander DockPanel.Dock="Bottom" Header="Client khác (Claude Desktop, Cursor, VS Code): khai báo tay" Margin="0,12,0,0">
-                <StackPanel Margin="0,8,0,0">
-                    <TextBlock Text="Claude Desktop / Cursor (mcpServers)" Style="{StaticResource FieldLabel}" />
-                    <DockPanel Margin="0,0,0,10">
-                        <Button DockPanel.Dock="Right" Content="Copy" Click="OnCopy" Tag="{Binding ElementName=DesktopConfig}"
-                                VerticalAlignment="Top" Margin="8,0,0,0" />
-                        <TextBox x:Name="DesktopConfig" IsReadOnly="True" FontFamily="Consolas" TextWrapping="NoWrap"
-                                 HorizontalScrollBarVisibility="Auto" Background="{DynamicResource CodeBg}" />
-                    </DockPanel>
-                    <TextBlock Text="VS Code / GitHub Copilot (.vscode/mcp.json hoặc mcp.json của user)" Style="{StaticResource FieldLabel}" />
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Copy" Click="OnCopy" Tag="{Binding ElementName=VsCodeConfig}"
-                                VerticalAlignment="Top" Margin="8,0,0,0" />
-                        <TextBox x:Name="VsCodeConfig" IsReadOnly="True" FontFamily="Consolas" TextWrapping="NoWrap"
-                                 HorizontalScrollBarVisibility="Auto" Background="{DynamicResource CodeBg}" />
-                    </DockPanel>
-                </StackPanel>
+            <!-- Hai mục phụ ở đáy: toàn máy (nâng cao) và tự khai báo. -->
+            <Expander x:Name="ManualExpander" DockPanel.Dock="Bottom" Margin="0,10,0,0" Header="Tự khai báo (copy cấu hình, không kèm agent)">
+                <DockPanel Margin="0,8,0,0">
+                    <Button DockPanel.Dock="Right" Content="Copy" Click="OnCopySnippet" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <TextBox x:Name="SnippetBox" IsReadOnly="True" FontFamily="Consolas" TextWrapping="NoWrap" MaxHeight="150"
+                             HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource CodeBg}" />
+                </DockPanel>
+            </Expander>
+            <Expander x:Name="AdvancedExpander" DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                      Header="Nâng cao: kết nối toàn máy (agent thấy mọi tool, không giới hạn workspace)">
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                        CornerRadius="10" Padding="16,11" Margin="0,8,0,0">
+                    <ContentControl x:Name="UserRow" ContentTemplate="{StaticResource TargetRow}" Focusable="False" />
+                </Border>
             </Expander>
 
             <Grid>
                 <ListBox x:Name="WorkspaceList" ItemTemplate="{StaticResource TargetRow}" HorizontalContentAlignment="Stretch"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Workspace" />
                 <TextBlock x:Name="EmptyText" Style="{StaticResource Hint}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           TextWrapping="Wrap" TextAlignment="Center" Visibility="Collapsed"
-                           Text="Chưa có workspace nào. Workspace hiện ở đây sau khi bạn mở Claude Code trong thư mục đó, hoặc bấm &quot;Thư mục khác…&quot;." />
+                           TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420" Visibility="Collapsed"
+                           Text="Chưa có workspace nào. Thêm workspace trong Toolbox, hoặc bấm &quot;Thư mục khác…&quot; để chọn thư mục dự án." />
             </Grid>
         </DockPanel>
     </DockPanel>

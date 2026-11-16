@@ -41,6 +41,14 @@ namespace Toolbox.Core
                     return true;
             return false;
         }
+
+        /// <summary>Khai báo chạy một trong các exe này (file còn tồn tại). <paramref name="exes"/> rỗng: không kiểm, coi là đúng.</summary>
+        public bool PointsTo(params string[] exes)
+        {
+            if (exes == null || exes.Length == 0)
+                return true;
+            return Command != null && File.Exists(Command) && exes.Any(e => string.Equals(e, Command, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     /// <summary>Một chỗ Claude Code dùng được MCP: toàn máy (scope user) hoặc một workspace (scope local).</summary>
@@ -60,11 +68,7 @@ namespace Toolbox.Core
             var entry = Entry(server);
             if (entry == null)
                 return AgentLink.NotConnected;
-            if (exes.Length == 0)
-                return AgentLink.Connected;
-            return entry.Command != null && File.Exists(entry.Command) && exes.Any(e => string.Equals(e, entry.Command, StringComparison.OrdinalIgnoreCase))
-                ? AgentLink.Connected
-                : AgentLink.Stale;
+            return entry.PointsTo(exes) ? AgentLink.Connected : AgentLink.Stale;
         }
     }
 

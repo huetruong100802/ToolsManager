@@ -661,7 +661,7 @@ namespace Toolbox
             yield return Act("go-tasks", "Mở Tác vụ", "đang chạy log");
             yield return Act("go-agents", "Mở Agent", "duyệt đề xuất");
             yield return Act("add-workspace", "Thêm workspace", "thư mục repo");
-            yield return Act("connect-agent", "Kết nối agent…", "claude cursor mcp");
+            yield return Act("connect-agent", "Kết nối agent…", "claude cursor vscode copilot codex gemini windsurf mcp");
             yield return Act("theme", "Đổi giao diện sáng/tối", "dark light theme");
         }
 

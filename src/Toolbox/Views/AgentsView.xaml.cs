@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Toolbox.Core;
+using Toolbox.Core.AgentClients;
 using Toolbox.Core.Agents;
 using Toolbox.Core.Workspaces;
 
@@ -99,7 +100,7 @@ namespace Toolbox.Views
             var agents = AgentStore.Load(AgentStore.DefaultPath).Agents;
             if (agents.Count == 0)
             {
-                Body.Children.Add(Hint("Chưa có agent nào. Bấm \"Kết nối agent…\" để cho Claude Code hoặc agent khác dùng Toolbox qua MCP."));
+                Body.Children.Add(Hint("Chưa có agent nào. Bấm \"Kết nối agent…\" để cho Claude Code, Cursor, VS Code, Codex hay agent MCP bất kỳ dùng Toolbox."));
                 return;
             }
 
@@ -154,7 +155,8 @@ namespace Toolbox.Views
             title.Children.Add(Pill(ScopeText(agent), "AccentSoft", "Accent"));
             text.Children.Add(title);
             text.Children.Add(Text(
-                (connected ? "Đang kết nối" : "Không kết nối") + " · " + (string.IsNullOrEmpty(agent.LastSeenAt) ? "chưa hoạt động" : "hoạt động " + Ago(agent.LastSeenAt))
+                AgentClientCatalog.DisplayName(agent.Client, agent.ClientName) + " · "
+                + (connected ? "Đang kết nối" : "Không kết nối") + " · " + (string.IsNullOrEmpty(agent.LastSeenAt) ? "chưa hoạt động" : "hoạt động " + Ago(agent.LastSeenAt))
                 + " · " + RunModeText(agent.RunMode), size: 12, brush: "Muted"));
             dock.Children.Add(text);
 

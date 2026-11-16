@@ -156,6 +156,7 @@ namespace Toolbox.Mcp
         {
             // Chỉ dùng phần "tools" ổn định giữa các phiên bản giao thức nên nhận version client đề nghị.
             var version = parameters != null && parameters.TryGetValue("protocolVersion", out var v) && v is string s ? s : DefaultProtocolVersion;
+            NoteClient(parameters);
             return new Dictionary<string, object>
             {
                 ["protocolVersion"] = version,
