@@ -20,6 +20,17 @@ namespace Toolbox.Core
         [DataMember(Name = "installBannerDismissed", EmitDefaultValue = false)]
         public bool InstallBannerDismissed { get; set; }
 
+        /// <summary>Thứ tự dòng trong Thư viện: trống (theo tên), "recent" hoặc "pinned".</summary>
+        [DataMember(Name = "librarySort", EmitDefaultValue = false)]
+        public string LibrarySort { get; set; }
+
+        /// <summary>Vị trí và kích thước cửa sổ lần trước, dạng "trái,trên,rộng,cao"; trống thì mở giữa màn hình.</summary>
+        [DataMember(Name = "windowBounds", EmitDefaultValue = false)]
+        public string WindowBounds { get; set; }
+
+        [DataMember(Name = "windowMaximized", EmitDefaultValue = false)]
+        public bool WindowMaximized { get; set; }
+
         [DataMember(Name = "theme", EmitDefaultValue = false)]
         public string Theme { get; set; }
 

@@ -135,6 +135,9 @@ namespace Toolbox.Core
         /// </summary>
         public bool Sync()
         {
+            // File không đổi (trường hợp thường gặp) thì khỏi phân tích lại cả danh sách.
+            if (File.Exists(FilePath) && HashFile(FilePath) == _diskHash)
+                return false;
             var fresh = Peek(FilePath);
             return fresh._diskHash != _diskHash && MergeFrom(fresh);
         }

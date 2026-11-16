@@ -199,6 +199,8 @@ namespace Toolbox.Mcp
                 {
                     ["query"] = Property("string", "Từ khoá tìm trong id/tên/mô tả/tag (không phân biệt dấu). Bỏ trống để lấy tất cả."),
                     ["tag"] = Property("string", "Chỉ lấy tool có tag này."),
+                    ["limit"] = Property("integer", $"Số tool tối đa một lần. Mặc định {DefaultListLimit}, tối đa {MaxListLimit}. Nhiều hơn thì kết quả có total và nextOffset."),
+                    ["offset"] = Property("integer", "Bỏ qua bao nhiêu tool đầu, để đọc trang tiếp (lấy từ nextOffset)."),
                 }),
             },
             new Dictionary<string, object>
@@ -467,11 +469,20 @@ namespace Toolbox.Mcp
             return _json.Serialize(view);
         }
 
+        /// <summary>Số tool tối đa list_tools trả về một lần khi agent không nêu limit: đủ cho thư viện thường gặp, không nuốt hết ngữ cảnh của agent khi thư viện lớn.</summary>
+        internal const int DefaultListLimit = 100;
+        internal const int MaxListLimit = 500;
+
         private object ListTools(ToolStore store, Dictionary<string, object> arguments, Workspace workspace)
         {
             var tag = GetString(arguments, "tag");
-            var tools = store.Search(GetString(arguments, "query"), tag == null ? null : new[] { tag })
+            var limit = Math.Max(1, Math.Min(MaxListLimit, IntArg(arguments, "limit", DefaultListLimit)));
+            var offset = Math.Max(0, IntArg(arguments, "offset", 0));
+            var matches = store.Search(GetString(arguments, "query"), tag == null ? null : new[] { tag })
                 .Where(t => workspace == null || workspace.Binding(t.Id) != null)
+                .ToList();
+            // Chỉ kiểm file của trang được trả về, không đọc đĩa cho cả thư viện.
+            var tools = matches.Skip(offset).Take(limit)
                 .Select(t => new Dictionary<string, object>
                 {
                     ["id"] = t.Id,
@@ -485,11 +496,20 @@ namespace Toolbox.Mcp
                 })
                 .ToList();
 
-            if (tools.Count == 0 && workspace != null)
+            if (matches.Count == 0 && workspace != null)
                 return ToolResult($"Workspace \"{workspace.Name}\" chưa có tool nào khớp.", isError: false);
-            return tools.Count == 0
-                ? ToolResult($"Không có tool nào khớp (tổng {store.Tools.Count} tool đã đăng ký).", isError: false)
-                : ToolResult(_json.Serialize(tools), isError: false);
+            if (matches.Count == 0)
+                return ToolResult($"Không có tool nào khớp (tổng {store.Tools.Count} tool đã đăng ký).", isError: false);
+            // Vừa một trang thì trả mảng như trước; nhiều hơn thì kèm tổng số và chỗ đọc tiếp để agent biết còn thiếu.
+            if (offset == 0 && matches.Count <= limit)
+                return ToolResult(_json.Serialize(tools), isError: false);
+            var page = new Dictionary<string, object> { ["total"] = matches.Count, ["offset"] = offset, ["tools"] = tools };
+            if (offset + tools.Count < matches.Count)
+            {
+                page["nextOffset"] = offset + tools.Count;
+                page["hint"] = "Còn tool chưa liệt kê. Thu hẹp bằng query hoặc tag, hoặc gọi lại với offset = nextOffset.";
+            }
+            return ToolResult(_json.Serialize(page), isError: false);
         }
 
         private object RunTool(ToolStore store, Dictionary<string, object> arguments, Workspace workspace)

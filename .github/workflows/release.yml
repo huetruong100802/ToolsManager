@@ -24,7 +24,14 @@ jobs:
         run: dotnet test tests/Toolbox.Tests/Toolbox.Tests.csproj -c Release
 
       - name: Build
-        run: dotnet build src/Toolbox/Toolbox.csproj -c Release
+        shell: pwsh
+        # Bản phát hành lấy số phiên bản từ tag (v1.2.3 -> 1.2.3); số này hiện trong app và trong "Installed apps".
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            dotnet build src/Toolbox/Toolbox.csproj -c Release "-p:Version=$($env:GITHUB_REF_NAME.TrimStart('v'))"
+          } else {
+            dotnet build src/Toolbox/Toolbox.csproj -c Release
+          }
 
       - name: Checksum
         shell: pwsh

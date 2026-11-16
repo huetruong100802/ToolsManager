@@ -20,26 +20,37 @@ namespace Toolbox.Views
 {
     public partial class LibraryView : UserControl
     {
-        private readonly ObservableCollection<ToolItem> _items = new ObservableCollection<ToolItem>();
+        /// <summary>Mọi tool của thư viện, theo thứ tự trong kho.</summary>
+        private List<ToolItem> _all = new List<ToolItem>();
+
+        /// <summary>Các dòng đang hiện sau khi lọc và sắp xếp.</summary>
+        private readonly BulkCollection<ToolItem> _shown = new BulkCollection<ToolItem>();
         private readonly ObservableCollection<TagOption> _tagOptions = new ObservableCollection<TagOption>();
         private readonly ObservableCollection<TagOption> _activeTags = new ObservableCollection<TagOption>();
         private readonly HashSet<string> _selectedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly ICollectionView _view;
         private bool _hooked;
         private readonly Installer _installer = new Installer();
         private readonly RunTracker _runs = new RunTracker();
         private readonly DispatcherTimer _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+
+        /// <summary>Gõ liên tục thì chỉ lọc một lần sau khi ngừng gõ một nhịp, để ô tìm không giật khi thư viện lớn.</summary>
+        private readonly DispatcherTimer _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(110) };
         private ToolStore _store;
-        private HashSet<ToolEntry> _matches;
+        private int _checkedCount;
+        private bool _bulkCheck;
+        private bool _onlyProblems;
+        private LibrarySort _sort = LibrarySort.Name;
+        private int _probeVersion;
+        private DateTime _probedAt = DateTime.MinValue;
+        private HashSet<string> _missingPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public LibraryView()
         {
             InitializeComponent();
-            _view = CollectionViewSource.GetDefaultView(_items);
-            _view.Filter = o => _matches == null || _matches.Contains(((ToolItem)o).Tool);
-            ToolList.ItemsSource = _view;
+            ToolList.ItemsSource = _shown;
             TagChips.ItemsSource = _tagOptions;
             ActiveTags.ItemsSource = _activeTags;
+            SortBox.ItemsSource = SortOption.All;
             Loaded += OnLoaded;
             EmptyHint.AddAction("App đã cài…", () => OnPickApp(null, null));
             EmptyHint.AddAction("Thêm tool", () => OnAdd(null, null));
@@ -47,8 +58,15 @@ namespace Toolbox.Views
             _runs.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshRuns));
             _clock.Tick += (s, e) =>
             {
-                foreach (var item in _items)
+                foreach (var item in _all)
                     item.Tick();
+            };
+            _searchDelay.Tick += (s, e) =>
+            {
+                _searchDelay.Stop();
+                ApplyFilter();
+                if (_shown.Count > 0)
+                    ToolList.ScrollIntoView(_shown[0]);
             };
         }
 
@@ -58,15 +76,42 @@ namespace Toolbox.Views
         /// <summary>Tool trong thư viện (cho chỉ mục tìm toàn app). Rỗng nếu chưa nạp được.</summary>
         public IReadOnlyList<ToolEntry> Tools => _store?.Tools ?? (IReadOnlyList<ToolEntry>)new List<ToolEntry>();
 
+        /// <summary>Kết quả kiểm file vừa đổi (tool mất đường dẫn, app vừa cài xong): Trang chủ dựng lại danh sách việc cần làm.</summary>
+        public event Action StatusChanged;
+
+        /// <summary>
+        /// Đường dẫn này đã được kiểm ở nền và không còn. Chưa kiểm thì trả về false, để Trang chủ không phải tự đọc đĩa cho cả thư viện
+        /// trên luồng giao diện.
+        /// </summary>
+        public bool IsKnownMissing(string resolvedPath) => _missingPaths.Contains(resolvedPath ?? "");
+
+        /// <summary>Số dòng đang hiện sau khi lọc (để test).</summary>
+        public int ShownCount => _shown.Count;
+
         /// <summary>Bảng lệnh mở một tool: lọc danh sách về đúng tool đó và đưa con trỏ tới đó.</summary>
         public void FocusTool(string toolId)
         {
-            var item = _items.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            var item = _all.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
             if (item == null)
                 return;
+            _onlyProblems = false;
+            _selectedTags.Clear();
+            foreach (var option in _tagOptions)
+                option.IsSelected = false;
             SearchBox.Text = item.Tool.Name;
+            _searchDelay.Stop();
+            ApplyFilter();
             ToolList.SelectedItem = item;
             ToolList.ScrollIntoView(item);
+        }
+
+        /// <summary>Trang chủ bấm "Xem trong Thư viện" ở dòng gom các tool mất đường dẫn: chỉ hiện các tool đó.</summary>
+        public void ShowProblems()
+        {
+            SearchBox.Text = "";
+            _onlyProblems = true;
+            _searchDelay.Stop();
+            ApplyFilter();
         }
 
         /// <summary>Cửa sổ chủ, dùng làm owner cho hộp thoại.</summary>
@@ -74,6 +119,8 @@ namespace Toolbox.Views
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            if (_store != null)
+                return; // Loaded bắn lại mỗi lần trang được gắn lại vào cây giao diện; chỉ nạp kho một lần
             if (!_hooked)
             {
                 _hooked = true;
@@ -83,6 +130,9 @@ namespace Toolbox.Views
                 host.Closed += (s, a) => _clock.Stop();
             }
 
+            var settings = Settings.Load();
+            _sort = SortOption.Parse(settings.LibrarySort);
+            SortBox.SelectedItem = SortOption.All.First(o => o.Sort == _sort);
             try
             {
                 _store = ToolStore.Load(ToolStore.DefaultPath);
@@ -96,9 +146,9 @@ namespace Toolbox.Views
             }
 
             Reload();
-            InstallBanner.Visibility = Settings.Load().InstallBannerDismissed || _installer.IsInstalledCopy(CurrentExe)
+            InstallBanner.Visibility = settings.InstallBannerDismissed || _installer.IsInstalledCopy(CurrentExe)
                 ? Visibility.Collapsed : Visibility.Visible;
-            if (FileToOpen != null)
+            if (!string.IsNullOrWhiteSpace(FileToOpen))
                 ImportPackage(FileToOpen);
         }
 
@@ -135,22 +185,40 @@ namespace Toolbox.Views
 
         // ---------- Danh sách ----------
 
+        /// <summary>
+        /// Đưa danh sách trong kho lên màn hình. Dòng của tool đã có được dùng lại (giữ tick, trạng thái chạy, icon, kết quả kiểm file),
+        /// nên thêm, sửa hay ghim một tool không phải dựng lại cả nghìn dòng.
+        /// </summary>
         private void Reload()
         {
-            // Giữ các tool đang được tick qua lần nạp lại (vd. agent vừa đổi tools.json khi người dùng đang chọn).
-            var checkedIds = new HashSet<string>(_items.Where(i => i.IsChecked).Select(i => i.Tool.Id), StringComparer.OrdinalIgnoreCase);
-            foreach (var item in _items)
-                item.PropertyChanged -= OnItemChanged;
-            _items.Clear();
-            foreach (var tool in _store.Tools.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase))
-            {
-                AddItem(tool);
-                if (checkedIds.Contains(tool.Id))
-                    _items[_items.Count - 1].IsChecked = true;
-            }
+            var old = new Dictionary<string, ToolItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in _all)
+                old[item.Tool.Id ?? ""] = item;
 
+            var next = new List<ToolItem>(_store.Tools.Count);
+            foreach (var tool in _store.Tools)
+            {
+                if (old.TryGetValue(tool.Id ?? "", out var item))
+                {
+                    old.Remove(tool.Id ?? "");
+                    item.Rebind(tool);
+                }
+                else
+                {
+                    item = new ToolItem(tool);
+                    item.ApplyRun(_runs.Current(tool.Id), _runs.Last(tool.Id));
+                    item.PropertyChanged += OnItemChanged;
+                }
+                next.Add(item);
+            }
+            foreach (var gone in old.Values)
+                gone.PropertyChanged -= OnItemChanged;
+
+            _all = next;
+            _checkedCount = _all.Count(i => i.IsChecked);
             BuildTagChips();
             ApplyFilter();
+            StartProbe();
         }
 
         /// <summary>Nạp thay đổi của agent (tools.json đổi ở ngoài) vào danh sách; giữ ô tìm, tag và các tool đang tick.</summary>
@@ -172,25 +240,98 @@ namespace Toolbox.Views
             return false;
         }
 
+        // ---------- Kiểm file ở nền ----------
+
+        /// <summary>
+        /// Kiểm từng tool còn file không ở luồng nền rồi đẩy kết quả lên các dòng. Luồng giao diện không bao giờ chờ đĩa,
+        /// kể cả khi thư viện có cả nghìn tool hoặc có tool nằm trên ổ mạng đang rớt.
+        /// </summary>
+        private async void StartProbe()
+        {
+            var version = ++_probeVersion;
+            _probedAt = DateTime.UtcNow;
+            var items = _all.ToArray();
+            if (items.Length == 0)
+            {
+                ApplyProbe(items, new (bool, bool)[0]);
+                return;
+            }
+
+            (bool Exists, bool CanInstall)[] states;
+            try
+            {
+                states = await Task.Run(() =>
+                {
+                    var result = new (bool, bool)[items.Length];
+                    Parallel.For(0, items.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i => result[i] = ToolItem.Probe(items[i].Tool));
+                    return result;
+                });
+            }
+            catch (Exception)
+            {
+                return; // kiểm không xong thì giữ trạng thái đang hiện, lần kích hoạt cửa sổ sau sẽ kiểm lại
+            }
+            // Danh sách đã nạp lại trong lúc kiểm: lượt kiểm mới hơn sẽ đẩy kết quả.
+            if (version == _probeVersion)
+                ApplyProbe(items, states);
+        }
+
+        private void ApplyProbe(ToolItem[] items, (bool Exists, bool CanInstall)[] states)
+        {
+            var changed = false;
+            var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < items.Length; i++)
+            {
+                changed |= items[i].ApplyProbe(states[i].Exists, states[i].CanInstall);
+                if (!states[i].Exists)
+                    missing.Add(items[i].Tool.ResolvedPath);
+            }
+            var missingChanged = !missing.SetEquals(_missingPaths);
+            _missingPaths = missing;
+            // Chỉ vẽ lại footer khi có thay đổi, để không xoá thông báo trạng thái mỗi lần cửa sổ được kích hoạt.
+            if (changed)
+            {
+                if (_onlyProblems)
+                    ApplyFilter();
+                else
+                    UpdateFooter();
+            }
+            if (changed || missingChanged)
+                StatusChanged?.Invoke();
+        }
+
+        /// <summary>Kiểm lại file khi quay lại cửa sổ; không kiểm dồn nếu vừa kiểm xong.</summary>
+        private void RefreshStatus()
+        {
+            if (_store != null && DateTime.UtcNow - _probedAt > TimeSpan.FromSeconds(2))
+                StartProbe();
+        }
+
+        // ---------- Tag ----------
+
         /// <summary>Dựng lại chip tag từ kho, kèm số tool mỗi tag; giữ các tag đang chọn nếu vẫn còn tồn tại.</summary>
         private void BuildTagChips()
         {
-            foreach (var option in _tagOptions)
-                option.PropertyChanged -= OnTagChanged;
-            _tagOptions.Clear();
+            var counts = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var tool in _store.Tools)
+                foreach (var tag in tool.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+                    counts[tag] = counts.TryGetValue(tag, out var n) ? n + 1 : 1;
 
-            var counts = _store.Tools
-                .SelectMany(t => t.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
-                .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-            foreach (var name in _store.AllTags())
+            // Tag và số đếm không đổi (trường hợp thường gặp: ghim, sửa mô tả) thì giữ nguyên chip, khỏi dựng lại.
+            if (!counts.Select(p => p.Key + "\n" + p.Value).SequenceEqual(_tagOptions.Select(o => o.Name + "\n" + o.Count)))
             {
-                var option = new TagOption(name, counts[name]) { IsSelected = _selectedTags.Contains(name) };
-                option.PropertyChanged += OnTagChanged;
-                _tagOptions.Add(option);
+                foreach (var option in _tagOptions)
+                    option.PropertyChanged -= OnTagChanged;
+                _tagOptions.Clear();
+                foreach (var pair in counts)
+                {
+                    var option = new TagOption(pair.Key, pair.Value) { IsSelected = _selectedTags.Contains(pair.Key) };
+                    option.PropertyChanged += OnTagChanged;
+                    _tagOptions.Add(option);
+                }
+                _selectedTags.IntersectWith(_tagOptions.Where(o => o.IsSelected).Select(o => o.Name));
             }
 
-            _selectedTags.IntersectWith(_tagOptions.Where(o => o.IsSelected).Select(o => o.Name));
             TagToggle.Visibility = _tagOptions.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
             if (_tagOptions.Count == 0)
                 TagToggle.IsChecked = false;
@@ -202,18 +343,24 @@ namespace Toolbox.Views
         private void OnActiveTagRemoved(object sender, RoutedEventArgs e) =>
             ((TagOption)((FrameworkElement)sender).DataContext).IsSelected = false;
 
-        /// <summary>Cập nhật phần tóm tắt tag đang lọc: badge trên nút Tag, dãy pill và nút Bỏ hết.</summary>
+        /// <summary>Cập nhật phần tóm tắt bộ lọc đang bật: badge trên nút Tag, dãy pill và nút Bỏ hết.</summary>
         private void UpdateTagSummary()
         {
             var selected = _tagOptions.Where(o => o.IsSelected).ToList();
-            _activeTags.Clear();
-            foreach (var option in selected)
-                _activeTags.Add(option);
+            if (!selected.SequenceEqual(_activeTags))
+            {
+                _activeTags.Clear();
+                foreach (var option in selected)
+                    _activeTags.Add(option);
+            }
 
             TagBadgeText.Text = selected.Count.ToString();
             TagBadge.Visibility = selected.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            ActiveTagsRow.Visibility = selected.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ProblemPill.Visibility = _onlyProblems ? Visibility.Visible : Visibility.Collapsed;
+            ActiveTagsRow.Visibility = selected.Count > 0 || _onlyProblems ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        private bool _clearingTags;
 
         private void OnTagChanged(object sender, PropertyChangedEventArgs e)
         {
@@ -224,27 +371,56 @@ namespace Toolbox.Views
                 _selectedTags.Add(option.Name);
             else
                 _selectedTags.Remove(option.Name);
-            ApplyFilter();
+            if (!_clearingTags)
+                ApplyFilter();
         }
 
         private void OnClearTags(object sender, RoutedEventArgs e)
         {
+            _clearingTags = true;
             _selectedTags.Clear();
             foreach (var option in _tagOptions)
                 option.IsSelected = false;
+            _clearingTags = false;
+            _onlyProblems = false;
             ApplyFilter();
         }
 
         private void OnClearFilters(object sender, RoutedEventArgs e)
         {
             SearchBox.Clear();
+            _searchDelay.Stop();
             OnClearTags(sender, e);
             SearchBox.Focus();
         }
 
+        private void OnProblemPillClick(object sender, RoutedEventArgs e)
+        {
+            _onlyProblems = false;
+            ApplyFilter();
+        }
+
+        /// <summary>Bấm dòng "n tool không tìm thấy file" ở chân trang: bật hoặc tắt lọc chỉ các tool đó.</summary>
+        private void OnToggleProblems(object sender, RoutedEventArgs e)
+        {
+            _onlyProblems = !_onlyProblems;
+            ApplyFilter();
+        }
+
+        private void OnSortChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!(SortBox.SelectedItem is SortOption option) || option.Sort == _sort)
+                return;
+            _sort = option.Sort;
+            Settings.Update(s => s.LibrarySort = SortOption.Name(_sort));
+            ApplyFilter();
+            if (_shown.Count > 0)
+                ToolList.ScrollIntoView(_shown[0]);
+        }
+
         /// <summary>
         /// Phím tắt: Ctrl+F nhảy vào ô tìm (Ctrl+K là bảng lệnh toàn app, xử lý ở cửa sổ chính); Esc trong ô tìm xoá chữ; Enter trên dòng đang chọn thì chạy
-        /// (tương đương double-click, để dùng được hoàn toàn bằng bàn phím).
+        /// (tương đương double-click, để dùng được hoàn toàn bằng bàn phím). Mũi tên xuống trong ô tìm đưa con trỏ vào danh sách.
         /// </summary>
         private void OnWindowKeyDown(object sender, KeyEventArgs e)
         {
@@ -260,6 +436,28 @@ namespace Toolbox.Views
                 SearchBox.Clear();
                 e.Handled = true;
             }
+            else if (e.Key == Key.Down && SearchBox.IsKeyboardFocused && _shown.Count > 0)
+            {
+                FlushSearch();
+                if (_shown.Count == 0)
+                    return;
+                if (ToolList.SelectedItem == null)
+                    ToolList.SelectedItem = _shown[0];
+                ToolList.UpdateLayout();
+                ToolList.ScrollIntoView(ToolList.SelectedItem);
+                (ToolList.ItemContainerGenerator.ContainerFromItem(ToolList.SelectedItem) as ListBoxItem)?.Focus();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && SearchBox.IsKeyboardFocused)
+            {
+                // Enter trong ô tìm: chạy luôn nếu chỉ còn đúng một kết quả, không thì chọn dòng đầu.
+                FlushSearch();
+                if (_shown.Count == 1 && !_shown[0].CanInstall)
+                    Run(_shown[0]);
+                else if (_shown.Count > 0)
+                    ToolList.SelectedItem = _shown[0];
+                e.Handled = true;
+            }
             else if (e.Key == Key.Enter && e.OriginalSource is System.Windows.Controls.ListBoxItem
                      && ToolList.SelectedItem is ToolItem item && !item.CanInstall)
             {
@@ -268,69 +466,85 @@ namespace Toolbox.Views
             }
         }
 
-        private void AddItem(ToolEntry tool)
+        /// <summary>Áp ngay bộ lọc đang chờ (người dùng gõ xong rồi bấm phím hành động trước khi hết nhịp chờ).</summary>
+        private void FlushSearch()
         {
-            var item = new ToolItem(tool);
-            item.ApplyRun(_runs.Current(tool.Id), _runs.Last(tool.Id)); // Reload không làm mất trạng thái đang chạy
-            item.PropertyChanged += OnItemChanged;
-            _items.Add(item);
+            if (!_searchDelay.IsEnabled)
+                return;
+            _searchDelay.Stop();
+            ApplyFilter();
         }
 
-        private void OnFilterChanged(object sender, EventArgs e) => ApplyFilter();
+        private void OnFilterChanged(object sender, EventArgs e)
+        {
+            _searchDelay.Stop();
+            _searchDelay.Start();
+        }
 
         private void ApplyFilter()
         {
             if (_store == null)
                 return;
-            _matches = new HashSet<ToolEntry>(_store.Search(SearchBox.Text, _selectedTags));
+            var terms = Core.Text.Fold(SearchBox.Text).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var tags = new HashSet<string>(_selectedTags.Select(Core.Text.Fold));
+            var matches = _all.Where(i => i.Matches(terms, tags) && (!_onlyProblems || i.HasProblem));
+            _shown.ResetTo(Sorted(matches).ToList());
             UpdateTagSummary();
-            _view.Refresh();
             UpdateFooter();
+        }
+
+        private IEnumerable<ToolItem> Sorted(IEnumerable<ToolItem> items)
+        {
+            var byName = StringComparer.CurrentCultureIgnoreCase;
+            switch (_sort)
+            {
+                case LibrarySort.Recent:
+                    return items.OrderByDescending(i => i.LastUsed ?? DateTime.MinValue).ThenBy(i => i.Tool.Name, byName);
+                case LibrarySort.Pinned:
+                    return items.OrderByDescending(i => i.Tool.Pinned).ThenBy(i => i.Tool.Name, byName);
+                default:
+                    return items.OrderBy(i => i.Tool.Name, byName);
+            }
         }
 
         private void OnItemChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(ToolItem.IsChecked))
+            if (e.PropertyName != nameof(ToolItem.IsChecked))
+                return;
+            _checkedCount += ((ToolItem)sender).IsChecked ? 1 : -1;
+            if (!_bulkCheck)
                 UpdateFooter();
         }
 
         private void UpdateFooter()
         {
-            var checkedCount = CheckedItems().Count;
-            PackButton.Content = checkedCount > 0 ? $"Chia sẻ ({checkedCount})" : "Chia sẻ";
-            PackButton.IsEnabled = checkedCount > 0;
-            RemoveButton.IsEnabled = checkedCount > 0;
-            var visible = _view.Cast<ToolItem>().ToList();
-            SelectAll.IsChecked = visible.Count > 0 && visible.All(i => i.IsChecked);
-            EmptyHint.Visibility = _items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            NoResultsHint.Visibility = _items.Count > 0 && visible.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            PackButton.Content = _checkedCount > 0 ? $"Chia sẻ ({_checkedCount})" : "Chia sẻ";
+            PackButton.IsEnabled = _checkedCount > 0;
+            RemoveButton.IsEnabled = _checkedCount > 0;
+            SelectAll.IsChecked = _shown.Count > 0 && _shown.All(i => i.IsChecked);
+            EmptyHint.Visibility = _all.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoResultsHint.Visibility = _all.Count > 0 && _shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-            var toInstall = _items.Count(i => i.Tool.CanInstall);
-            var missing = _items.Count(i => !i.Tool.PathExists) - toInstall;
-            StatusText.Text = $"{_items.Count} tool" + (missing > 0 ? $" · {missing} tool không tìm thấy file" : "")
+            var toInstall = _all.Count(i => i.CanInstall);
+            var missing = _all.Count(i => i.HasProblem) - toInstall;
+            StatusText.Text = (_shown.Count == _all.Count ? $"{_all.Count} tool" : $"Hiện {_shown.Count}/{_all.Count} tool")
                 + (toInstall > 0 ? $" · {toInstall} app chưa cài" : "")
-                + (checkedCount > 0 ? $" · đã chọn {checkedCount}" : "");
+                + (_checkedCount > 0 ? $" · đã chọn {_checkedCount}" : "");
+            ProblemsButton.Visibility = missing > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ProblemsText.Text = $"{missing} tool không tìm thấy file";
+            ProblemsButton.ToolTip = _onlyProblems ? "Đang chỉ hiện các tool này. Bấm để hiện lại tất cả." : "Bấm để chỉ hiện các tool này";
         }
 
-        private void RefreshStatus()
-        {
-            if (_store == null)
-                return;
-            var changed = false;
-            foreach (var item in _items)
-                changed |= item.Refresh();
-            // Chỉ vẽ lại footer khi có thay đổi, để không xoá thông báo trạng thái mỗi lần cửa sổ được kích hoạt.
-            if (changed)
-                UpdateFooter();
-        }
-
-        private List<ToolItem> CheckedItems() => _items.Where(i => i.IsChecked).ToList();
+        private List<ToolItem> CheckedItems() => _all.Where(i => i.IsChecked).ToList();
 
         private void OnSelectAll(object sender, RoutedEventArgs e)
         {
             var value = SelectAll.IsChecked == true;
-            foreach (ToolItem item in _view)
+            _bulkCheck = true;
+            foreach (var item in _shown)
                 item.IsChecked = value;
+            _bulkCheck = false;
+            UpdateFooter();
         }
 
         private bool Save()
@@ -393,7 +607,7 @@ namespace Toolbox.Views
         /// <summary>Chạy một tool theo id (nút "Mở" của tool ghim ở Trang chủ). False nếu không thấy tool.</summary>
         public bool RunTool(string toolId)
         {
-            var item = _items.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            var item = _all.FirstOrDefault(i => string.Equals(i.Tool.Id, toolId, StringComparison.OrdinalIgnoreCase));
             if (item == null)
                 return false;
             Run(item);
@@ -494,10 +708,10 @@ namespace Toolbox.Views
         /// Xoá tool đã tick. Xoá khỏi danh sách là thao tác đảo được nên làm ngay rồi hiện thông báo có nút Hoàn tác (8 giây);
         /// chỉ hỏi trước khi phải xoá cả bản chép trong thư viện Toolbox (không khôi phục được).
         /// </summary>
-        private void OnRemove(object sender, RoutedEventArgs e)
+        private void OnRemove(object sender, RoutedEventArgs e) => RemoveTools(CheckedItems().Select(i => i.Tool).ToList());
+
+        private void RemoveTools(List<ToolEntry> tools)
         {
-            var items = CheckedItems();
-            var tools = items.Select(i => i.Tool).ToList();
             if (tools.Count == 0)
                 return;
 
@@ -628,6 +842,7 @@ namespace Toolbox.Views
             {
                 _runs.Start(item.Tool);
                 UsageStore.Shared.Record(UsageStore.Key("tool", item.Tool.Id));
+                item.RefreshUsage();
                 StatusText.Text = $"Đã mở \"{item.Tool.Name}\".";
             }
             catch (Exception ex) when (ex is FileNotFoundException || ex is System.ComponentModel.Win32Exception)
@@ -646,7 +861,7 @@ namespace Toolbox.Views
         /// <summary>Đẩy trạng thái chạy từ RunTracker xuống từng dòng và cập nhật số tool đang chạy ở chân cửa sổ.</summary>
         private void RefreshRuns()
         {
-            foreach (var item in _items)
+            foreach (var item in _all)
                 item.ApplyRun(_runs.Current(item.Tool.Id), _runs.Last(item.Tool.Id));
 
             var running = _runs.RunningCount;
@@ -682,13 +897,54 @@ namespace Toolbox.Views
                 using (process)
                     await Task.Run(() => process.WaitForExit());
 
-            RefreshStatus();
+            StartProbe();
             StatusText.Text = tool.PathExists
                 ? $"Đã cài xong \"{tool.Name}\"."
                 : $"Chưa thấy \"{tool.Name}\" ở {tool.ResolvedPath}. Nếu đã cài vào chỗ khác, bấm Sửa để chỉnh đường dẫn.";
         }
 
         private const int ErrorCancelled = 1223;
+
+        /// <summary>Tool mất file (đã di chuyển, đổi tên): chọn lại file hoặc thư mục, giữ nguyên mọi thông tin khác của tool.</summary>
+        private void OnRelocate(object sender, RoutedEventArgs e)
+        {
+            var tool = ItemOf(sender).Tool;
+            var old = tool.ResolvedPath;
+            var dialog = new OpenFileDialog
+            {
+                Title = $"Chọn lại file của \"{tool.Name}\"",
+                FileName = Path.GetFileName(old),
+                CheckFileExists = true,
+            };
+            // Mở sẵn thư mục gần nhất còn tồn tại quanh đường dẫn cũ, thường file chỉ bị dời đi một hai cấp.
+            for (var dir = Path.GetDirectoryName(old); !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+                if (Directory.Exists(dir))
+                {
+                    dialog.InitialDirectory = dir;
+                    break;
+                }
+            if (dialog.ShowDialog(Host) != true)
+                return;
+
+            var copy = tool.Clone();
+            copy.Path = dialog.FileName;
+            copy.Store = StoreMode.Link; // đường dẫn mới do người dùng chỉ, không còn là bản chép trong thư viện
+            try
+            {
+                _store.Update(copy);
+            }
+            catch (KeyNotFoundException)
+            {
+                Dialogs.Error(Host, $"Tool \"{copy.Name}\" vừa bị xoá khỏi danh sách ở nơi khác.");
+                Reload();
+                return;
+            }
+            if (Save())
+            {
+                Reload();
+                Dialogs.Success($"Đã trỏ \"{copy.Name}\" tới {copy.Path}.");
+            }
+        }
 
         private void OnOpenFolder(object sender, RoutedEventArgs e)
         {
@@ -702,25 +958,88 @@ namespace Toolbox.Views
             }
         }
 
-        /// <summary>Menu "…" của một dòng tool: hành động phụ (mở thư mục, sửa, gắn vào workspace) nằm đây để dòng chỉ còn một nút chính.</summary>
+        /// <summary>Menu "…" của một dòng tool: hành động phụ nằm đây để dòng chỉ còn một nút chính. Chuột phải vào dòng mở cùng menu này.</summary>
         private void OnRowMenu(object sender, RoutedEventArgs e)
         {
-            var anchor = (FrameworkElement)sender;
-            var item = ItemOf(sender);
-            var menu = new ContextMenu();
-            menu.Items.Add(RowMenuEntry("Gắn vào workspace…", OnBind, item));
-            menu.Items.Add(RowMenuEntry("Mở thư mục", OnOpenFolder, item));
-            menu.Items.Add(RowMenuEntry("Sửa…", OnEdit, item));
-            menu.PlacementTarget = anchor;
-            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            var menu = BuildRowMenu(ItemOf(sender));
+            menu.PlacementTarget = (FrameworkElement)sender;
+            menu.Placement = PlacementMode.Bottom;
             menu.IsOpen = true;
         }
 
-        private static MenuItem RowMenuEntry(string header, RoutedEventHandler click, ToolItem item)
+        private void OnListRightClick(object sender, MouseButtonEventArgs e)
         {
-            var entry = new MenuItem { Header = header, Tag = item };
+            var container = e.OriginalSource is DependencyObject source ? FindParent<ListBoxItem>(source) : null;
+            if (!(container?.DataContext is ToolItem item))
+                return;
+            ToolList.SelectedItem = item;
+            var menu = BuildRowMenu(item);
+            menu.PlacementTarget = container;
+            menu.Placement = PlacementMode.MousePoint;
+            menu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private ContextMenu BuildRowMenu(ToolItem item)
+        {
+            var menu = new ContextMenu();
+            if (item.IsRunning)
+                menu.Items.Add(RowMenuEntry("Dừng", OnStop, item, ""));
+            else if (item.CanInstall)
+                menu.Items.Add(RowMenuEntry("Cài đặt", OnInstallSetup, item, ""));
+            else
+                menu.Items.Add(RowMenuEntry("Chạy", OnRun, item, "", "Enter"));
+            menu.Items.Add(RowMenuEntry(item.Tool.Pinned ? "Bỏ ghim khỏi Trang chủ" : "Ghim lên Trang chủ", OnTogglePin, item, item.Tool.Pinned ? "" : ""));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(RowMenuEntry("Gắn vào workspace…", OnBind, item, ""));
+            menu.Items.Add(RowMenuEntry("Mở thư mục", OnOpenFolder, item, ""));
+            menu.Items.Add(RowMenuEntry(item.Tool.IsCommand ? "Sao chép lệnh" : "Sao chép đường dẫn", OnCopyPath, item, ""));
+            menu.Items.Add(RowMenuEntry("Sửa…", OnEdit, item, ""));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(RowMenuEntry("Xoá khỏi danh sách", OnRemoveOne, item, "", "Del"));
+            return menu;
+        }
+
+        private static MenuItem RowMenuEntry(string header, RoutedEventHandler click, ToolItem item, string glyph = null, string gesture = null)
+        {
+            var entry = new MenuItem { Header = header, Tag = item, InputGestureText = gesture ?? "" };
+            if (glyph != null)
+                entry.Icon = new TextBlock { Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"), FontSize = 13 };
             entry.Click += click;
             return entry;
+        }
+
+        private void OnCopyPath(object sender, RoutedEventArgs e)
+        {
+            var tool = ItemOf(sender).Tool;
+            var text = tool.IsCommand ? tool.Command : tool.ResolvedPath;
+            try
+            {
+                Clipboard.SetText(text ?? "");
+                StatusText.Text = "Đã sao chép: " + text;
+            }
+            catch (System.Runtime.InteropServices.ExternalException)
+            {
+                // Clipboard đang bị app khác giữ: báo nhẹ, không phải lỗi của người dùng.
+                Dialogs.Error(Host, "Không sao chép được vì clipboard đang bận. Thử lại.");
+            }
+        }
+
+        private void OnRemoveOne(object sender, RoutedEventArgs e) => RemoveTools(new List<ToolEntry> { ItemOf(sender).Tool });
+
+        /// <summary>Del trên dòng đang chọn: xoá tool đó khỏi danh sách (có Hoàn tác).</summary>
+        private void OnListKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Delete && e.OriginalSource is ListBoxItem && ToolList.SelectedItem is ToolItem item)
+            {
+                RemoveTools(new List<ToolEntry> { item.Tool });
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Space && e.OriginalSource is ListBoxItem && ToolList.SelectedItem is ToolItem selected)
+            {
+                selected.IsChecked = !selected.IsChecked;
+                e.Handled = true;
+            }
         }
 
         // ---------- Đóng gói ----------
@@ -838,6 +1157,13 @@ namespace Toolbox.Views
                 ImportPackage(dialog.FileName);
         }
 
+        /// <summary>Mở màn nhập một file gói (double-click file .toolbox khi Toolbox đang chạy).</summary>
+        public void OpenPackage(string zipPath)
+        {
+            if (_store != null)
+                ImportPackage(zipPath);
+        }
+
         private async void ImportPackage(string zipPath)
         {
             PackManifest manifest;
@@ -845,7 +1171,7 @@ namespace Toolbox.Views
             {
                 manifest = Packer.ReadManifest(zipPath);
             }
-            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is NotSupportedException)
             {
                 Dialogs.Error(Host, "Không mở được gói: " + ex.Message);
                 return;

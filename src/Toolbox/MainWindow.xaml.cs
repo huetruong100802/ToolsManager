@@ -51,6 +51,11 @@ namespace Toolbox
                 if (row != null)
                     Navigate(row);
             };
+            Library.StatusChanged += () =>
+            {
+                if (_area == Area.Overview)
+                    OverviewPage.Refresh();
+            };
             WorkspaceContent.RelocateRequested += () => OnRelocateWorkspace(this, new RoutedEventArgs());
             WorkspaceContent.OpenToolRequested += id => { Navigate(null); Library.FocusTool(id); };
             Dock.StopRequested += task => _tasks.Stop(task.Id);
@@ -68,6 +73,8 @@ namespace Toolbox
             _rowsView.Filter = o => MatchesSearch(o as WorkspaceRow);
             WorkspaceList.ItemsSource = _rowsView;
             ThemeText.Text = Theme.Label(Theme.Mode);
+            VersionText.Text = "Toolbox " + Installer.Version;
+            RestorePlacement();
             Views.Toasts.Host = ToastLayer;
             RefreshNotifyText();
             Palette.Initialize(BuildSearchIndex);
@@ -86,6 +93,73 @@ namespace Toolbox
 
         /// <summary>Tác vụ ngầm dùng chung cho các trang workspace.</summary>
         public TaskHost Tasks => _tasks;
+
+        // ---- Cửa sổ ----
+
+        /// <summary>Người dùng mở Toolbox lần nữa trong khi đang chạy: đưa cửa sổ này lên trước thay vì mở cửa sổ thứ hai.</summary>
+        public void BringToFront()
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
+            Show();
+            Activate();
+            // Windows có thể từ chối đưa lên trước nếu app khác đang giữ tiêu điểm; bật tắt Topmost là cách được phép để nổi lên.
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+
+        /// <summary>Double-click một file .toolbox khi Toolbox đang mở: sang Thư viện và mở màn nhập gói.</summary>
+        public void OpenPackage(string path)
+        {
+            Navigate(null);
+            Library.OpenPackage(path);
+        }
+
+        /// <summary>Mở lại đúng chỗ và kích thước lần trước, nếu chỗ đó còn nằm trên một màn hình đang cắm.</summary>
+        private void RestorePlacement()
+        {
+            var parts = (_settings.WindowBounds ?? "").Split(',');
+            if (parts.Length == 4
+                && double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var left)
+                && double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var top)
+                && double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)
+                && double.TryParse(parts[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height)
+                && width >= MinWidth && height >= MinHeight)
+            {
+                var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                    SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+                var visible = Rect.Intersect(screen, new Rect(left, top, width, height));
+                // Phải còn thấy được một phần đáng kể của cửa sổ (màn hình phụ đã rút thì quay về giữa màn hình chính).
+                if (!visible.IsEmpty && visible.Width >= 200 && visible.Height >= 120)
+                {
+                    WindowStartupLocation = WindowStartupLocation.Manual;
+                    Left = left;
+                    Top = top;
+                    Width = Math.Min(width, screen.Width);
+                    Height = Math.Min(height, screen.Height);
+                }
+            }
+            if (_settings.WindowMaximized)
+                WindowState = WindowState.Maximized;
+        }
+
+        private void SavePlacement()
+        {
+            var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+            if (bounds.IsEmpty || double.IsNaN(bounds.Left) || double.IsInfinity(bounds.Width))
+                return;
+            var text = string.Join(",", new[] { bounds.Left, bounds.Top, bounds.Width, bounds.Height }
+                .Select(v => Math.Round(v).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            var maximized = WindowState == WindowState.Maximized;
+            if (text == _settings.WindowBounds && maximized == _settings.WindowMaximized)
+                return;
+            Settings.Update(s =>
+            {
+                s.WindowBounds = text;
+                s.WindowMaximized = maximized;
+            });
+        }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -512,9 +586,11 @@ namespace Toolbox
             bool hasAgent;
             try { hasAgent = Core.Agents.AgentStore.Load(Core.Agents.AgentStore.DefaultPath).Agents.Count > 0; }
             catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException) { hasAgent = false; }
-            var index = BuildSearchIndex();
+            // Trang chủ chỉ cần các mục chạy được của workspace; không đưa cả thư viện vào chỉ mục mỗi lần làm mới.
+            var index = SearchIndex.Build(null, _workspaces?.Workspaces, null, includeQuickCommands: true);
+            // Tool còn file hay không lấy từ kết quả Thư viện đã kiểm ở nền, không đọc đĩa trên luồng giao diện.
             return HomeFeed.Build(_workspaces?.Workspaces ?? new List<Workspace>(), Library.Tools, _tasks.Snapshot(),
-                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, null, PendingRunRequests(), ReadinessCounts());
+                Views.AgentsView.PendingCount(), hasAgent, index.Entries, UsageStore.Shared, DateTime.UtcNow, p => !Library.IsKnownMissing(p), PendingRunRequests(), ReadinessCounts());
         }
 
         private void OnHomeItem(HomeItem item, bool secondary)
@@ -540,7 +616,10 @@ namespace Toolbox
                     break;
                 case HomeTarget.Library:
                     Navigate(null);
-                    Library.FocusTool(item.ToolId);
+                    if (item.ToolId == null)
+                        Library.ShowProblems();
+                    else
+                        Library.FocusTool(item.ToolId);
                     break;
                 case HomeTarget.Run:
                     OpenEntry(item.Entry, run: !secondary);
@@ -939,7 +1018,10 @@ namespace Toolbox
         {
             var running = _tasks.Running();
             if (running.Count == 0)
+            {
+                SavePlacement();
                 return;
+            }
 
             var names = string.Join("\n", running.Take(5).Select(t => "• " + t.Spec.Label)) + (running.Count > 5 ? "\n…" : "");
             if (!Dialogs.Confirm(this, $"Đang có {running.Count} tác vụ chạy ngầm:\n{names}\n\nĐóng Toolbox sẽ dừng chúng. Vẫn đóng?", warning: true))
@@ -947,6 +1029,7 @@ namespace Toolbox
                 e.Cancel = true;
                 return;
             }
+            SavePlacement();
             _tasks.StopAll();
         }
     }

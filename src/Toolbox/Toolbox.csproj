@@ -7,6 +7,15 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>Toolbox</RootNamespace>
     <AssemblyName>Toolbox</AssemblyName>
+    <!-- Icon của exe, cửa sổ, shortcut Start Menu và file .toolbox. Vẽ lại bằng tools/make-icon.ps1. -->
+    <ApplicationIcon>Assets\toolbox.ico</ApplicationIcon>
+    <!-- Phiên bản hiện trong app và trong "Installed apps" của Windows. Bản phát hành lấy từ tag (xem .github/workflows/release.yml). -->
+    <Version>1.1.0</Version>
+    <Product>Toolbox</Product>
+    <Description>Quản lý, chạy, đóng gói tool và cho AI agent dùng qua MCP</Description>
+    <Company>Toolbox</Company>
+    <Copyright>MIT License</Copyright>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <!-- Chỉ dùng assembly có sẵn trong .NET Framework 4.8 để giữ một file Toolbox.exe duy nhất. -->

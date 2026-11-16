@@ -6,8 +6,18 @@ namespace Toolbox.Core
 {
     internal static class Json
     {
+        /// <summary>
+        /// Đọc JSON. Bỏ qua BOM UTF-8 ở đầu file: Notepad và PowerShell hay thêm BOM khi lưu, còn bộ đọc JSON của .NET coi đó là ký tự lạ
+        /// và từ chối cả file, khiến người dùng sửa tay tools.json xong thì app không mở được.
+        /// </summary>
         public static T Read<T>(Stream stream)
         {
+            if (stream.CanSeek && stream.Length - stream.Position >= 3)
+            {
+                var start = stream.Position;
+                if (!(stream.ReadByte() == 0xEF && stream.ReadByte() == 0xBB && stream.ReadByte() == 0xBF))
+                    stream.Position = start;
+            }
             var serializer = new DataContractJsonSerializer(typeof(T));
             return (T)serializer.ReadObject(stream);
         }
