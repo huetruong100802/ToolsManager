@@ -20,17 +20,24 @@ namespace Toolbox
         Missing,
     }
 
-    /// <summary>Một dòng trong danh sách: tool + trạng thái chọn để đóng gói/xoá.</summary>
+    /// <summary>
+    /// Một dòng trong danh sách: tool + trạng thái chọn để đóng gói/xoá. Không thuộc tính nào đọc đĩa: trạng thái file do
+    /// <see cref="ApplyProbe"/> đẩy vào sau khi kiểm ở luồng nền, icon nạp nền khi dòng thật sự hiện ra.
+    /// </summary>
     public sealed class ToolItem : INotifyPropertyChanged
     {
         private bool _isChecked;
-        private (bool Exists, bool CanInstall) _state;
+        private bool? _exists;
+        private bool _canInstall;
+        private ImageSource _icon;
+        private bool _iconRequested;
+        private string _iconPath;
+        private string[] _foldedTags = new string[0];
 
         public ToolItem(ToolEntry tool)
         {
             Tool = tool;
-            _state = Probe();
-            Icon = LoadIcon();
+            Index();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -57,15 +64,68 @@ namespace Toolbox
         /// <summary>Chữ cái đầu tên tool, hiện trong ô icon của card.</summary>
         public string Initial => string.IsNullOrWhiteSpace(Tool.Name) ? "?" : Tool.Name.Trim().Substring(0, 1).ToUpperInvariant();
 
-        /// <summary>Icon của file; null thì hiện chữ cái đầu.</summary>
-        public ImageSource Icon { get; private set; }
+        // ---------- Icon ----------
 
-        public Visibility IconVisibility => Icon == null ? Visibility.Collapsed : Visibility.Visible;
+        /// <summary>Icon của file; null thì hiện chữ cái đầu. Lần đọc đầu tiên mới xin nạp, và nạp ở luồng nền.</summary>
+        public ImageSource Icon
+        {
+            get
+            {
+                // Chỉ dòng đang hiện mới được hỏi icon (danh sách ảo hoá), nên 1000 tool cũng chỉ nạp vài chục icon.
+                if (!_iconRequested)
+                    RequestIcon();
+                return _icon;
+            }
+        }
 
-        public Visibility InitialVisibility => Icon == null ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility IconVisibility => _icon == null ? Visibility.Collapsed : Visibility.Visible;
 
-        public ToolStatus Status => Tool.PathExists ? ToolStatus.Ready
-            : Tool.CanInstall ? ToolStatus.NotInstalled
+        public Visibility InitialVisibility => _icon == null ? Visibility.Visible : Visibility.Collapsed;
+
+        private void RequestIcon()
+        {
+            _iconRequested = true;
+            var path = Tool.ResolvedPath;
+            _iconPath = path;
+            if (string.IsNullOrWhiteSpace(path) || Tool.IsCommand)
+                return;
+            if (IconCache.TryGet(path, out var cached))
+            {
+                _icon = cached;
+                return;
+            }
+            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            IconCache.Request(path, icon => dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (icon == null || !string.Equals(_iconPath, path, StringComparison.OrdinalIgnoreCase))
+                    return;
+                _icon = icon;
+                OnPropertyChanged(nameof(Icon));
+                OnPropertyChanged(nameof(IconVisibility));
+                OnPropertyChanged(nameof(InitialVisibility));
+            })));
+        }
+
+        private void ResetIcon()
+        {
+            _icon = null;
+            _iconRequested = false;
+            _iconPath = null;
+        }
+
+        // ---------- Trạng thái file ----------
+
+        /// <summary>File còn không. Chưa kiểm xong thì coi là còn, để dòng không nháy cảnh báo lúc mới mở.</summary>
+        public bool Exists => _exists ?? true;
+
+        /// <summary>Đã kiểm file ít nhất một lần.</summary>
+        public bool IsProbed => _exists.HasValue;
+
+        /// <summary>Tool có vấn đề về đường dẫn: mất file hoặc app chưa cài.</summary>
+        public bool HasProblem => !Exists;
+
+        public ToolStatus Status => Exists ? ToolStatus.Ready
+            : _canInstall ? ToolStatus.NotInstalled
             : ToolStatus.Missing;
 
         /// <summary>Xanh: chạy được. Vàng: chưa cài. Đỏ: không tìm thấy.</summary>
@@ -83,30 +143,69 @@ namespace Toolbox
             _ => "Không tìm thấy file",
         };
 
-        public string Warning => Tool.PathExists ? null
-            : Tool.CanInstall ? "Chưa cài trên máy này — bấm Cài đặt để chạy bộ cài kèm theo"
+        public string Warning => Exists ? null
+            : _canInstall ? "Chưa cài trên máy này — bấm Cài đặt để chạy bộ cài kèm theo"
             : "Không tìm thấy: " + Tool.ResolvedPath;
 
-        public Visibility WarningVisibility => Tool.PathExists ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility WarningVisibility => Exists ? Visibility.Collapsed : Visibility.Visible;
 
-        public bool CanInstall => Tool.CanInstall;
+        public bool CanInstall => _canInstall;
 
-        public Visibility InstallVisibility => Tool.CanInstall ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility InstallVisibility => _canInstall ? Visibility.Visible : Visibility.Collapsed;
 
-        // ---------- Trạng thái chạy (do MainWindow đẩy vào từ RunTracker) ----------
+        /// <summary>Lệnh hoặc đường dẫn đầy đủ, hiện khi rê chuột vào tên.</summary>
+        public string PathTip => Tool.IsCommand
+            ? Tool.Command + (string.IsNullOrWhiteSpace(Tool.Path) ? "" : "\nTại: " + Tool.ResolvedPath)
+            : Tool.ResolvedPath;
+
+        /// <summary>Kiểm file trên đĩa. Gọi ở luồng nền: ổ mạng hoặc ổ đang ngủ có thể mất vài giây.</summary>
+        public static (bool Exists, bool CanInstall) Probe(ToolEntry tool)
+        {
+            // Tool lệnh không có thư mục riêng thì chạy tại thư mục workspace: không có gì để mất.
+            if (tool.IsCommand && string.IsNullOrWhiteSpace(tool.Path))
+                return (true, false);
+            var exists = tool.PathExists;
+            return (exists, !exists && tool.Pack == PackMode.Setup && File.Exists(tool.ResolvedSetup));
+        }
+
+        /// <summary>Nhận kết quả kiểm file. Trả về true nếu thứ đang hiện trên dòng đổi.</summary>
+        public bool ApplyProbe(bool exists, bool canInstall)
+        {
+            var changed = exists != Exists || canInstall != _canInstall;
+            var appeared = exists && _exists == false;
+            _exists = exists;
+            _canInstall = canInstall;
+            if (!changed)
+                return false;
+            if (appeared)
+            {
+                // File vừa được cài xong thì có icon thật.
+                IconCache.Invalidate(Tool.ResolvedPath);
+                ResetIcon();
+            }
+            OnPropertyChanged(null);
+            return true;
+        }
+
+        // ---------- Trạng thái chạy (do LibraryView đẩy vào từ RunTracker) ----------
 
         private RunInstance _current;
         private RunInstance _last;
 
         public void ApplyRun(RunInstance current, RunInstance last)
         {
+            if (ReferenceEquals(current, _current) && ReferenceEquals(last, _last) && (current == null || current.IsRunning == _wasRunning))
+                return;
             _current = current;
             _last = last;
+            _wasRunning = current != null && current.IsRunning;
             OnPropertyChanged(nameof(IsRunning));
             OnPropertyChanged(nameof(RunVisibility));
             OnPropertyChanged(nameof(StopVisibility));
             Tick();
         }
+
+        private bool _wasRunning;
 
         /// <summary>Làm mới chữ "chạy được 5 phút" / "3 phút trước" mỗi giây.</summary>
         public void Tick()
@@ -123,7 +222,10 @@ namespace Toolbox
         public bool IsRunning => _current != null && _current.IsRunning;
 
         /// <summary>Đang chạy thì nút Chạy nhường chỗ cho nút Dừng.</summary>
-        public Visibility RunVisibility => Tool.CanInstall || IsRunning ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility RunVisibility => !Exists || IsRunning ? Visibility.Collapsed : Visibility.Visible;
+
+        /// <summary>Mất file mà không có bộ cài: nút chính của dòng là "Trỏ lại…" thay cho "Chạy".</summary>
+        public Visibility RelocateVisibility => Status == ToolStatus.Missing && !IsRunning ? Visibility.Visible : Visibility.Collapsed;
 
         public Visibility StopVisibility => IsRunning ? Visibility.Visible : Visibility.Collapsed;
 
@@ -154,6 +256,8 @@ namespace Toolbox
             ? Resource("Danger")
             : Resource("Muted");
 
+        // ---------- Tag ----------
+
         /// <summary>Số tag hiện trên dòng; phần còn lại gom thành chip "+n" để dòng không bị dài ra.</summary>
         public const int MaxVisibleTags = 3;
 
@@ -168,29 +272,56 @@ namespace Toolbox
         /// <summary>Toàn bộ tag, hiện khi rê chuột vào vùng tag.</summary>
         public string AllTagsTip => Tags.Count == 0 ? null : string.Join(", ", Tags);
 
-        public void Replace(ToolEntry tool)
+        // ---------- Tìm và sắp xếp ----------
+
+        /// <summary>Id, tên, mô tả, tag đã bỏ dấu và viết thường; tính một lần để gõ tìm không phải tính lại cho từng tool.</summary>
+        public string SearchText { get; private set; } = "";
+
+        /// <summary>Lần cuối chạy (từ Toolbox hoặc agent); null nếu chưa chạy.</summary>
+        public DateTime? LastUsed { get; private set; }
+
+        private void Index()
         {
-            Tool = tool;
-            _state = Probe();
-            Icon = LoadIcon();
-            OnPropertyChanged(null); // tất cả thuộc tính
+            SearchText = Text.Fold(string.Join(" ", new[] { Tool.Id, Tool.Name, Tool.Description }.Concat(Tags)));
+            _foldedTags = Tags.Select(Text.Fold).ToArray();
+            RefreshUsage();
         }
 
-        /// <summary>Kiểm lại file (vd sau khi cài app hoặc file bị xoá bên ngoài). Trả về true nếu trạng thái đổi.</summary>
-        public bool Refresh()
+        /// <summary>Đọc lại lần dùng cuối (sau khi vừa chạy tool).</summary>
+        public void RefreshUsage()
         {
-            var state = Probe();
-            if (state == _state)
+            var gui = UsageStore.Shared.Get(UsageStore.Key("tool", Tool.Id))?.Last;
+            LastUsed = gui.HasValue && Tool.LastUsedAt.HasValue
+                ? (gui.Value > Tool.LastUsedAt.Value ? gui : Tool.LastUsedAt)
+                : gui ?? Tool.LastUsedAt;
+        }
+
+        /// <summary>Mọi từ phải có trong id/tên/mô tả/tag; nếu có lọc tag thì tool phải mang ít nhất một tag trong đó.</summary>
+        public bool Matches(string[] foldedTerms, ICollection<string> foldedTags)
+        {
+            if (foldedTags != null && foldedTags.Count > 0 && !_foldedTags.Any(foldedTags.Contains))
                 return false;
-            _state = state;
-            Icon = LoadIcon(); // file vừa cài xong thì có icon thật
-            OnPropertyChanged(null);
+            foreach (var term in foldedTerms)
+                if (SearchText.IndexOf(term, StringComparison.Ordinal) < 0)
+                    return false;
             return true;
         }
 
-        private (bool, bool) Probe() => (Tool.PathExists, Tool.CanInstall);
-
-        private ImageSource LoadIcon() => Tool.PathExists && File.Exists(Tool.ResolvedPath) ? ShellIcon.Load(Tool.ResolvedPath) : null;
+        /// <summary>
+        /// Gắn lại vào bản ghi mới của cùng tool sau khi danh sách được nạp lại. Giữ trạng thái tick, trạng thái chạy, kết quả kiểm file
+        /// và icon (trừ khi đường dẫn đổi), nên sửa một tool không làm cả danh sách phải dựng lại.
+        /// </summary>
+        public void Rebind(ToolEntry tool)
+        {
+            if (ReferenceEquals(tool, Tool))
+                return;
+            var pathChanged = !string.Equals(tool.ResolvedPath, Tool.ResolvedPath, StringComparison.OrdinalIgnoreCase);
+            Tool = tool;
+            Index();
+            if (pathChanged)
+                ResetIcon();
+            OnPropertyChanged(null); // tất cả thuộc tính
+        }
 
         private static Brush Resource(string key) => (Brush)Application.Current.FindResource(key);
 

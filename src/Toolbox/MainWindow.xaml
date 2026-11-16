@@ -33,6 +33,9 @@
                         </DockPanel>
                     </Button>
 
+                    <TextBlock x:Name="VersionText" DockPanel.Dock="Bottom" FontSize="11" Foreground="{DynamicResource Faint}" Margin="10,8,0,0"
+                               ToolTip="Phiên bản đang chạy" />
+
                     <Button x:Name="NotifyButton" DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Click="OnNotifyClick"
                             Margin="0,6,0,0" HorizontalContentAlignment="Left"
                             ToolTip="Thông báo Windows khi tác vụ chạy trên 30 giây kết thúc hoặc lỗi lúc cửa sổ không ở trước"

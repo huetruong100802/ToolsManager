@@ -10,7 +10,7 @@
 
 Tool thường nằm rải rác: phần mềm trong `Program Files`, bản tải về trong `Downloads`, script do agent tạo. Bạn phải nhớ đường dẫn mới dùng được, và gửi cho đồng đội thì rất phiền. Toolbox gom tất cả vào một danh sách. Toolbox không sửa file gốc của tool, và không bao giờ xoá file gốc. Xoá một tool khỏi danh sách chỉ là xoá một dòng trong `tools.json`.
 
-Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .NET Framework 4.8 có sẵn trong Windows. Người dùng không phải cài thêm gì để chạy.
+Toolbox là một file `Toolbox.exe` khoảng 1 MB, viết bằng WPF trên .NET Framework 4.8 có sẵn trong Windows. Người dùng không phải cài thêm gì để chạy.
 
 ---
 
@@ -48,7 +48,9 @@ Toolbox là một file `Toolbox.exe` khoảng 375 KB, viết bằng WPF trên .N
 | | Tác vụ chạy **ngầm**: ẩn cửa sổ, ghi log, tự bắt cổng từ output. **Trang chủ** và tab **Tác vụ** cho biết đang chạy gì; có **Xem log**, **Dừng**, **Chạy lại**. |
 | | **Worktree…** tạo worktree mới, đưa các file local không commit (lockfile, file môi trường) vào và chạy lệnh cài đặt. |
 | **Nhóm biến** | Tab **Biến** của workspace giống *Library › Variable groups* của Azure DevOps: tạo nhóm biến môi trường (có secret), gắn vào lệnh đã ghim để cùng một lệnh chạy với chuỗi kết nối A hay B. Secret mã hoá bằng Windows DPAPI, không xem lại được, tự che trong log. Agent chỉ thấy tên biến và gắn nhóm vào lệnh, không đọc được giá trị nào. |
-| **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`. |
+| **Cài vào máy** | Không cần quyền admin. Copy vào `%LOCALAPPDATA%\Programs\Toolbox`, tạo shortcut Start Menu, gắn đuôi `.toolbox`, và ghi một mục trong **Settings › Apps › Installed apps** để gỡ như mọi app khác (`Toolbox.exe --uninstall`; dữ liệu của bạn được giữ lại). |
+| **Thư viện lớn** | Thư viện cả nghìn tool vẫn mở trong khoảng một giây: danh sách ảo hoá, icon nạp nền và nhớ lại, file được kiểm ở luồng nền. Sắp xếp theo tên, dùng gần đây hoặc ghim trước; bấm **n tool không tìm thấy file** để chỉ xem tool lỗi, rồi **Trỏ lại…** để chọn lại file. Chuột phải vào một dòng để chạy, ghim, sao chép đường dẫn, sửa, xoá. |
+| **Một cửa sổ** | Mở Toolbox lần nữa (hoặc double-click file `.toolbox`) khi app đang chạy thì cửa sổ đang mở được đưa lên trước và nhận file đó, không mở cửa sổ thứ hai. Cửa sổ nhớ vị trí và kích thước lần trước. |
 | **An toàn dữ liệu** | Sao lưu `tools.json` trước mỗi lần thay đổi danh sách (giữ 50 bản mới nhất). Ghi nhật ký `changes.log` gồm nguồn (GUI hoặc MCP). Mọi lần ghi giữ mutex để không ghi chồng nhau. |
 
 ### Luồng đóng gói và nhập gói
@@ -105,7 +107,7 @@ Script chạy `Toolbox.exe` với `TOOLBOX_DATA` trỏ vào **bản sao** của 
 dotnet test tests/Toolbox.Tests/Toolbox.Tests.csproj
 ```
 
-Bộ test xUnit gồm 270 test, bao phủ danh tính agent, đề xuất, nhật ký, bộ công cụ MCP gom, đóng gói, chạy tool, MCP server, workspace (phát hiện, cổng, workflow, worktree), thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
+Bộ test xUnit gồm 745 test, bao phủ danh tính agent, đề xuất, nhật ký, bộ công cụ MCP gom, đóng gói, chạy tool, MCP server, workspace (phát hiện, cổng, workflow, worktree), thư viện, cài đặt, shortcut và kết nối Claude Code. Test dùng thư mục tạm, không dùng `%APPDATA%\Toolbox`.
 
 ## Sử dụng
 
@@ -215,8 +217,6 @@ Kết nối cũ không có `--agent` vẫn chạy được như trước (không
 | **Windsurf** | `~/.codeium/windsurf/mcp_config.json` | server riêng `toolbox-<tên workspace>` |
 | **Agent khác** (Cline, Zed, JetBrains, Continue…) | Toolbox tạo agent rồi copy cấu hình `mcpServers` để bạn tự dán | như trên |
 
-Agent phải chạy trên cùng máy với Toolbox: kết nối là MCP qua stdio, agent tự chạy `Toolbox.exe --mcp`. Agent trên cloud (Claude trên web, Codex cloud, Copilot coding agent) chưa dùng được.
-
 Khi ghi file của app khác, Toolbox chỉ thay mục `toolbox` của mình, giữ nguyên các server và cài đặt khác, và để bản cũ ở `<file>.toolbox.bak`. File có chú thích (`//`, JSONC) thì Toolbox không ghi đè để khỏi mất chú thích; bạn dán tay đoạn ở mục **Tự khai báo**. File cấu hình dự án mới tạo trong một repo git được thêm vào `.git/info/exclude`, vì nó chứa đường dẫn exe và id agent riêng của máy bạn.
 
 Mỗi dòng cho biết trạng thái khai báo (*Chưa kết nối*, *Đã kết nối*, *Trỏ tới exe khác*, *Kết nối cũ*) và agent đã thực sự gọi tới Toolbox chưa. Lúc bắt tay MCP, Toolbox ghi tên và phiên bản app agent tự báo (`clientInfo`), nên ngay khi bạn mở lại app, dòng đó đổi thành *Agent đang hoạt động · cursor-vscode 1.7*. Trang **Agent** cũng hiện app của từng agent.
@@ -259,7 +259,7 @@ Các tên cũ (`list_setup`, `run_profile`, `create_profile`…) vẫn gọi đ�
 
 | Tool | Làm gì |
 |---|---|
-| `list_tools(query?, tag?)` | Tìm tool theo id, tên, mô tả, tag (không phân biệt dấu). Trả về đường dẫn và việc file còn tồn tại hay không. |
+| `list_tools(query?, tag?, limit?, offset?)` | Tìm tool theo id, tên, mô tả, tag (không phân biệt dấu). Trả về đường dẫn và việc file còn tồn tại hay không. Kết quả vừa một trang (mặc định 100, tối đa 500) thì là mảng tool; nhiều hơn thì là `{ total, offset, tools, nextOffset, hint }` để agent thu hẹp hoặc đọc trang tiếp. |
 | `run_tool(id, args?, wait?, timeoutSeconds?)` | `wait=false`: mở tool như người dùng bấm, trả PID. Dùng cho app GUI hoặc server giả lập. `wait=true`: chạy ẩn, trả exit code và stdout/stderr. Timeout tối đa 600 giây. Chỉ tool console (`.exe`, `.com`, `.bat`, `.cmd`, `.ps1`, `.py`) mới dùng được với `wait=true`. |
 | `register_tool(name, path, id?, args?, description?, tags?, notes?, setupPath?)` | Đăng ký tool. Nếu `path` hoặc nội dung file trùng tool đã có thì cập nhật tool đó. `path` hỗ trợ biến môi trường `%ENV%`. |
 | `update_tool(id, name?, path?, args?, description?, tags?, notes?)` | Sửa các trường được truyền vào. Trường không truyền thì giữ nguyên. |
@@ -298,7 +298,11 @@ agents.json                 # agent đã kết nối: tên, phạm vi, quyền c
 proposals.json              # đề xuất sửa hoặc xoá tool dùng chung: chờ duyệt, đã duyệt, đã từ chối
 activity.jsonl              # nhật ký việc của agent, mỗi dòng một JSON, giữ dưới 2 MB
 runs\<taskId>.log           # log của tác vụ chạy ngầm, giữ tối đa 200 file mới nhất
+settings.json               # giao diện, thứ tự sắp xếp Thư viện, vị trí cửa sổ
+crash.log                   # lỗi không lường trước (kèm phiên bản và stack trace), gửi kèm khi báo lỗi
 ```
+
+`tools.json` sửa tay bằng Notepad hay PowerShell (lưu kèm BOM UTF-8) vẫn đọc được.
 
 Đặt biến môi trường `TOOLBOX_DATA` để dùng thư mục khác thay cho `%APPDATA%\Toolbox` (chạy thử, chụp ảnh, bản di động) mà không đụng dữ liệu thật.
 
@@ -347,6 +351,10 @@ src/Toolbox/                 # Toolbox.exe (WPF, net48)
   Core/Workspaces/           # Workspace, WorkspaceStore, ToolCatalog, WorkspaceDetector, TaskHost, StackRunner, WorktreePreparer
   Core/Agents/               # AgentStore, ProposalStore, ProposalApplier, ActivityLog
   Core/DataDir.cs            # thư mục dữ liệu, đổi bằng TOOLBOX_DATA
+  Core/SingleInstance.cs     # một cửa sổ cho mỗi thư mục dữ liệu, chuyển file .toolbox cho bản đang chạy
+  Core/CrashLog.cs           # ghi lỗi không lường trước vào crash.log
+  ToolItem.cs, ShellIcon.cs  # dòng tool không đọc đĩa trên luồng giao diện; IconCache nạp icon ở nền
+  Assets/toolbox.ico         # icon của app, vẽ lại bằng tools/make-icon.ps1
   Mcp/McpServer.cs           # JSON-RPC qua stdio
   Mcp/McpServer.Setup.cs     # công cụ workspace cũ: run_profile, run_stack, prepare_worktree…
   Mcp/McpServer.Agents.cs    # danh tính agent, quyền chạy, đề xuất, nhật ký
@@ -368,6 +376,7 @@ Có một project duy nhất để build ra đúng một file exe, và test tham
 - Cửa sổ **Worktree…** và việc tạo, sửa, xoá workspace, profile, lệnh riêng, workflow trên GUI mới được kiểm bằng test tự động, chưa thử tay đầy đủ trên màn hình.
 - GUI theo dõi `tools.json`, `workspaces.json`, `proposals.json` và `activity.jsonl` (debounce 300 ms) và tự cập nhật khi agent thay đổi. Thay đổi lớn cùng lúc có thể mất tới một giây mới hiện.
 - Chưa có tab Lịch sử trên GUI. Xem thay đổi của agent ở `changes.log`.
+- Bản tối ưu thư viện lớn đo với 1500 tool mẫu trên một máy (mở app từ khoảng 7–39 giây xuống khoảng 1,5 giây); chưa đo với tool nằm trên ổ mạng chậm. Luồng **một cửa sổ** đã thử với exe thật; `--uninstall` và nút **Trỏ lại…** mới có test tự động cho phần registry và dữ liệu, chưa bấm tay trên GUI.
 - Chưa tìm lại tool khi `path` bị mất bằng `fingerprint`. Hiện `fingerprint` chỉ dùng để nhận ra file đã đăng ký.
 - Với `.bat` và `.cmd`, `cmd.exe` diễn giải chuỗi `args`. Mô tả tool nên ghi rõ tham số hợp lệ.
 - **Chưa làm so với thiết kế cũ** (`docs/plan-v10.md`): sơ đồ workflow sửa trực tiếp (dấu +, kéo thả), khung log nằm dưới danh sách ở trang **Tác vụ**, và hoàn tác từng thay đổi lẻ của agent (hiện chỉ hoàn tác ngay trên thông báo).

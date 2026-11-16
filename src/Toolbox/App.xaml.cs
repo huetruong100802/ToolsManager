@@ -30,8 +30,105 @@ namespace Toolbox
                 Environment.Exit(0);
             }
 
+            if (e.Args.Contains("--uninstall", StringComparer.OrdinalIgnoreCase))
+            {
+                RunUninstall();
+                Environment.Exit(0);
+            }
+
+            HookCrashHandlers();
+
+            // Một cửa sổ cho mỗi thư mục dữ liệu: mở lần hai thì đưa cửa sổ đang chạy lên trước và chuyển file cần mở cho nó.
+            var fileToOpen = e.Args.FirstOrDefault(a => File.Exists(a));
+            var key = SingleInstance.KeyFor(DataDir.Root);
+            _instance = SingleInstance.TryAcquire(key);
+            if (_instance == null && SingleInstance.Send(key, fileToOpen == null ? "" : Path.GetFullPath(fileToOpen)))
+                Environment.Exit(0);
+
             Theme.Initialize(Theme.Parse(Settings.Load().Theme));
-            new MainWindow(e.Args.FirstOrDefault(a => File.Exists(a))).Show();
+            var window = new MainWindow(fileToOpen);
+            _instance?.Listen(message => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                window.BringToFront();
+                if (!string.IsNullOrWhiteSpace(message) && File.Exists(message))
+                    window.OpenPackage(message);
+            })));
+            Exit += (s, a) => _instance?.Dispose();
+            window.Show();
+        }
+
+        private SingleInstance _instance;
+
+        // ---- Lỗi không lường trước ----
+
+        private DateTime _lastCrash = DateTime.MinValue;
+        private int _crashBurst;
+
+        /// <summary>
+        /// Lỗi lọt ra tới vòng lặp giao diện: ghi crash.log, báo cho người dùng và để app chạy tiếp (dữ liệu đã lưu không bị ảnh hưởng).
+        /// Lỗi dồn dập liên tiếp nghĩa là giao diện đã hỏng thật: báo một lần rồi đóng, thay vì hiện thông báo không dứt.
+        /// </summary>
+        private void HookCrashHandlers()
+        {
+            DispatcherUnhandledException += (s, a) =>
+            {
+                CrashLog.Write(a.Exception, "giao diện");
+                a.Handled = true;
+                var now = DateTime.UtcNow;
+                _crashBurst = now - _lastCrash < TimeSpan.FromSeconds(5) ? _crashBurst + 1 : 1;
+                _lastCrash = now;
+                if (_crashBurst >= 4)
+                {
+                    MessageBox.Show("Toolbox gặp lỗi liên tiếp và phải đóng.\n\n" + a.Exception.Message + "\n\nChi tiết: " + CrashLog.DefaultPath,
+                        "Toolbox", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Environment.Exit(1);
+                }
+                var message = "Có lỗi không mong muốn: " + a.Exception.Message + " Chi tiết đã ghi vào crash.log trong thư mục dữ liệu.";
+                if (!Views.Toasts.Show(message, Views.ToastKind.Error))
+                    MessageBox.Show(message, "Toolbox", MessageBoxButton.OK, MessageBoxImage.Error);
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, a) => CrashLog.Write(a.ExceptionObject as Exception, "luồng nền");
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, a) =>
+            {
+                CrashLog.Write(a.Exception, "tác vụ nền");
+                a.SetObserved();
+            };
+        }
+
+        // ---- Gỡ cài đặt ----
+
+        /// <summary>
+        /// <c>Toolbox.exe --uninstall</c> (nút Uninstall trong "Installed apps" của Windows): gỡ shortcut, liên kết đuôi .toolbox và
+        /// bản đã cài. Dữ liệu của người dùng được giữ lại.
+        /// </summary>
+        private static void RunUninstall()
+        {
+            var installer = new Installer();
+            var running = SingleInstance.TryAcquire(SingleInstance.KeyFor(DataDir.Root));
+            if (running == null)
+            {
+                MessageBox.Show("Toolbox đang mở. Hãy đóng cửa sổ Toolbox rồi gỡ lại.", "Gỡ Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            using (running)
+            {
+                if (MessageBox.Show("Gỡ Toolbox khỏi máy này?\n\nShortcut Start Menu, liên kết file .toolbox và bản đã cài sẽ bị gỡ. "
+                        + "Danh sách tool, workspace và nhật ký của bạn được giữ lại ở:\n" + DataDir.Root,
+                        "Gỡ Toolbox", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                    return;
+                try
+                {
+                    installer.Uninstall();
+                    installer.ScheduleRemoveFiles();
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Security.SecurityException)
+                {
+                    MessageBox.Show("Không gỡ được hết: " + ex.Message, "Gỡ Toolbox", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                MessageBox.Show("Đã gỡ Toolbox. Dữ liệu của bạn vẫn còn ở:\n" + DataDir.Root + "\n\nXoá thư mục đó nếu không dùng nữa.",
+                    "Gỡ Toolbox", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         /// <summary>

@@ -529,8 +529,136 @@
             </Setter>
         </Style>
 
+        <!-- Gợi ý khi rê chuột: cùng bảng màu với app thay cho ô vàng nhạt mặc định của Windows (chói mắt ở giao diện tối). -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputLine}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="MaxWidth" Value="460" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter>
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Menu chuột phải và menu "…": nền, viền, bo góc theo bảng màu của app. -->
+        <Style TargetType="ContextMenu">
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputLine}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="4" MinWidth="180" Grid.IsSharedSizeScope="True">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="520">
+                                <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type Separator}" x:Key="{x:Static MenuItem.SeparatorStyleKey}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Margin="6,4" Background="{DynamicResource InputLine}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="MenuIcon" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="MenuGesture" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid x:Name="IconHost" Width="18" Margin="0,0,9,0" VerticalAlignment="Center">
+                                        <ContentPresenter x:Name="IconSite" ContentSource="Icon" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          TextElement.Foreground="{DynamicResource Muted}" />
+                                        <TextBlock x:Name="Check" Style="{StaticResource Icon}" Text="&#xE73E;" FontSize="12" HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" Visibility="Collapsed" />
+                                    </Grid>
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" FontSize="11" Foreground="{DynamicResource Faint}"
+                                               Margin="24,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="Arrow" Grid.Column="3" Style="{StaticResource Icon}" Text="&#xE76C;" FontSize="9"
+                                               Foreground="{DynamicResource Muted}" Margin="14,0,0,0" Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="2" VerticalOffset="-5" AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Fade" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Border Margin="0,0,10,10" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource InputLine}" BorderThickness="1"
+                                        CornerRadius="8" Padding="4" MinWidth="170" Grid.IsSharedSizeScope="True">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" />
+                                    </Border.Effect>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="480">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Hover}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="IconSite" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Role" Value="SubmenuHeader">
+                                <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Thanh cuộn mảnh, thumb bo tròn. -->
         <Style TargetType="ScrollBar">
+            <Style.Resources>
+                <!-- Track lấy độ dài tối thiểu của thumb bằng nửa giá trị này: danh sách cả nghìn dòng thì thumb vẫn đủ lớn để nắm kéo. -->
+                <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="{x:Static SystemParameters.VerticalScrollBarButtonHeightKey}">72</system:Double>
+                <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="{x:Static SystemParameters.HorizontalScrollBarButtonWidthKey}">72</system:Double>
+            </Style.Resources>
             <Setter Property="Width" Value="8" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template">

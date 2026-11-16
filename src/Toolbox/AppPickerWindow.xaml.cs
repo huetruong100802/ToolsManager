@@ -24,6 +24,8 @@ namespace Toolbox
             Loaded += async (s, e) =>
             {
                 SearchBox.Focus();
+                StatusText.Text = "Đang đọc Start Menu…";
+                StatusText.Visibility = Visibility.Visible;
                 try
                 {
                     _rows = await Task.Run(() => Shortcuts.ListStartMenu()
@@ -83,20 +85,45 @@ namespace Toolbox
             }
         }
 
-        public sealed class Row
+        /// <summary>Một app trong Start Menu. Icon nạp nền khi dòng hiện ra, nên danh sách có ngay cả khi máy có vài trăm shortcut.</summary>
+        public sealed class Row : System.ComponentModel.INotifyPropertyChanged
         {
+            private ImageSource _icon;
+            private bool _iconRequested;
+
             public Row(ShortcutInfo info, bool isAdded)
             {
                 Info = info;
                 IsAdded = isAdded;
                 Haystack = Text.Fold(info.Name + " " + info.TargetPath);
-                Icon = ShellIcon.Load(info.TargetPath);
             }
+
+            public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
 
             public ShortcutInfo Info { get; }
             public bool IsAdded { get; }
             public string Haystack { get; }
-            public ImageSource Icon { get; }
+
+            public ImageSource Icon
+            {
+                get
+                {
+                    if (_iconRequested)
+                        return _icon;
+                    _iconRequested = true;
+                    if (IconCache.TryGet(Info.TargetPath, out var cached))
+                        return _icon = cached;
+                    var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+                    IconCache.Request(Info.TargetPath, icon => dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (icon == null)
+                            return;
+                        _icon = icon;
+                        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Icon)));
+                    })));
+                    return _icon;
+                }
+            }
 
             public Visibility AddedVisibility => IsAdded ? Visibility.Visible : Visibility.Collapsed;
         }

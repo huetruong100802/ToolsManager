@@ -56,6 +56,14 @@
                            VerticalAlignment="Center" Margin="0,0,16,0" Visibility="Collapsed" />
                 <CheckBox x:Name="SelectAll" DockPanel.Dock="Left" Content="Chọn tất cả" VerticalAlignment="Center" Margin="0,0,16,0"
                           Click="OnSelectAll" />
+                <Button x:Name="ProblemsButton" DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Click="OnToggleProblems"
+                        Visibility="Collapsed" Margin="0,0,10,0" Padding="8,2" MinHeight="26" Foreground="{DynamicResource Danger}"
+                        AutomationProperties.Name="Lọc tool không tìm thấy file">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" FontSize="12" Margin="0,0,6,0" />
+                        <TextBlock x:Name="ProblemsText" />
+                    </StackPanel>
+                </Button>
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
@@ -91,9 +99,12 @@
                         </StackPanel>
                     </ToggleButton>
 
+                    <ComboBox x:Name="SortBox" DockPanel.Dock="Right" Margin="10,0,0,0" MinWidth="138" DisplayMemberPath="Label"
+                              SelectionChanged="OnSortChanged" ToolTip="Thứ tự các dòng" AutomationProperties.Name="Sắp xếp" />
+
                     <Grid>
                         <TextBox x:Name="SearchBox" Padding="32,6,8,6" TextChanged="OnFilterChanged"
-                                 AutomationProperties.Name="Tìm" ToolTip="Ctrl+F để tìm trong Thư viện, Esc để xoá. Ctrl+K tìm và chạy mọi thứ" />
+                                 AutomationProperties.Name="Tìm" ToolTip="Ctrl+F để tìm trong Thư viện, Esc để xoá, ↓ xuống danh sách, Enter chạy khi chỉ còn một kết quả. Ctrl+K tìm và chạy mọi thứ" />
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" Foreground="{DynamicResource Faint}"
                                    HorizontalAlignment="Left" Margin="11,0,0,0" IsHitTestVisible="False" />
                         <TextBlock Text="Tìm theo tên, mô tả, tag…  (Ctrl+F)" Foreground="{DynamicResource Faint}" Margin="34,0,0,0"
@@ -118,6 +129,13 @@
                             VerticalAlignment="Center" Margin="8,0,0,0" />
                     <TextBlock DockPanel.Dock="Left" Text="Đang lọc" Foreground="{DynamicResource Muted}" FontSize="12"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button x:Name="ProblemPill" DockPanel.Dock="Left" Style="{StaticResource ActiveTagPill}" Click="OnProblemPillClick"
+                            Visibility="Collapsed" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="Bỏ lọc này">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Foreground="{DynamicResource Ink}" Text="Không tìm thấy file" />
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE711;" FontSize="9" Margin="7,0,0,0" />
+                        </StackPanel>
+                    </Button>
                     <ItemsControl x:Name="ActiveTags">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -182,7 +200,9 @@
                 </Border>
 
                 <ListBox x:Name="ToolList" HorizontalContentAlignment="Stretch" MouseDoubleClick="OnListDoubleClick"
+                         PreviewMouseRightButtonUp="OnListRightClick" KeyDown="OnListKeyDown" AutomationProperties.Name="Danh sách tool"
                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                         VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="1" VirtualizingPanel.CacheLengthUnit="Page"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -215,7 +235,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Foreground="{DynamicResource Ink}" Text="{Binding Tool.Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                                   Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                   Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="{Binding PathTip}" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding AllTagsTip}">
                                             <ItemsControl ItemsSource="{Binding VisibleTags}" ItemTemplate="{StaticResource TagChip}">
                                                 <ItemsControl.ItemsPanel>
@@ -275,7 +295,7 @@
                                             AutomationProperties.Name="{Binding Tool.Name, StringFormat=Ghim {0}}" Width="34" Padding="0">
                                         <TextBlock Style="{StaticResource Icon}" Text="{Binding PinGlyph}" />
                                     </Button>
-                                    <Button Style="{StaticResource GhostButton}" Click="OnRowMenu" Tag="{Binding}" ToolTip="Mở thư mục, sửa, gắn vào workspace"
+                                    <Button Style="{StaticResource GhostButton}" Click="OnRowMenu" Tag="{Binding}" ToolTip="Thêm hành động (hoặc chuột phải vào dòng)"
                                             AutomationProperties.Name="{Binding Tool.Name, StringFormat=Tuỳ chọn của {0}}" Width="34" Padding="0" Margin="2,0,8,0">
                                         <TextBlock Style="{StaticResource Icon}" Text="&#xE712;" FontSize="14" />
                                     </Button>
@@ -284,6 +304,15 @@
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Style="{StaticResource Icon}" Text="&#xE896;" FontSize="12" Margin="0,0,6,0" />
                                             <TextBlock Text="Cài đặt" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource SoftButton}" Click="OnRelocate" Tag="{Binding}" Padding="14,4"
+                                            Visibility="{Binding RelocateVisibility}" AutomationProperties.Name="{Binding Tool.Name, StringFormat=Trỏ lại đường dẫn của {0}}"
+                                            ToolTip="File đã bị di chuyển hoặc đổi tên: chọn lại file của tool này">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" FontSize="12" Foreground="{DynamicResource Accent}"
+                                                       Margin="0,0,6,0" />
+                                            <TextBlock Text="Trỏ lại…" />
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{StaticResource SoftButton}" Click="OnRun" Tag="{Binding}" AutomationProperties.Name="{Binding Tool.Name, StringFormat=Chạy {0}}" Padding="14,4"
@@ -311,7 +340,7 @@
                 <!-- Có tool nhưng bộ lọc không khớp cái nào: nói rõ lý do và cho đường thoát, thay vì để danh sách trống. -->
                 <StackPanel x:Name="NoResultsHint" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock Text="Không có tool nào khớp" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,6" />
-                    <TextBlock Foreground="{DynamicResource Muted}" TextAlignment="Center" Text="Thử từ khoá khác hoặc bỏ bớt tag đang lọc." />
+                    <TextBlock Foreground="{DynamicResource Muted}" TextAlignment="Center" Text="Thử từ khoá khác hoặc bỏ bớt bộ lọc đang bật." />
                     <Button Style="{StaticResource SoftButton}" Content="Bỏ lọc" Click="OnClearFilters" HorizontalAlignment="Center" Margin="0,14,0,0" />
                 </StackPanel>
 

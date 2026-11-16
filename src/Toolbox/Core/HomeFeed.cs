@@ -56,6 +56,9 @@ namespace Toolbox.Core
         public const int MaxFailedShown = 3;
         public const int MaxContinue = 6;
 
+        /// <summary>Tool mất đường dẫn nhiều hơn chừng này thì gom thành một dòng.</summary>
+        public const int MaxMissingShown = 3;
+
         /// <summary>Số lệnh tối đa trên thẻ một workspace.</summary>
         public const int MaxCardCommands = 4;
 
@@ -134,12 +137,24 @@ namespace Toolbox.Core
                     Detail = workspace.Path, Target = HomeTarget.Workspace, WorkspaceId = workspace.Id, ActionText = "Trỏ lại thư mục",
                 });
 
-            foreach (var tool in tools.Where(t => !t.IsCommand && !string.IsNullOrWhiteSpace(t.Path) && !exists(Environment.ExpandEnvironmentVariables(t.Path))))
+            var lost = tools.Where(t => !t.IsCommand && !string.IsNullOrWhiteSpace(t.Path) && !exists(Environment.ExpandEnvironmentVariables(t.Path))).ToList();
+            if (lost.Count > MaxMissingShown)
+            {
+                // Nhiều tool cùng mất (đổi máy, rút ổ, gỡ cả bộ phần mềm): một dòng gom thay vì đẩy mọi việc khác xuống dưới.
+                var names = string.Join(", ", lost.Take(MaxMissingShown).Select(t => t.Name));
                 feed.Attention.Add(new HomeItem
                 {
-                    Glyph = "", Title = $"Tool \"{tool.Name}\" mất đường dẫn", Detail = tool.Path,
-                    Target = HomeTarget.Library, ToolId = tool.Id, ActionText = "Mở trong Thư viện",
+                    Glyph = "", Title = $"{lost.Count} tool mất đường dẫn", Detail = names + " và " + (lost.Count - MaxMissingShown) + " tool khác",
+                    Target = HomeTarget.Library, ToolId = null, ActionText = "Xem trong Thư viện",
                 });
+            }
+            else
+                foreach (var tool in lost)
+                    feed.Attention.Add(new HomeItem
+                    {
+                        Glyph = "", Title = $"Tool \"{tool.Name}\" mất đường dẫn", Detail = tool.Path,
+                        Target = HomeTarget.Library, ToolId = tool.Id, ActionText = "Mở trong Thư viện",
+                    });
 
             // ---- Đang chạy ----
             foreach (var task in tasks.Where(t => t.IsRunning).OrderBy(t => t.StartedAt))
